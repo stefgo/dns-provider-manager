@@ -1,9 +1,11 @@
 import { z } from "zod";
 import {
     ACTIVITY_LEVELS,
+    RECORD_TYPES,
     SCHEDULER_RUN_STATUSES,
     SCHEDULER_TRIGGERS,
     WEBHOOK_METHODS,
+    ZONE_MODES,
 } from "./constants.js";
 import { ActivityRecordSchema } from "./schemas.js";
 
@@ -151,3 +153,76 @@ export const WebhookTestResultSchema = z.object({
     /** The start of the target's answer, for seeing why it refused. */
     response: z.string().nullable(),
 });
+
+// ── DNS ──────────────────────────────────────────────────────────────────────
+
+/** A record as the API returns it, with the sites it belongs to. */
+export const RecordViewSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    type: z.enum(RECORD_TYPES),
+    value: z.string(),
+    ttl: z.number().nullable(),
+    proxied: z.boolean(),
+    note: z.string(),
+    siteIds: z.array(z.string()),
+    createdAt: z.string(),
+    /** The user who made the change; null for a row nobody made in the dashboard. */
+    createdBy: z.string().nullable(),
+    updatedAt: z.string().nullable(),
+    updatedBy: z.string().nullable(),
+});
+
+/** `GET /api/v1/records`, ordered by name. */
+export const RecordListSchema = z.array(RecordViewSchema);
+
+/** A site as the API returns it: its providers, and how many records belong to it. */
+export const SiteViewSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    description: z.string(),
+    providerIds: z.array(z.string()),
+    recordCount: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string().nullable(),
+});
+
+/** `GET /api/v1/sites`, ordered by name. */
+export const SiteListSchema = z.array(SiteViewSchema);
+
+const providerView = {
+    id: z.string(),
+    name: z.string(),
+    autoCorrect: z.boolean(),
+    /** Whether a secret is stored. The secret itself never leaves the server. */
+    hasSecret: z.boolean(),
+    /** The sites the provider belongs to. */
+    siteIds: z.array(z.string()),
+    createdAt: z.string(),
+    updatedAt: z.string().nullable(),
+    /** When the server last reached the provider, and why it last failed to. */
+    lastSeenAt: z.string().nullable(),
+    lastError: z.string().nullable(),
+};
+
+/** A provider as the API returns it, one shape per type, without its secret. */
+export const ProviderViewSchema = z.discriminatedUnion("type", [
+    z.object({ type: z.literal("cloudflare"), ...providerView, zoneMode: z.enum(ZONE_MODES) }),
+    z.object({
+        type: z.literal("adguard"),
+        ...providerView,
+        url: z.string(),
+        username: z.string(),
+        allowSelfSigned: z.boolean(),
+    }),
+    z.object({
+        type: z.literal("samba-ad"),
+        ...providerView,
+        servers: z.array(z.string()),
+        username: z.string(),
+        allowSelfSigned: z.boolean(),
+    }),
+]);
+
+/** `GET /api/v1/providers`, ordered by name. */
+export const ProviderListSchema = z.array(ProviderViewSchema);

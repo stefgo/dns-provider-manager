@@ -13,6 +13,9 @@ export const DEFAULT_CHOICE = "";
 
 /** Which heading a kind stands under, by the part in front of its dot. */
 const GROUP_LABELS: Record<string, string> = {
+    record: "Records",
+    site: "Sites",
+    provider: "Providers",
     scheduler: "Server jobs",
 };
 

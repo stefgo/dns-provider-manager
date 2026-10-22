@@ -24,6 +24,9 @@ src/
 │   │   └── lib/dashboardMessages.ts      # Parses a socket message against the contract; assertNever
 │   ├── auth/                             # AuthContext and AuthProvider
 │   ├── dashboard/                        # DashboardOverview, and the counts its cards show (lib/)
+│   ├── records/                          # RecordOverview, RecordList, RecordEditor, the form rules (lib/)
+│   ├── providers/                        # ProviderOverview, ProviderList, ProviderEditor, the form rules (lib/)
+│   ├── sites/                            # SiteOverview, SiteList, SiteEditor, form rules and siteDeletion (lib/)
 │   ├── activity/                         # ActivityView, grouping, problem toasts
 │   ├── users/                            # UserOverview, UserList, UserDialog
 │   ├── webhooks/                         # WebhookOverview, WebhookEditor, the form rules (lib/)
@@ -49,6 +52,12 @@ unauthenticated users to `/login`, inside `AppLayout`.
 | :------------------ | :------------------------------------------------------------------ |
 | `/login`            | Authentication page (Local & OIDC).                                 |
 | `/`                 | The `DashboardOverview`.                                            |
+| `/records`          | The records (`RecordOverview`).                                     |
+| `/records/new`, `/records/:recordId` | The `RecordEditor`.                                |
+| `/providers`        | The providers (`ProviderOverview`).                                 |
+| `/providers/new`, `/providers/:providerId` | The `ProviderEditor`.                        |
+| `/sites`            | The sites (`SiteOverview`).                                         |
+| `/sites/new`, `/sites/:siteId` | The `SiteEditor`.                                        |
 | `/activity`         | The activity list.                                                  |
 | `/users`            | User management.                                                    |
 | `/webhooks`         | The webhooks events are reported to (`WebhookOverview`).            |
@@ -68,11 +77,12 @@ top-level route with its pages below it, and these are read off it:
 - **The sidebar** is the areas that carry `handle.nav` (label, icon, group), in the tree's
   order. `AppLayout` adds what only the running application knows — the dot for unseen
   activity — and marks the entry of the innermost matched area, so an editor keeps its area
-  marked without its path being listed anywhere. The groups are `overview` and `system`; the
-  areas for records, providers and sites will add theirs.
+  marked without its path being listed anywhere. The groups are `overview`, `dns` (Records),
+  `infrastructure` (Providers, Sites) and `system`.
 - **The browser tab** names the open page (`lib/pageTitle.ts`): the handles along the open
-  route, most specific first — `New Webhook · Webhooks · DPM`. A route says `title` (a form)
-  or `subject` (a provider or a site, called by its name from the cached list).
+  route, most specific first — `AdGuard 1 · Providers · DPM`. A route says `title` (a form, a
+  record) or `subject` (a provider or a site, called by its name from the cached list, which
+  `AppLayout` reads for this).
 - **The breadcrumb** spells the same out as links (`lib/breadcrumb.ts`,
   `features/app/HeaderBreadcrumb.tsx`), as the heading of the page's first card. `AppLayout`
   computes the trail next to the title, from the same handles, and hands it down through
@@ -134,6 +144,7 @@ Every request goes through `api.get`, `api.post`, `api.put`, `api.patch` or `api
 | :-- | :-- | :-- |
 | `activity.ts` | The activity list as the server reads it for the session's user, so `seen` needs no user id on this side. Marking seen and deleting all are optimistic. `useUnseenTone` gives the badge its colour as a string, so the shell re-renders only when that changes. | `ACTIVITY_UPDATE`, `ACTIVITY_APPENDED`, `ACTIVITY_SEEN` |
 | `scheduler.ts` | The status of the schedulers the server runs (`notification-cleanup`). | `SCHEDULER_STATUS_UPDATE` |
+| `records.ts`, `sites.ts`, `providers.ts` | Their lists. They name each other — a site counts its records and lists its providers — so a change to one is read back into all three (`invalidateDns` in `queries/dns.ts`). | — |
 | `webhooks.ts`, `users.ts` | Their lists. Nothing broadcasts a change, so they go stale by age (30 s) and are read again after a change made here. | — |
 | `settings.ts` | No entry: the requests of the settings page. | — |
 
@@ -251,6 +262,26 @@ Every question before an action, and every notice after a failed one, goes throu
 - `alert(describeFailure(title, error))` from `utils.ts` reports a failure of an action that was not asked about first, such as the cleanups in Settings.
 
 **The texts live in a `confirmations.ts` per feature** (`activity`, `users`, `webhooks`), one `describeX(...)` per action, returning the complete options including `variant`. The one question every editor shares — "Discard your changes?" — lives in `components/confirmations.ts`, with one consequence line per editor. A component decides *that* it asks, never *what* the question says or whether it is `danger`. The reasoning behind a wording — what an action really does, what stays where it was — is kept as a comment on its function.
+
+### Records, Providers and Sites (`features/records`, `features/providers`, `features/sites`)
+
+Each is a list and an editor on a page of its own, built like the webhooks: the list is a
+`DataMultiView`, the editor holds its draft in `useEntityForm`, checked against the schema the
+server parses with (`RecordInputSchema`, `ProviderInputSchema`, `SiteInputSchema`), and leaves
+through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordForm.ts`,
+`lib/providerForm.ts`, `lib/siteForm.ts`) and tested.
+
+- **Records** are ordered by name, so the records of one name stand together — round robin,
+  and split horizon across sites. The editor offers Cloudflare's proxy switch only while a
+  chosen site writes to Cloudflare (`reachesCloudflare`). A conflict with another record is
+  the server's to find (`recordConflict` in `@dpm/shared`) and is shown above the form.
+- **Providers** have one draft for every type, so switching the type of a new provider keeps
+  what was typed in the fields they share; `providerInputFrom` sends only the type's own. The
+  secret field is empty, never filled with the stored value, and saves nothing until something
+  is typed; after a save it is empty again (`rebase`). A stored provider keeps its type.
+- **Sites** choose their providers. Which sites a provider belongs to is set here, not in the
+  provider editor. A site that a record belongs to alone is not offered for deletion: a notice
+  names the records first (`lib/siteDeletion.ts`).
 
 ### DashboardOverview (`features/dashboard`)
 

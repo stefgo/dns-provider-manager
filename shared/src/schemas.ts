@@ -2,8 +2,13 @@ import { z } from "zod";
 import {
     ACTIVITY_LEVELS,
     ACTIVITY_SOURCES,
+    RECORD_TYPES,
+    TTL_MAX,
+    TTL_MIN,
     WEBHOOK_METHODS,
+    ZONE_MODES,
 } from "./constants.js";
+import { dnsNameError, normaliseDnsName } from "./dnsName.js";
 import { placeholderError, webhookTemplateError } from "./webhookTemplate.js";
 import { parseLevelOverrides } from "./activityLevelOverrides.js";
 
@@ -329,3 +334,165 @@ export const WebhookSchema = WebhookInputSchema.extend({
     createdAt: z.string(),
     updatedAt: z.string().nullable(),
 });
+
+// ── DNS ──────────────────────────────────────────────────────────────────────
+
+type RecordType = (typeof RECORD_TYPES)[number];
+
+/** A list without repeats, in the order given -- a site picked twice is picked once. */
+const unique = (ids: string[]) => [...new Set(ids)];
+
+/** A name of something dpm manages: a site, a provider. Unique, ignoring case. */
+const EntityNameSchema = z.string().trim().min(1, { error: "Enter a name" }).max(64);
+
+/**
+ * A DNS name as the user typed it, stored normalised (`normaliseDnsName`). `wildcard` allows
+ * a leading `*` label.
+ */
+const dnsName = (wildcard: boolean) =>
+    z
+        .string()
+        .transform(normaliseDnsName)
+        .superRefine((name, ctx) => {
+            const error = dnsNameError(name, { wildcard });
+            if (error) ctx.addIssue({ code: "custom", message: error });
+        });
+
+/** Why `value` cannot be what a record of `type` answers with, or null. Both trimmed. */
+export function recordValueError(type: RecordType, value: string, name: string): string | null {
+    if (value === "") return "Enter a value";
+    switch (type) {
+        case "A":
+            return z.ipv4().safeParse(value).success ? null : "Must be an IPv4 address, such as 192.168.1.10";
+        case "AAAA":
+            return z.ipv6().safeParse(value).success ? null : "Must be an IPv6 address, such as 2001:db8::10";
+        case "CNAME": {
+            const target = normaliseDnsName(value);
+            const error = dnsNameError(target);
+            if (error) return error;
+            return target === name ? "A CNAME cannot point to its own name" : null;
+        }
+    }
+}
+
+/** The value as it is stored: a name normalised, an IPv6 address in lower case. */
+export function normaliseRecordValue(type: RecordType, value: string): string {
+    const trimmed = value.trim();
+    return type === "CNAME" ? normaliseDnsName(trimmed) : trimmed.toLowerCase();
+}
+
+/**
+ * `POST /api/v1/records` and `PUT /api/v1/records/:recordId`. A record is one name, type and
+ * value; the same name with another value is another record -- several A records for round
+ * robin, or the same name in two sites with two answers (split horizon).
+ *
+ * `ttl` null is the provider's own default. `proxied` is Cloudflare's orange cloud and is
+ * ignored by every other provider.
+ */
+export const RecordInputSchema = z
+    .object({
+        name: dnsName(true),
+        type: z.enum(RECORD_TYPES),
+        value: z.string().trim(),
+        ttl: z
+            .number()
+            .int({ error: "Whole seconds" })
+            .min(TTL_MIN, { error: `At least ${TTL_MIN} seconds` })
+            .max(TTL_MAX, { error: `At most ${TTL_MAX} seconds` })
+            .nullable()
+            .default(null),
+        proxied: z.boolean().default(false),
+        siteIds: z.array(z.string().min(1)).min(1, { error: "Choose at least one site" }).transform(unique),
+        note: z.string().trim().max(500).default(""),
+    })
+    .superRefine((record, ctx) => {
+        const error = recordValueError(record.type, record.value, record.name);
+        if (error) ctx.addIssue({ code: "custom", path: ["value"], message: error });
+    })
+    .transform((record) => ({ ...record, value: normaliseRecordValue(record.type, record.value) }));
+
+/** `POST /api/v1/sites` and `PUT /api/v1/sites/:siteId`: a group of providers that give the same answers. */
+export const SiteInputSchema = z.object({
+    name: EntityNameSchema,
+    description: z.string().trim().max(500).default(""),
+    providerIds: z.array(z.string().min(1)).default([]).transform(unique),
+});
+
+/**
+ * Why `text` is not a `host` or `host:port`, or null. The host is a name, an IPv4 address or
+ * an IPv6 address in brackets.
+ */
+export function hostPortError(text: string): string | null {
+    const match = /^(\[[^\]]+\]|[^:[\]\s]+)(?::(\d{1,5}))?$/.exec(text);
+    if (!match) return `"${text}" is not a host or host:port`;
+    const [, host, port] = match;
+    if (port !== undefined && (Number(port) < 1 || Number(port) > 65535)) return `Port ${port} is not between 1 and 65535`;
+    if (host.startsWith("[")) {
+        return z.ipv6().safeParse(host.slice(1, -1)).success ? null : `${host} is not an IPv6 address`;
+    }
+    if (/^[\d.]+$/.test(host)) {
+        return z.ipv4().safeParse(host).success ? null : `${host} is not an IPv4 address`;
+    }
+    return dnsNameError(normaliseDnsName(host));
+}
+
+const HostPortSchema = z
+    .string()
+    .trim()
+    .superRefine((text, ctx) => {
+        const error = hostPortError(text);
+        if (error) ctx.addIssue({ code: "custom", message: error });
+    });
+
+/**
+ * A provider's secret -- the Cloudflare API token, the AdGuard Home or Samba AD password.
+ * Left out on an update, the stored one stays; a new provider needs one, which the server
+ * checks (`providerSecretMissing`). Never sent back: a provider says only `hasSecret`.
+ */
+const SecretInputSchema = z.string().min(1, { error: "Enter it, or leave the field untouched" }).optional();
+
+const providerCommon = {
+    name: EntityNameSchema,
+    /** Whether drift is written back by itself. Off: drift is reported and waits for a decision. */
+    autoCorrect: z.boolean().default(false),
+    secret: SecretInputSchema,
+};
+
+/**
+ * `POST /api/v1/providers` and `PUT /api/v1/providers/:providerId`, one shape per type. The
+ * type of a provider is fixed once it exists.
+ */
+export const ProviderInputSchema = z.discriminatedUnion("type", [
+    z.object({
+        type: z.literal("cloudflare"),
+        ...providerCommon,
+        zoneMode: z.enum(ZONE_MODES).default("all"),
+    }),
+    z.object({
+        type: z.literal("adguard"),
+        ...providerCommon,
+        /** Where AdGuard Home's web interface answers, e.g. `http://192.168.1.2:3000`. */
+        url: z
+            .string()
+            .trim()
+            .pipe(z.url({ protocol: /^https?$/, error: "Must be an http:// or https:// URL" })),
+        username: z.string().trim().min(1, { error: "Enter the user name" }),
+        /** Accept a certificate that does not validate, for an https:// URL. */
+        allowSelfSigned: z.boolean().default(false),
+    }),
+    z.object({
+        type: z.literal("samba-ad"),
+        ...providerCommon,
+        /** The domain controllers to talk LDAPS to, in this order; port 636 unless named. */
+        servers: z.array(HostPortSchema).min(1, { error: "Name at least one domain controller" }),
+        /** The service account, as `user@domain` or a DN. */
+        username: z.string().trim().min(1, { error: "Enter the service account" }),
+        allowSelfSigned: z.boolean().default(false),
+    }),
+]);
+
+/** Why a new provider cannot be created without more: it has no secret yet. */
+export function providerSecretMissing(input: { type: string; secret?: string }): string | null {
+    if (input.secret) return null;
+    return input.type === "cloudflare" ? "Enter the API token" : "Enter the password";
+}

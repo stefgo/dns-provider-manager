@@ -57,15 +57,15 @@ the first sample when none does.
 | :---------- | :------ |
 | `event.message` | The sentence the dashboard shows, e.g. `Activity cleanup failed: database is locked` |
 | `event.detail` | The dashboard's second line, such as an error; `null` if none |
-| `event.kind` | `scheduler.failed`, … |
+| `event.kind` | `record.changed`, `provider.created`, `scheduler.failed`, … |
 | `event.level` | `trace`, `info`, `warning` or `error` |
 | `event.occurredAt` | When it happened (ISO 8601) |
 | `event.receivedAt` | When the server stored it |
-| `event.source` | `server` |
+| `event.source` | `user` for a change someone made, `server` for what the server did |
 | `event.id` | Unique id of the event |
 | `event.correlationId` | Groups events that belong together; mostly `null` |
-| `event.subject` | What the event is about; single fields as `event.subject.<field>` |
-| `event.data` | The facts of the kind, e.g. `{ scheduler, trigger, error }`; single fields as `event.data.error` |
+| `event.subject` | What the event is about: `recordId`, `siteId` or `providerId` |
+| `event.data` | The facts of the kind, e.g. `{ user, name, type, value, sites, changes }`; single fields as `event.data.name` |
 | `webhook.name` | The webhook's own name |
 
 Which fields `event.data` carries per kind is listed in the

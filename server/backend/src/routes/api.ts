@@ -2,6 +2,9 @@ import { FastifyInstance } from "fastify";
 import { AuthController } from "../controllers/AuthController.js";
 import { UserController } from "../controllers/UserController.js";
 import { SettingsController } from "../controllers/SettingsController.js";
+import { RecordController } from "../controllers/RecordController.js";
+import { SiteController } from "../controllers/SiteController.js";
+import { ProviderController } from "../controllers/ProviderController.js";
 import { ActivityController } from "../controllers/ActivityController.js";
 import { WebhookController } from "../controllers/WebhookController.js";
 import { HealthRepository } from "../repositories/HealthRepository.js";
@@ -81,6 +84,20 @@ export default async function apiRoutes(fastify: FastifyInstance) {
                 protectedRoutes.post("/users", UserController.create);
                 protectedRoutes.put("/users/:userId", UserController.update);
                 protectedRoutes.delete("/users/:userId", UserController.delete);
+
+                // DNS -- the records, the sites they belong to and the providers a site writes to.
+                protectedRoutes.get("/records", RecordController.list);
+                protectedRoutes.post("/records", RecordController.create);
+                protectedRoutes.put("/records/:recordId", RecordController.update);
+                protectedRoutes.delete("/records/:recordId", RecordController.delete);
+                protectedRoutes.get("/sites", SiteController.list);
+                protectedRoutes.post("/sites", SiteController.create);
+                protectedRoutes.put("/sites/:siteId", SiteController.update);
+                protectedRoutes.delete("/sites/:siteId", SiteController.delete);
+                protectedRoutes.get("/providers", ProviderController.list);
+                protectedRoutes.post("/providers", ProviderController.create);
+                protectedRoutes.put("/providers/:providerId", ProviderController.update);
+                protectedRoutes.delete("/providers/:providerId", ProviderController.delete);
 
                 // Settings
                 protectedRoutes.get(

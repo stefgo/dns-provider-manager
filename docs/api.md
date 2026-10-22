@@ -21,6 +21,21 @@
     - [Create User](#create-user)
     - [Update User](#update-user)
     - [Delete User](#delete-user)
+- [Records](#-records)
+    - [List Records](#list-records)
+    - [Create Record](#create-record)
+    - [Update Record](#update-record)
+    - [Delete Record](#delete-record)
+- [Sites](#-sites)
+    - [List Sites](#list-sites)
+    - [Create Site](#create-site)
+    - [Update Site](#update-site)
+    - [Delete Site](#delete-site)
+- [Providers](#-providers)
+    - [List Providers](#list-providers)
+    - [Create Provider](#create-provider)
+    - [Update Provider](#update-provider)
+    - [Delete Provider](#delete-provider)
 - [Settings & Maintenance](#-settings--maintenance)
     - [Get Settings](#get-settings)
     - [Update Settings](#update-settings)
@@ -297,6 +312,160 @@ are answered with `429 Too Many Requests` until the window has passed; the respo
 
 ---
 
+## 🌐 Records
+
+A record is one name, type and value. The same name with another value is another record —
+several A records of one name for round robin, or the same name in two sites with two answers
+(split horizon). A record belongs to at least one [site](#-sites); it is meant for every
+provider of its sites.
+
+```json
+{
+    "id": "4f0c…",
+    "name": "app.example.com",
+    "type": "A",
+    "value": "192.168.1.10",
+    "ttl": null,
+    "proxied": false,
+    "note": "",
+    "siteIds": ["9a1e…"],
+    "createdAt": "2026-10-22T14:45:01.501Z",
+    "createdBy": "admin",
+    "updatedAt": null,
+    "updatedBy": null
+}
+```
+
+| Field | Description |
+| :---- | :---------- |
+| `name` | The full name, stored in lower case without the trailing dot. Labels of letters, digits and hyphens, at most 253 characters; `*` as the first label for a wildcard. |
+| `type` | `A`, `AAAA` or `CNAME`. |
+| `value` | An IPv4 address (A), an IPv6 address (AAAA, stored in lower case) or a name (CNAME, never a wildcard, never the record's own name). |
+| `ttl` | 60–86400 seconds, or `null` for each provider's own default. |
+| `proxied` | Cloudflare's proxy. Every other provider ignores it. |
+| `siteIds` | At least one site. |
+| `note` | Free text, at most 500 characters. Written to no provider. |
+
+### List Records
+
+`GET /api/v1/records` answers every record, ordered by name, type and value.
+
+### Create Record
+
+`POST /api/v1/records` with the fields above except `id` and the timestamps. Only `name`,
+`type`, `value` and `siteIds` are required. Answers **201** with the stored record.
+
+- **400** — a field does not match the table above, or a site does not exist.
+- **409** — the record clashes with another one: the same name, type and value exist already
+  (give that record another site instead), or a CNAME would stand beside another record of its
+  name where both would be answered by the same DNS server — in a site both belong to, or at a
+  provider two of their sites share.
+
+### Update Record
+
+`PUT /api/v1/records/:recordId` with the same body as a create; it replaces the whole record.
+Answers the stored record; **404** for an unknown id, **400** and **409** as above. An update
+that changes nothing records no event.
+
+### Delete Record
+
+`DELETE /api/v1/records/:recordId` answers `{ "success": true }`, or **404**.
+
+---
+
+## 🧭 Sites
+
+A site is a group of providers that give the same answers, such as `internal` and `external`.
+A provider may belong to several sites.
+
+```json
+{
+    "id": "9a1e…",
+    "name": "internal",
+    "description": "The DNS servers of the home network",
+    "providerIds": ["a50c…", "95a0…"],
+    "recordCount": 2,
+    "createdAt": "2026-10-22T14:45:01.470Z",
+    "updatedAt": null
+}
+```
+
+### List Sites
+
+`GET /api/v1/sites` answers every site, ordered by name.
+
+### Create Site
+
+`POST /api/v1/sites` with `name` (unique, ignoring case, at most 64 characters), `description`
+(optional) and `providerIds` (optional). Answers **201** with the stored site; **409** for a
+name another site has, **400** for a provider that does not exist.
+
+### Update Site
+
+`PUT /api/v1/sites/:siteId` with the same body; it replaces the site and its providers.
+
+### Delete Site
+
+`DELETE /api/v1/sites/:siteId` answers `{ "success": true }`. The records that belong to
+another site as well leave this one. **409** while a record belongs to this site alone; the
+message names up to three of them.
+
+---
+
+## 🖥️ Providers
+
+One provider is one access to a DNS server: a Cloudflare API token, an AdGuard Home instance,
+a Samba AD domain. Its secret — the API token or the password — is stored encrypted and never
+returned; `hasSecret` says whether one is stored.
+
+| `type` | Fields besides `name`, `autoCorrect` and `secret` |
+| :----- | :-------------------------------------------------- |
+| `cloudflare` | `zoneMode`: `all` (every zone the token sees) or `selected` |
+| `adguard` | `url` (`http://` or `https://`), `username`, `allowSelfSigned` |
+| `samba-ad` | `servers` (one or more `host` or `host:port`, port 636 unless named), `username`, `allowSelfSigned` |
+
+```json
+{
+    "type": "adguard",
+    "id": "a50c…",
+    "name": "AdGuard 1",
+    "autoCorrect": false,
+    "hasSecret": true,
+    "siteIds": ["9a1e…"],
+    "createdAt": "2026-10-22T14:45:01.427Z",
+    "updatedAt": null,
+    "lastSeenAt": null,
+    "lastError": null,
+    "url": "http://192.168.1.2:3000",
+    "username": "admin",
+    "allowSelfSigned": false
+}
+```
+
+`autoCorrect` decides whether drift at this provider is written back without asking.
+`lastSeenAt` and `lastError` say when the server last reached the provider.
+
+### List Providers
+
+`GET /api/v1/providers` answers every provider, ordered by name.
+
+### Create Provider
+
+`POST /api/v1/providers` with `type`, `name` (unique, ignoring case), `secret` and the fields of
+the type. Answers **201**; **400** without a secret, **409** for a name another provider has.
+
+### Update Provider
+
+`PUT /api/v1/providers/:providerId` with the same body. Without `secret` the stored one stays.
+**400** when `type` differs from the stored one: a provider keeps its type.
+
+### Delete Provider
+
+`DELETE /api/v1/providers/:providerId` answers `{ "success": true }`. The provider leaves every
+site it belonged to, and its secret is deleted.
+
+---
+
 ## 🛠️ Settings & Maintenance
 
 ### Get Settings
@@ -424,11 +593,22 @@ does not know. It is kept as it is, and the dashboard prints the kind itself.
 `occurredAt` is when it happened and orders the list; `receivedAt` is when the server stored
 it.
 
-| Kind | Level | `data` |
-| :--- | :---- | :----- |
-| `scheduler.failed` | `error` | `scheduler`, `trigger`, `error` |
+`source` is `user` for a change someone made — their name is in `data.user` — and `server` for
+what the server did by itself.
 
-The kinds about records, providers and sites join this table with those areas.
+| Kind | Level | `subject` | `data` |
+| :--- | :---- | :-------- | :----- |
+| `record.created` / `record.deleted` | `info` | `recordId` | `user`, `name`, `type`, `value`, `sites` (names) |
+| `record.changed` | `info` | `recordId` | as above, and `changes` |
+| `site.created` / `site.deleted` | `info` | `siteId` | `user`, `name`, `providers` (names) |
+| `site.changed` | `info` | `siteId` | `user`, `name`, `changes` |
+| `provider.created` / `provider.deleted` | `info` | `providerId` | `user`, `name`, `providerType` |
+| `provider.changed` | `info` | `providerId` | `user`, `name`, `providerType`, `changes` |
+| `scheduler.failed` | `error` | — | `scheduler`, `trigger`, `error` |
+
+`changes` lists what a change changed, as `{ field, from, to }` with both values written out
+as text — a site renamed since still reads as it was called then. A new secret is named as
+`{ "field": "secret", "from": "stored", "to": "replaced" }` and never shown.
 
 ### List Activity
 

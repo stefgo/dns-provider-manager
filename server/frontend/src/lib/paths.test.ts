@@ -3,6 +3,9 @@ import { activitySearch, paths } from "./paths";
 
 describe("paths", () => {
     it("fills a pattern with its parameter", () => {
+        expect(paths.record("r1")).toBe("/records/r1");
+        expect(paths.provider("p1")).toBe("/providers/p1");
+        expect(paths.site("s1")).toBe("/sites/s1");
         expect(paths.webhook("w1")).toBe("/webhooks/w1");
     });
 

@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import { logger } from "@dpm/shared/node";
 import { Umzug } from "umzug";
 import { migration00 } from "./migrations/00_initial.js";
+import { migration01 } from "./migrations/01_dns.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // server/src/core -> server/data
@@ -36,11 +37,16 @@ logger.info(`Database opened: ${dbPath}`);
 
 // Enable WAL mode for better concurrency
 db.pragma("journal_mode = WAL");
+// SQLite leaves foreign keys unchecked unless every connection asks for them. Without this
+// the REFERENCES clauses are decoration: a site deleted under its records, or a seen mark
+// outliving its event, would go through unnoticed.
+db.pragma("foreign_keys = ON");
 
 // Run umzug migrations
 const migrator = new Umzug<Database.Database>({
     migrations: [
         { name: "00_initial", up: migration00.up, down: migration00.down },
+        { name: "01_dns", up: migration01.up, down: migration01.down },
     ],
     context: db,
     storage: {

@@ -13,6 +13,18 @@ export const ROUTES = {
     // The dashboard: what needs a look, across every provider.
     root: "/",
 
+    records: "/records",
+    recordNew: "/records/new",
+    record: "/records/:recordId",
+
+    providers: "/providers",
+    providerNew: "/providers/new",
+    provider: "/providers/:providerId",
+
+    sites: "/sites",
+    siteNew: "/sites/new",
+    site: "/sites/:siteId",
+
     activity: "/activity",
     users: "/users",
 
@@ -28,6 +40,9 @@ export const ROUTES = {
  * `generatePath` encodes every parameter, so an id with a slash in it is passed as it is.
  */
 export const paths = {
+    record: (recordId: string) => generatePath(ROUTES.record, { recordId }),
+    provider: (providerId: string) => generatePath(ROUTES.provider, { providerId }),
+    site: (siteId: string) => generatePath(ROUTES.site, { siteId }),
     webhook: (webhookId: string) => generatePath(ROUTES.webhook, { webhookId }),
 };
 

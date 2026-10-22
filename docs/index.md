@@ -12,9 +12,9 @@ instances and Samba AD) and `external` (Cloudflare). DPM writes a record to ever
 its sites, notices when a provider's copy has been changed behind its back, and leaves alone
 what it does not manage.
 
-> **In development.** DPM is being built in milestones. The current state is the server with
-> sign-in, users, the activity history, webhooks and settings; records, providers and sites
-> follow.
+> **In development.** DPM is being built in milestones. Records, sites and providers can be
+> managed, and every change is in the activity history; writing to the DNS servers follows,
+> Cloudflare first.
 
 ## How the pieces fit together
 

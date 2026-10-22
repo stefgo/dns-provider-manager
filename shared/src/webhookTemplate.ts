@@ -108,6 +108,27 @@ type SampleFacts = Pick<ActivityRecord, "kind" | "level" | "source" | "subject" 
 /** One per shape of `data`, so a preview can show what the webhook will receive. */
 const SAMPLES: SampleFacts[] = [
     {
+        kind: "record.changed",
+        level: "info",
+        source: "user",
+        subject: { recordId: "11111111-1111-4111-8111-111111111111" },
+        data: {
+            user: "admin",
+            name: "app.example.com",
+            type: "A",
+            value: "192.168.1.11",
+            sites: ["internal"],
+            changes: [{ field: "value", from: "192.168.1.10", to: "192.168.1.11" }],
+        },
+    },
+    {
+        kind: "provider.created",
+        level: "info",
+        source: "user",
+        subject: { providerId: "22222222-2222-4222-8222-222222222222" },
+        data: { user: "admin", name: "AdGuard 1", providerType: "adguard" },
+    },
+    {
         kind: "scheduler.failed",
         level: "error",
         source: "server",

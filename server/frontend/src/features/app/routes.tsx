@@ -1,13 +1,19 @@
 import type { RouteObject } from "react-router-dom";
-import { Activity, LayoutDashboard, Settings as SettingsIcon, Users, Webhook } from "lucide-react";
+import { Activity, Globe, Layers, LayoutDashboard, Server, Settings as SettingsIcon, Users, Webhook } from "lucide-react";
 import type { DashboardPage } from "@stefgo/react-ui-components";
 
 import { ROUTES } from "../../lib/paths";
-import type { TitleHandle } from "../../lib/pageTitle";
+import type { TitleHandle, TitleSubject } from "../../lib/pageTitle";
 import { RouteError } from "./RouteError";
 import {
     ActivityView,
     DashboardOverview,
+    ProviderEditorRoute,
+    ProviderOverview,
+    RecordEditorRoute,
+    RecordOverview,
+    SiteEditorRoute,
+    SiteOverview,
     Settings,
     UserOverview,
     WebhookEditorRoute,
@@ -39,6 +45,9 @@ const nav = (entry: NavEntry): RouteHandle => ({ nav: entry });
 /** A route called by a fixed name: a form, mostly. */
 const titled = (title: string): RouteHandle => ({ title });
 
+/** A route about one thing, called by its name -- and by `title` until the name is known. */
+const about = (subject: TitleSubject, title: string): RouteHandle => ({ subject, title });
+
 /**
  * Everything inside the dashboard shell, as one tree. It is the only description of what
  * lives where:
@@ -48,8 +57,8 @@ const titled = (title: string): RouteHandle => ({ title });
  *   marked while any route below its area is open -- nothing lists those routes again.
  * - **The document title** is the handles along the open route: the area's label, the
  *   `subject` a route is about, the `title` of a form.
- * - **Back** is the route above in this tree (`useBackPath`): a webhook's editor closes
- *   onto the list.
+ * - **Back** is the route above in this tree (`useBackPath`): an editor closes onto its
+ *   list.
  * - **Not found and render errors** are the area's `errorElement`: the page is replaced,
  *   the shell around it stays.
  */
@@ -59,6 +68,37 @@ export const shellRoutes: RouteObject[] = [
         handle: nav({ id: "dashboard", groupId: "overview", label: "Dashboard", icon: LayoutDashboard }),
         errorElement: <RouteError />,
         element: <DashboardOverview />,
+    },
+    {
+        path: ROUTES.records,
+        handle: nav({ id: "records", groupId: "dns", label: "Records", icon: Globe }),
+        errorElement: <RouteError />,
+        children: [
+            { index: true, element: <RecordOverview /> },
+            { path: ROUTES.recordNew, handle: titled("New Record"), element: <RecordEditorRoute /> },
+            // By its kind: a record's name alone does not say which of several it is.
+            { path: ROUTES.record, handle: titled("Record"), element: <RecordEditorRoute /> },
+        ],
+    },
+    {
+        path: ROUTES.providers,
+        handle: nav({ id: "providers", groupId: "infrastructure", label: "Providers", icon: Server }),
+        errorElement: <RouteError />,
+        children: [
+            { index: true, element: <ProviderOverview /> },
+            { path: ROUTES.providerNew, handle: titled("New Provider"), element: <ProviderEditorRoute /> },
+            { path: ROUTES.provider, handle: about("provider", "Provider"), element: <ProviderEditorRoute /> },
+        ],
+    },
+    {
+        path: ROUTES.sites,
+        handle: nav({ id: "sites", groupId: "infrastructure", label: "Sites", icon: Layers }),
+        errorElement: <RouteError />,
+        children: [
+            { index: true, element: <SiteOverview /> },
+            { path: ROUTES.siteNew, handle: titled("New Site"), element: <SiteEditorRoute /> },
+            { path: ROUTES.site, handle: about("site", "Site"), element: <SiteEditorRoute /> },
+        ],
     },
     {
         path: ROUTES.activity,

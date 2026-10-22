@@ -191,7 +191,7 @@ const WebhookEditor = ({ webhook }: { webhook: Webhook | null }) => {
                         onChange={(e) => set("kinds", e.target.value)}
                         placeholder="all kinds"
                         error={errors.kinds}
-                        hint="Comma separated, * as wildcard: scheduler.*, scheduler.failed"
+                        hint="Comma separated, * as wildcard: record.*, provider.deleted"
                     />
                 </div>
 
@@ -247,14 +247,14 @@ const WebhookEditor = ({ webhook }: { webhook: Webhook | null }) => {
                     </dl>
                     <p className="mt-3 text-xs text-text-muted">
                         <span className="font-medium text-text-primary">Filters</span> follow the path and chain:{" "}
-                        <code>{"{{event.data.members | map(\"host\") | join(\", \")}}"}</code>. There are{" "}
+                        <code>{"{{event.data.sites | join(\", \")}}"}</code>. There are{" "}
                         <code>default</code>, <code>join</code>, <code>map</code>, <code>truncate</code>,{" "}
                         <code>upper</code> and <code>lower</code>.
                     </p>
                     <p className="mt-2 text-xs text-text-muted">
                         <span className="font-medium text-text-primary">Conditions and loops</span> are objects:{" "}
-                        <code>{'{"$if": "event.data.previousMaster", "then": …, "else": …}'}</code>,{" "}
-                        <code>{'{"$map": "event.data.members", "each(m)": "{{m.host}}"}'}</code> and{" "}
+                        <code>{'{"$if": "event.detail", "then": …, "else": …}'}</code>,{" "}
+                        <code>{'{"$map": "event.data.changes", "each(c)": "{{c.field}}"}'}</code> and{" "}
                         <code>{'{"$join": …, "with": "\\n"}'}</code>. The preview renders the sample of the
                         first matching event kind.{" "}
                         <a

@@ -4,6 +4,8 @@ export * from "./schemas.js";
 export * from "./responses.js";
 export * from "./dashboardMessages.js";
 export * from "./validation.js";
+export * from "./dnsName.js";
+export * from "./recordConflicts.js";
 export * from "./activityText.js";
 export * from "./activityLevelOverrides.js";
 export * from "./webhookTemplate.js";

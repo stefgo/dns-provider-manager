@@ -12,7 +12,19 @@ Nothing inside an HTML comment is published.
 
 ### The first version
 
-DNS Provider Manager keeps A, AAAA and CNAME records in one place and writes them to the DNS
-servers that should answer for them. This first version brings the server and its interface:
-sign-in with local accounts or OpenID Connect, user management, the activity history,
-webhooks and the settings.
+DNS Provider Manager keeps A, AAAA and CNAME records in one place, for the DNS servers that
+should answer for them. This first version brings the server and its interface: sign-in with
+local accounts or OpenID Connect, user management, the activity history, webhooks and the
+settings.
+
+### Records, sites and providers
+
+Records are kept with the sites they belong to — a site is a group of DNS servers that give
+the same answers, such as *internal* and *external*. The same name may have another answer in
+another site. A record that would clash with another is refused before it is stored: the same
+record twice, or a CNAME next to another record of its name on the same DNS server.
+
+Providers — a Cloudflare API token, an AdGuard Home instance, a Samba AD domain — are set up
+with their credentials, which are stored encrypted and never shown again. Writing the records
+to them comes with the next versions. Every change to a record, site or provider is in the
+activity history, with who made it.

@@ -3,6 +3,8 @@ import {
     ACTIVITY_KINDS,
     ACTIVITY_LEVELS,
     ACTIVITY_SOURCES,
+    PROVIDER_TYPES,
+    RECORD_TYPES,
     SCHEDULER_IDS,
     SCHEDULER_RUN_STATUSES,
     SCHEDULER_TRIGGERS,
@@ -17,8 +19,14 @@ import {
     ActivitySubjectSchema,
     WebhookInputSchema,
     WebhookSchema,
+    RecordInputSchema,
+    SiteInputSchema,
+    ProviderInputSchema,
 } from "./schemas.js";
 import {
+    ProviderViewSchema,
+    RecordViewSchema,
+    SiteViewSchema,
     SchedulerStatusUpdateSchema,
     SchedulerStatusesSchema,
     UserSchema,
@@ -125,3 +133,21 @@ void schedulerStatusesMatchSchema;
 
 /** One row of `GET /api/v1/users`. */
 export type User = z.infer<typeof UserSchema>;
+
+// ── DNS ──────────────────────────────────────────────────────────────────────
+
+export type RecordType = (typeof RECORD_TYPES)[number];
+export type ProviderType = (typeof PROVIDER_TYPES)[number];
+
+/** What the record editor sends, and what the server stores after parsing it. */
+export type RecordInput = z.input<typeof RecordInputSchema>;
+export type RecordFields = z.output<typeof RecordInputSchema>;
+export type DnsRecord = z.infer<typeof RecordViewSchema>;
+
+export type SiteInput = z.input<typeof SiteInputSchema>;
+export type SiteFields = z.output<typeof SiteInputSchema>;
+export type Site = z.infer<typeof SiteViewSchema>;
+
+export type ProviderInput = z.input<typeof ProviderInputSchema>;
+export type ProviderFields = z.output<typeof ProviderInputSchema>;
+export type Provider = z.infer<typeof ProviderViewSchema>;

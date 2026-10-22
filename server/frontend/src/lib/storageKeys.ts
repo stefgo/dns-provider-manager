@@ -18,6 +18,9 @@ export const STORAGE_KEYS = {
     chunkReloadAt: "dpm.app.chunkReloadAt",
 
     // Lists: table or cards.
+    recordsView: "dpm.records.view",
+    providersView: "dpm.providers.view",
+    sitesView: "dpm.sites.view",
     activityView: "dpm.activity.view",
     usersView: "dpm.users.view",
     webhooksView: "dpm.webhooks.view",

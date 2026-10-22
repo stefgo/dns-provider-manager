@@ -14,6 +14,10 @@ server/backend/src/
 ├── controllers/                      # HTTP and WebSocket request handlers
 │   ├── ActivityController.ts         # Activity list, seen state, deletion
 │   ├── AuthController.ts             # Login, logout, session, OIDC
+│   ├── RecordController.ts           # Records CRUD
+│   ├── SiteController.ts             # Sites CRUD
+│   ├── ProviderController.ts         # Providers CRUD
+│   ├── serviceReply.ts               # Answers with a service's result or its RequestError
 │   ├── SettingsController.ts         # Settings and the schedulers' status
 │   ├── UserController.ts
 │   ├── WebhookController.ts          # Webhook CRUD and test delivery
@@ -25,10 +29,14 @@ server/backend/src/
 │   ├── HealthFile.ts                 # Writes the address the container HEALTHCHECK asks
 │   └── migrations/
 │       ├── context.ts                # MigrationContext: the database Umzug hands a migration
-│       └── 00_initial.ts             # users, activity, activity_seen, scheduler_state, webhooks
+│       ├── 00_initial.ts             # users, activity, activity_seen, scheduler_state, webhooks
+│       └── 01_dns.ts                 # providers, sites, site_providers, records, record_sites
 ├── repositories/                     # Database access
 │   ├── ActivityRepository.ts         # insert (idempotent by id), seen state, retention
 │   ├── HealthRepository.ts           # SELECT 1 for the liveness probe
+│   ├── ProviderRepository.ts         # providers, without their secret on the way out
+│   ├── RecordRepository.ts           # records with their sites
+│   ├── SiteRepository.ts             # sites with their providers and record count
 │   ├── SchedulerStateRepository.ts   # scheduler_state: last run, planned run
 │   ├── UserRepository.ts
 │   └── WebhookRepository.ts          # webhooks, last delivery result
@@ -39,6 +47,11 @@ server/backend/src/
 │   ├── AuthService.ts                # Local and OIDC sign-in, session validity
 │   ├── DashboardService.ts           # The open dashboard sockets, broadcast and per-user sends
 │   ├── NotificationCleanupService.ts # Retention of the activity history
+│   ├── ProviderService.ts            # Providers: names, fixed type, the secret encrypted
+│   ├── RecordService.ts              # Records: sites exist, no conflict (recordConflict)
+│   ├── RequestError.ts               # A refusal with its HTTP status (400, 404, 409)
+│   ├── SiteService.ts                # Sites: names, providers exist, no record left without a site
+│   ├── changes.ts                    # What a change changed, for the *.changed events
 │   ├── ScheduledJob.ts               # Timer, run bookkeeping and status of a scheduler
 │   ├── SecretCrypto.ts               # AES-256-GCM with secretKey, for secrets the server reads back
 │   ├── SessionCookie.ts              # The httpOnly session cookie and the readable flag beside it
@@ -63,6 +76,11 @@ server/backend/src/
   it applies `activity_level_overrides`, stores the event and hands what was new to the
   dashboards (`ACTIVITY_APPENDED`) and the webhooks.
 - **Repositories** are the only code that writes SQL.
+- **Records, sites and providers** go through a service each, which checks what the schema
+  cannot: names unique ignoring case, ids that exist, a record that clashes with another
+  (`recordConflict` in `@dpm/shared`), a site that would leave a record without one. A refusal
+  is a `RequestError`, answered by `serviceReply` with its status. Every change is an activity
+  event with `source: "user"`; a `*.changed` event lists its `changes`.
 - **`DashboardService`** keeps every open dashboard socket with the user who opened it.
   `broadcastToDashboard` and `sendToUser` take a `DashboardMessage`, so a message that is not
   part of the union in `shared/src/dashboardMessages.ts` does not compile.
@@ -87,7 +105,8 @@ Requests are logged at `debug`, failed ones at `warn`, server errors at `error`.
 
 ## 🗄️ Database Management
 
-SQLite through better-sqlite3, in WAL mode, at `server/backend/data/server.db`. The schema
+SQLite through better-sqlite3, in WAL mode, at `server/backend/data/server.db`, with foreign
+keys switched on for every connection — SQLite leaves them unchecked otherwise. The schema
 is managed by Umzug: each migration is a module in `core/migrations/` and is listed in
 `Database.ts`. `00_initial.ts` is the schema DPM starts from; every later change is a
 migration of its own.
@@ -99,6 +118,9 @@ migration of its own.
 | `activity_seen` | Which user has seen which event |
 | `scheduler_state` | Per scheduler: the run in progress, the last finished run, the planned run |
 | `webhooks` | Targets, filters, body template, the result of the last delivery |
+| `providers` | Type, name, `settings` (JSON, what is particular to the type), `secret` (encrypted with `secretKey`), auto-correct, last contact |
+| `sites`, `site_providers` | Sites and which providers belong to them |
+| `records`, `record_sites` | Records — unique by name, type and value — and their sites. A site cannot be deleted under a record that has no other (RESTRICT) |
 
 ## 🔐 Authentication Flow
 

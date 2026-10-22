@@ -192,11 +192,11 @@ describe("previewBody", () => {
 
     it("previews the first sample where no kind is named", () => {
         const preview = previewBody('"{{event.kind}} at {{event.level}}"', "Chat", "");
-        expect(preview).toEqual({ kind: "scheduler.failed", body: '"scheduler.failed at error"' });
+        expect(preview).toEqual({ kind: "record.changed", body: '"record.changed at info"' });
     });
 
     it("gives the reason instead of a body for a template that cannot be used", () => {
-        expect(previewBody("{", "Chat", "")).toMatchObject({ kind: "scheduler.failed" });
+        expect(previewBody("{", "Chat", "")).toMatchObject({ kind: "record.changed" });
         expect(previewBody("{", "Chat", "").error).toMatch(/^Not valid JSON: /);
         expect(previewBody('"{{nope}}"', "Chat", "scheduler.*")).toEqual({
             kind: "scheduler.failed",
@@ -208,8 +208,8 @@ describe("previewBody", () => {
         const preview = previewBody(EMPTY_DRAFT.bodyTemplate, "Chat", "");
         expect(preview.error).toBeUndefined();
         expect(JSON.parse(preview.body ?? "null")).toMatchObject({
-            text: "[error] Activity cleanup failed: database is locked",
-            kind: "scheduler.failed",
+            text: "[info] Record app.example.com A 192.168.1.11 changed by admin",
+            kind: "record.changed",
         });
     });
 });

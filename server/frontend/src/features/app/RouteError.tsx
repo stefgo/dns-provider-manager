@@ -7,6 +7,24 @@ import { getErrorMessage } from "../../utils";
 
 /** What the card says for each subject, and the list its button leads back to. */
 const NOT_FOUND: Record<NotFoundSubject, { title: string; text: string; backTo: To; backLabel: string }> = {
+    record: {
+        title: "Record not found",
+        text: "There is no record with this id. It may have been deleted.",
+        backTo: ROUTES.records,
+        backLabel: "Back to records",
+    },
+    provider: {
+        title: "Provider not found",
+        text: "There is no provider with this id. It may have been deleted.",
+        backTo: ROUTES.providers,
+        backLabel: "Back to providers",
+    },
+    site: {
+        title: "Site not found",
+        text: "There is no site with this id. It may have been deleted.",
+        backTo: ROUTES.sites,
+        backLabel: "Back to sites",
+    },
     webhook: {
         title: "Webhook not found",
         text: "There is no webhook with this id. It may have been deleted.",

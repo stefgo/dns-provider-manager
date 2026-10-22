@@ -7,6 +7,18 @@
  * relies on.
  */
 export const queryKeys = {
+    records: {
+        all: ["records"] as const,
+        list: () => ["records", "list"] as const,
+    },
+    sites: {
+        all: ["sites"] as const,
+        list: () => ["sites", "list"] as const,
+    },
+    providers: {
+        all: ["providers"] as const,
+        list: () => ["providers", "list"] as const,
+    },
     activity: {
         all: ["activity"] as const,
         list: () => ["activity", "list"] as const,

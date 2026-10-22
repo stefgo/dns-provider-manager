@@ -89,7 +89,8 @@ bundle without the backend, use `npm run preview -w server/frontend`.
 
 ### Backend (server/backend)
 - **Controller** → handles HTTP/WS routes
-- **Service** → business logic (AuthService, ActivityService, WebhookService)
+- **Service** → business logic (RecordService, SiteService, ProviderService, ActivityService, …).
+  A refusal is a `RequestError` with its status; controllers answer through `serviceReply`
 - **Repository** → data access (UserRepository, ActivityRepository, etc.)
 - SQLite with WAL mode; schema managed via Umzug migrations in `core/migrations/`.
   `00_initial.ts` is the schema dpm starts from; every change after it is a migration of its
@@ -99,7 +100,7 @@ bundle without the backend, use `npm run preview -w server/frontend`.
   `SecretCrypto` (`secretKey`); they never go back to the browser.
 
 ### Frontend (server/frontend/src)
-- Feature-based structure under `features/` (dashboard, activity, users, auth, webhooks, settings, app)
+- Feature-based structure under `features/` (dashboard, records, providers, sites, activity, users, auth, webhooks, settings, app)
 - What the server holds lives in one TanStack Query cache (`lib/queryClient.ts`), read through
   the modules in `queries/` and addressed by `lib/queryKeys.ts`. Zustand holds only
   `useUIStore`, what this browser alone knows.

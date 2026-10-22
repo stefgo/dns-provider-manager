@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+    toggled,
     EMPTY_VALUE,
     describeFailure,
     formatDate,
@@ -135,5 +136,13 @@ describe("describeFailure", () => {
             title: "Could not delete the webhook",
             description: "Webhook is in use",
         });
+    });
+});
+
+describe("toggled", () => {
+    it("adds an id once and takes it out again", () => {
+        expect(toggled(["a"], "b", true)).toEqual(["a", "b"]);
+        expect(toggled(["a", "b"], "b", true)).toEqual(["a", "b"]);
+        expect(toggled(["a", "b"], "a", false)).toEqual(["b"]);
     });
 });

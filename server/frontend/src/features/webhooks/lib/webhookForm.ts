@@ -147,14 +147,14 @@ export function previewBody(
 export const PLACEHOLDERS: { path: string; description: string }[] = [
     { path: "event.message", description: "The sentence the dashboard shows" },
     { path: "event.detail", description: "Its second line, such as an error" },
-    { path: "event.kind", description: "scheduler.failed, …" },
+    { path: "event.kind", description: "record.changed, provider.created, …" },
     { path: "event.level", description: "trace, info, warning or error" },
     { path: "event.occurredAt", description: "When it happened (ISO 8601)" },
     { path: "event.receivedAt", description: "When the server received it" },
-    { path: "event.source", description: "Who recorded it: server" },
+    { path: "event.source", description: "user or server" },
     { path: "event.id", description: "Unique event id" },
     { path: "event.correlationId", description: "Groups events that belong together" },
-    { path: "event.subject", description: "What the event is about" },
-    { path: "event.data", description: "The event's facts, such as scheduler / error" },
+    { path: "event.subject", description: "recordId, siteId or providerId" },
+    { path: "event.data", description: "The event's facts, such as name / value / changes" },
     { path: "webhook.name", description: "This webhook's name" },
 ];

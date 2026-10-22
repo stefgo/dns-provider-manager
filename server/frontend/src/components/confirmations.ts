@@ -2,8 +2,12 @@ import type { ConfirmOptions } from "@stefgo/react-ui-components";
 
 /** What leaving an editor keeps, per editor. The question and its buttons are the same everywhere. */
 const DISCARD_CONSEQUENCE = {
-    client: "The client has not been saved. Leaving now keeps it as it was.",
-    newClient: "The client has not been added. Leaving now discards what you entered.",
+    record: "The record has not been saved. Leaving now keeps it as it was.",
+    newRecord: "The record has not been added. Leaving now discards what you entered.",
+    provider: "The provider has not been saved. Leaving now keeps it as it was.",
+    newProvider: "The provider has not been added. Leaving now discards what you entered.",
+    site: "The site has not been saved. Leaving now keeps it as it was.",
+    newSite: "The site has not been added. Leaving now discards what you entered.",
     webhook: "The webhook has not been saved. Leaving now keeps it as it was.",
     settings: "Some settings have not been saved. Leaving now keeps them as they were.",
 } as const;

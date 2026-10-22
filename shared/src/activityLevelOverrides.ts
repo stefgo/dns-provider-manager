@@ -23,6 +23,15 @@ export const ACTIVITY_KINDS_ALWAYS_RECORDED: readonly string[] = [] satisfies Ac
  * events are written, and this has to be kept in step by hand.
  */
 export const ACTIVITY_DEFAULT_LEVELS: Record<ActivityKind, readonly ActivityLevel[]> = {
+    "record.created": ["info"],
+    "record.changed": ["info"],
+    "record.deleted": ["info"],
+    "site.created": ["info"],
+    "site.changed": ["info"],
+    "site.deleted": ["info"],
+    "provider.created": ["info"],
+    "provider.changed": ["info"],
+    "provider.deleted": ["info"],
     "scheduler.failed": ["error"],
 };
 

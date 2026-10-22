@@ -14,7 +14,7 @@ import { useAuth } from "../auth/AuthContext";
 import { BreadcrumbContext } from "./context/BreadcrumbContext";
 import { useWebSocket } from "./context/WebSocketContext";
 import { navEntries, type RouteHandle } from "./routes";
-import { APP_NAME, routeTitle } from "../../lib/pageTitle";
+import { APP_NAME, routeTitle, type TitleSubject } from "../../lib/pageTitle";
 import { breadcrumb } from "../../lib/breadcrumb";
 
 // Hooks, queries & stores
@@ -22,11 +22,15 @@ import { useSearchHotkey } from "../../hooks/useSearchHotkey";
 import { useUIStore } from "../../stores/useUIStore";
 import { useProblemToasts } from "../activity/hooks/useProblemToasts";
 import { useUnseenTone } from "../../queries/activity";
+import { useProviders } from "../../queries/providers";
+import { useSites } from "../../queries/sites";
 
 type PageNav = NonNullable<DashboardPage["nav"]>;
 
 const NAV_GROUPS: DashboardNavGroup[] = [
     { id: "overview" },
+    { id: "dns", title: "DNS" },
+    { id: "infrastructure", title: "Infrastructure" },
     { id: "system", title: "System" },
 ];
 
@@ -58,9 +62,19 @@ export function AppLayout() {
 
     // The browser tab names the area and what is open in it, and the breadcrumb in the
     // page's header spells the same out as links. Here rather than in each page: the route
-    // tree says what a page is. No route is about one subject yet, so none is named.
+    // tree says what a page is. A provider and a site are called by the name their list holds.
+    const { providers } = useProviders();
+    const { sites } = useSites();
     const { title, crumbs } = useMemo(() => {
-        const nameOf = () => undefined;
+        const { providerId, siteId } = matches[matches.length - 1]?.params ?? {};
+        const nameOf = (subject: TitleSubject) => {
+            switch (subject) {
+                case "provider":
+                    return providers.find((p) => p.id === providerId)?.name;
+                case "site":
+                    return sites.find((s) => s.id === siteId)?.name;
+            }
+        };
         const handles = matches.map((match) => match.handle as RouteHandle | undefined);
         return {
             title: routeTitle(handles, nameOf),
@@ -69,7 +83,7 @@ export function AppLayout() {
                 nameOf,
             ),
         };
-    }, [matches]);
+    }, [matches, providers, sites]);
 
     // Taken back when the shell goes: the login page behind a logout is not the page
     // that was open before it.

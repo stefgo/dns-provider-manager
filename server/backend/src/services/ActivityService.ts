@@ -5,6 +5,7 @@ import {
     ActivityLevel,
     ActivityLevelOverrides,
     ActivityRecord,
+    ActivitySource,
     ActivitySubject,
     WS_EVENTS,
     applyLevelOverride,
@@ -47,10 +48,12 @@ function levelOverrides(): ActivityLevelOverrides {
     return parsedOverrides.overrides;
 }
 
-/** What the server reports. */
+/** What the server records. */
 interface ServerEventInput {
     kind: ActivityKind;
     level: ActivityLevel;
+    /** `user` for a change someone made, with their name in `data.user`. Defaults to `server`. */
+    source?: ActivitySource;
     /** When it happened, if not now. */
     occurredAt?: string;
     correlationId?: string | null;
@@ -74,7 +77,7 @@ export class ActivityService {
             {
                 id: randomUUID(),
                 occurredAt: input.occurredAt ?? new Date().toISOString(),
-                source: "server",
+                source: input.source ?? "server",
                 kind: input.kind,
                 level: input.level,
                 correlationId: input.correlationId ?? null,

@@ -81,21 +81,22 @@ describe("webhookAccepts", () => {
 });
 
 describe("sampleWebhookRecord", () => {
-    it("is the first sample unless the kinds say otherwise", () => {
-        expect(sampleWebhookRecord().kind).toBe("scheduler.failed");
-        expect(sampleWebhookRecord(["record.*"]).kind).toBe("scheduler.failed");
+    it("is a record change unless the kinds say otherwise", () => {
+        expect(sampleWebhookRecord().kind).toBe("record.changed");
+        expect(sampleWebhookRecord(["user.*"]).kind).toBe("record.changed");
     });
 
     it("is the first sample one of the kinds matches", () => {
         expect(sampleWebhookRecord(["scheduler.*"]).kind).toBe("scheduler.failed");
+        expect(sampleWebhookRecord(["provider.*", "scheduler.failed"]).kind).toBe("provider.created");
     });
 
     it("renders with the default template", () => {
         const body = renderTemplate(JSON.parse(DEFAULT_WEBHOOK_TEMPLATE), buildWebhookContext(sampleWebhookRecord(), "Chat"));
         expect(body).toMatchObject({
-            text: "[error] Activity cleanup failed: database is locked",
-            kind: "scheduler.failed",
-            data: { scheduler: "notification-cleanup" },
+            text: "[info] Record app.example.com A 192.168.1.11 changed by admin",
+            kind: "record.changed",
+            data: { name: "app.example.com", changes: [{ field: "value", from: "192.168.1.10", to: "192.168.1.11" }] },
         });
     });
 });
