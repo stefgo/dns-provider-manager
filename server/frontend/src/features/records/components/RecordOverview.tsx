@@ -49,10 +49,7 @@ export const RecordOverview = () => {
                     <ul className="list-disc pl-5">
                         {removals.map((r) => (
                             <li key={`${r.providerId}:${r.name}:${r.type}:${r.value}`}>
-                                <span className="font-mono">
-                                    {r.name} {r.type} {r.value}
-                                </span>{" "}
-                                at {providerName(r.providerId, providers)}
+                                {r.name} {r.type} {r.value} at {providerName(r.providerId, providers)}
                                 {r.error && <span className="text-text-muted"> — {r.error}</span>}
                             </li>
                         ))}

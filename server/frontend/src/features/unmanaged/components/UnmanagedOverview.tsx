@@ -82,7 +82,7 @@ export const UnmanagedOverview = () => {
             list: { label: null },
             render: (e) => (
                 <div className="min-w-0">
-                    <span className="block truncate font-mono text-sm font-medium text-text-primary">{e.name}</span>
+                    <span className="block truncate text-sm font-medium text-text-primary">{e.name}</span>
                     {e.problem && <span className="block text-xs text-warning">{e.problem}</span>}
                 </div>
             ),
@@ -99,7 +99,7 @@ export const UnmanagedOverview = () => {
             sortValue: (e) => e.value,
             // An address stays on one line; a long CNAME target may wrap.
             render: (e) => (
-                <span className={`font-mono text-sm text-text-primary ${e.type === "CNAME" ? "break-all" : "whitespace-nowrap"}`}>
+                <span className={`text-sm text-text-primary ${e.type === "CNAME" ? "break-all" : "whitespace-nowrap"}`}>
                     {e.value}
                 </span>
             ),

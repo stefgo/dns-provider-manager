@@ -98,7 +98,7 @@ export const RecordList = ({
             list: { label: null },
             render: (r) => (
                 <div className="min-w-0">
-                    <span className="block truncate font-mono text-sm font-medium text-text-primary">{r.name}</span>
+                    <span className="block truncate text-sm font-medium text-text-primary">{r.name}</span>
                     {r.note && <span className="block truncate text-xs text-text-muted">{r.note}</span>}
                 </div>
             ),
@@ -115,7 +115,7 @@ export const RecordList = ({
             sortValue: (r) => r.value,
             // An address stays on one line; a long CNAME target may wrap.
             render: (r) => (
-                <span className={`font-mono text-sm text-text-primary ${r.type === "CNAME" ? "break-all" : "whitespace-nowrap"}`}>
+                <span className={`text-sm text-text-primary ${r.type === "CNAME" ? "break-all" : "whitespace-nowrap"}`}>
                     {r.value}
                 </span>
             ),
