@@ -8,6 +8,7 @@ import {
     EmptyState,
     type DataColumnDef,
     PAGE_SIZE,
+    StatusDot,
     listPagination,
     actionsColumn,
     listGroups,
@@ -15,6 +16,7 @@ import {
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import type { ProviderRecordCount } from "../lib/providerRecords";
+import { readTone } from "../lib/providerDetails";
 import { RelativeTime } from "../../../components/RelativeTime";
 import { plural } from "../../../utils";
 
@@ -90,7 +92,13 @@ export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpe
             sortable: true,
             sortValue: (p) => p.name.toLowerCase(),
             list: { label: null },
-            render: (p) => <span className="text-sm font-medium text-text-primary">{p.name}</span>,
+            // The dot is how the last reading went; "Last Reading" says it in words.
+            render: (p, view) => (
+                <div className={view === "list" ? "flex items-center gap-2 py-1" : "flex items-center gap-3"}>
+                    <StatusDot tone={readTone(p)} />
+                    <span className="truncate text-sm font-medium text-text-primary">{p.name}</span>
+                </div>
+            ),
         },
         {
             header: "Type",
