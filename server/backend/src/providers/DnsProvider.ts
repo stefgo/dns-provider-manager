@@ -26,10 +26,21 @@ export interface ProviderEntry {
 /**
  * What dpm asks of a DNS server. Reading only, for now; each method throws an `Error` whose
  * message says in a sentence why it failed -- it is shown as it is.
+ *
+ * A client may keep a connection open between its calls; `close` ends it. One client serves
+ * one reading or one test, and is closed after it.
  */
 export interface DnsProviderClient {
-    /** The zones the access sees. A provider without zones answers one with an empty id. */
+    /**
+     * Whether the server has zones. Without, `listZones` answers none and `listRecords` is
+     * asked once, without a zone, for everything it holds.
+     */
+    readonly zoned: boolean;
+    /** Asks whether the server answers, and says what it found, in a sentence. */
+    test(): Promise<string>;
+    /** The zones the access sees. */
     listZones(): Promise<ProviderZoneInfo[]>;
-    /** The A, AAAA and CNAME records of one zone. Every other type is left out. */
-    listRecords(zone: ProviderZoneInfo): Promise<ProviderEntry[]>;
+    /** The A, AAAA and CNAME records of one zone, or of everything for a server without zones. */
+    listRecords(zone: ProviderZoneInfo | null): Promise<ProviderEntry[]>;
+    close(): Promise<void>;
 }

@@ -34,8 +34,11 @@ server/backend/src/
 │       └── 02_provider_zones.ts      # provider_zones
 ├── providers/                        # The clients that talk to the DNS servers
 │   ├── DnsProvider.ts                # What dpm asks of one: zones, records (read only for now)
-│   ├── clients.ts                    # The client for a provider's type, or null while it has none
-│   └── cloudflare/                   # CloudflareClient (API v4, paged) and cloudflareMapping (pure)
+│   ├── clients.ts                    # The client for a provider's type
+│   ├── http.ts                       # One GET over node:http(s), with the certificate check a setting
+│   ├── cloudflare/                   # CloudflareClient (API v4, paged) and cloudflareMapping (pure)
+│   ├── adguard/                      # AdGuardClient (DNS rewrites, Basic Auth) and adguardMapping (pure)
+│   └── samba/                        # SambaClient (LDAPS, ldapts), dnsRecord decoding, the domain's own names (pure)
 ├── repositories/                     # Database access
 │   ├── ActivityRepository.ts         # insert (idempotent by id), seen state, retention
 │   ├── HealthRepository.ts           # SELECT 1 for the liveness probe
@@ -156,4 +159,4 @@ start on the first invalid value. Unknown keys are kept and logged. `DPM_SERVER_
 ## 📦 Key Dependencies
 
 Fastify 5 with `@fastify/cookie`, `cors`, `helmet`, `jwt`, `rate-limit`, `static` and
-`websocket`; better-sqlite3 and Umzug; openid-client; bcryptjs; yaml; pino.
+`websocket`; better-sqlite3 and Umzug; openid-client; bcryptjs; yaml; pino; ldapts for Samba AD.

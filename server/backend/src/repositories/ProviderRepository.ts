@@ -4,8 +4,8 @@ import { idsColumn } from "./SiteRepository.js";
 import { ProviderZoneRepository, type StoredZone } from "./ProviderZoneRepository.js";
 import { zoneOwnership } from "../services/zoneOwnership.js";
 
-/** The types this build can read. The others are kept and shown, and wait for their client. */
-export const READABLE_TYPES: readonly ProviderType[] = ["cloudflare"];
+/** The types this build can read: all of them, since every type has its client. */
+export const READABLE_TYPES: readonly ProviderType[] = ["cloudflare", "adguard", "samba-ad"];
 
 interface ProviderRow {
     id: string;

@@ -103,6 +103,7 @@ nav:
     - Getting Started:
           - Quick Start: quickstart.md
           - Configuration: configuration.md
+          - Providers: providers.md
     - Operations:
           - Security: security.md
           - Operations: operations.md

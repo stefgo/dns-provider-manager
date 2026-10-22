@@ -98,7 +98,9 @@ bundle without the backend, use `npm run preview -w server/frontend`.
 - `DashboardService` holds the open dashboard sockets; it sends `DashboardMessage` only.
 - A DNS server is reached through a client in `providers/` (`DnsProvider` interface, chosen by
   `clientFor`); what turns its answers into dpm's terms is a pure mapping next to it, tested
-  against recorded answers. **No test talks to a real provider.** What the providers hold is
+  against recorded answers. **No test talks to a real provider.** Samba AD's records the domain
+  controllers register for themselves are never listed (`samba/sambaProtection.ts`, the rules
+  of samba-ad-manager). What the providers hold is
   read by `ProviderReadService` and kept in memory; which provider uses a zone is derived
   (`zoneOwnership`), never stored.
 - Secrets the server has to read back (provider credentials) are encrypted with
@@ -294,6 +296,7 @@ See `docs/` for detailed documentation:
 - `docs/development.md` — Development guidelines, the documentation site itself
 - `docs/quickstart.md` — The server with Docker Compose, the first sign-in
 - `docs/configuration.md` — The server's `config.yaml` and the environment variables
+- `docs/providers.md` — Per provider type: what it needs, what is read and what is left out
 - `docs/security.md` — Reverse proxy, security headers, stored secrets, container user
 - `docs/operations.md` — Images and tags, upgrading, backup, health, logs
 - `docs/upgrade-notes.md` — What a release changes for a running installation, newest

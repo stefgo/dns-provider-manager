@@ -1,5 +1,4 @@
 import {
-    PROVIDER_TYPE_LABELS,
     WS_EVENTS,
     type ProviderFields,
     type ProviderTestResult,
@@ -57,17 +56,21 @@ async function readProvider(providerId: string): Promise<boolean> {
         return true;
     }
     const stored = ProviderRepository.storedSecret(providerId);
-    const client = stored ? clientFor(provider, decryptSecret(stored)) : null;
-    if (!client) return true;
+    if (!stored) return true;
+    const client = clientFor(provider, decryptSecret(stored));
 
     const now = new Date().toISOString();
     try {
-        ProviderZoneRepository.replace(providerId, await client.listZones());
-        // Who uses a zone may have changed with what this reading found.
-        const zones = ProviderRepository.findById(providerId)?.zones ?? [];
         const entries: ProviderEntry[] = [];
-        for (const zone of zones.filter((z) => z.owner === providerId)) {
-            entries.push(...(await client.listRecords({ id: zone.id, name: zone.name })));
+        if (client.zoned) {
+            ProviderZoneRepository.replace(providerId, await client.listZones());
+            // Who uses a zone may have changed with what this reading found.
+            const zones = ProviderRepository.findById(providerId)?.zones ?? [];
+            for (const zone of zones.filter((z) => z.owner === providerId)) {
+                entries.push(...(await client.listRecords({ id: zone.id, name: zone.name })));
+            }
+        } else {
+            entries.push(...(await client.listRecords(null)));
         }
         readings.set(providerId, { readAt: now, error: null, entries });
         ProviderRepository.markRead(providerId, now, null);
@@ -97,6 +100,7 @@ async function readProvider(providerId: string): Promise<boolean> {
         }
         return false;
     } finally {
+        await client.close();
         DashboardService.broadcastToDashboard({ type: WS_EVENTS.READINGS_UPDATE, payload: { providerId } });
     }
 }
@@ -171,22 +175,13 @@ export class ProviderReadService {
         }
         if (!secret) throw new RequestError(400, fields.type === "cloudflare" ? "Enter the API token" : "Enter the password");
         const client = clientFor(fields, secret);
-        if (!client) {
-            return {
-                ok: false,
-                message: `${PROVIDER_TYPE_LABELS[fields.type]} cannot be tested yet: this version reads Cloudflare only.`,
-                zones: [],
-            };
-        }
         try {
-            const zones = await client.listZones();
-            return {
-                ok: true,
-                message: `${PROVIDER_TYPE_LABELS[fields.type]} answered and lists ${zones.length === 1 ? "1 zone" : `${zones.length} zones`}.`,
-                zones,
-            };
+            const zones = client.zoned ? await client.listZones() : [];
+            return { ok: true, message: await client.test(), zones };
         } catch (err) {
             return { ok: false, message: message(err), zones: [] };
+        } finally {
+            await client.close();
         }
     }
 

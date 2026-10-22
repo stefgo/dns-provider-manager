@@ -13,8 +13,8 @@ its sites, notices when a provider's copy has been changed behind its back, and 
 what it does not manage.
 
 > **In development.** DPM is being built in milestones. Records, sites and providers can be
-> managed; Cloudflare is read, and what it holds can be adopted. Writing to the DNS servers
-> follows.
+> managed; Cloudflare, AdGuard Home and Samba AD are read, and what they hold can be adopted.
+> Writing to the DNS servers follows.
 
 ## How the pieces fit together
 
@@ -30,6 +30,7 @@ Samba AD over LDAPS — all from the server.
 
 - [Quick Start](quickstart.md) — the server with Docker Compose, the first sign-in.
 - [Configuration](configuration.md) — the server's `config.yaml` and the environment variables.
+- [Providers](providers.md) — what each kind of DNS server needs, and what DPM reads from it.
 - [Security](security.md) and [Operations](operations.md) — reverse proxy, backup, health.
 - [Webhooks](webhooks.md) — report events to a chat or a script.
 - [REST & WebSocket API](api.md) — what the dashboard itself uses.

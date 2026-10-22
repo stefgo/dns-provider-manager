@@ -33,13 +33,6 @@ interface ProviderListProps {
  * it failed -- the reason wraps onto two lines and the tooltip has all of it.
  */
 const ReadState = ({ provider }: { provider: Provider }) => {
-    if (!provider.readable) {
-        return (
-            <span title="This version reads Cloudflare only.">
-                <Badge variant="neutral">Not read yet</Badge>
-            </span>
-        );
-    }
     const used = provider.zones.filter((z) => z.owner === provider.id).length;
     return (
         <div className="flex flex-col items-start gap-1">
@@ -47,7 +40,9 @@ const ReadState = ({ provider }: { provider: Provider }) => {
                 <Badge variant="error">Cannot be read</Badge>
             ) : provider.lastSeenAt ? (
                 <span className="text-sm text-text-primary">
-                    <RelativeTime date={provider.lastSeenAt} /> · {plural(used, "zone")}
+                    <RelativeTime date={provider.lastSeenAt} />
+                    {/* AdGuard Home has no zones to count. */}
+                    {provider.type !== "adguard" && <> · {plural(used, "zone")}</>}
                 </span>
             ) : (
                 <Badge variant="neutral">Not read yet</Badge>

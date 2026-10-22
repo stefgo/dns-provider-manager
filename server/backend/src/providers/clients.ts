@@ -1,17 +1,33 @@
 import type { Provider } from "@dpm/shared";
 import type { DnsProviderClient } from "./DnsProvider.js";
+import { AdGuardClient } from "./adguard/AdGuardClient.js";
 import { CloudflareClient } from "./cloudflare/CloudflareClient.js";
+import { SambaClient } from "./samba/SambaClient.js";
 
-/**
- * The client that talks to a provider, with its secret in the clear. Null for a type this
- * build cannot read yet -- the provider is kept and shown, and waits for its client.
- */
-export function clientFor(provider: Pick<Provider, "type">, secret: string): DnsProviderClient | null {
+/** What a client needs of a provider: its type and the settings of that type. */
+export type ClientSettings =
+    | { type: "cloudflare" }
+    | { type: "adguard"; url: string; username: string; allowSelfSigned: boolean }
+    | { type: "samba-ad"; servers: readonly string[]; username: string; allowSelfSigned: boolean };
+
+/** The client that talks to a provider, with its secret in the clear. Close it after use. */
+export function clientFor(provider: ClientSettings | Provider, secret: string): DnsProviderClient {
     switch (provider.type) {
         case "cloudflare":
             return new CloudflareClient(secret);
         case "adguard":
+            return new AdGuardClient({
+                url: provider.url,
+                username: provider.username,
+                password: secret,
+                allowSelfSigned: provider.allowSelfSigned,
+            });
         case "samba-ad":
-            return null;
+            return new SambaClient({
+                servers: provider.servers,
+                username: provider.username,
+                password: secret,
+                allowSelfSigned: provider.allowSelfSigned,
+            });
     }
 }

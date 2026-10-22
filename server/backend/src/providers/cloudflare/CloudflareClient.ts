@@ -35,6 +35,8 @@ interface Page<T> {
  * `fetchImpl` is the network, handed in so a test can answer in its place.
  */
 export class CloudflareClient implements DnsProviderClient {
+    readonly zoned = true;
+
     constructor(
         private readonly token: string,
         private readonly fetchImpl: Fetch = fetch,
@@ -86,7 +88,15 @@ export class CloudflareClient implements DnsProviderClient {
         return zones.map((zone) => ({ id: zone.id, name: zone.name.toLowerCase() }));
     }
 
-    async listRecords(zone: ProviderZoneInfo): Promise<ProviderEntry[]> {
+    async test(): Promise<string> {
+        const zones = await this.listZones();
+        return `Cloudflare answered and lists ${zones.length === 1 ? "1 zone" : `${zones.length} zones`}.`;
+    }
+
+    async close(): Promise<void> {}
+
+    async listRecords(zone: ProviderZoneInfo | null): Promise<ProviderEntry[]> {
+        if (!zone) return [];
         const records = await this.all<CloudflareRecord>(`/zones/${encodeURIComponent(zone.id)}/dns_records`, RECORDS_PER_PAGE);
         return records.map((record) => entryFromCloudflare(record, zone)).filter((e): e is ProviderEntry => e !== null);
     }

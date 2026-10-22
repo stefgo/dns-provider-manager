@@ -451,10 +451,10 @@ returned; `hasSecret` says whether one is stored.
 
 `autoCorrect` decides whether drift at this provider is written back without asking.
 `lastSeenAt` and `lastError` say when the server last read the provider and why it last
-failed to. `readable` says whether this version can read the type at all — Cloudflare, for
-now.
+failed to. `readable` says whether this version can read the type; every type can.
 
-`zones` are the zones the provider's last reading found, each as
+`zones` are the zones the provider's last reading found — empty for AdGuard Home, which has
+none — each as
 `{ "id", "name", "selected", "owner" }`. `owner` is the provider that uses the zone — this one,
 another one whose token sees it too, or `null`. A zone is used by at most one provider: one
 ticked under `selected` wins over one merely seen under `all`, and otherwise the provider
@@ -489,6 +489,10 @@ provider whose secret stands in when `provider.secret` is left out.
 ```json
 { "ok": true, "message": "Cloudflare answered and lists 2 zones.", "zones": [{ "id": "…", "name": "example.com" }] }
 ```
+
+The message says what the provider found: `AdGuard Home v0.107.79 answered and holds 6 DNS
+rewrites.`, `Samba AD answered on dc1.sadm.test and holds 1 zone.` What each type reads, and
+what it leaves out, is described under [Providers](providers.md).
 
 A provider that refuses is a **200** with `ok: false` and its reason in `message`.
 
@@ -538,6 +542,7 @@ else is unmanaged.
 }
 ```
 
+- `zone` — the zone the entry was read from; `null` for AdGuard Home.
 - `readings` — per provider, when it was last read successfully, why it last failed (what it
   held before stays listed), and how many records it holds in the zones it uses. `readAt` is
   `null` before the first reading since the server started.

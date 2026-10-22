@@ -204,7 +204,7 @@ export const UnmanagedOverview = () => {
                         <EmptyState
                             icon={Inbox}
                             title="No provider to read"
-                            description="Add a Cloudflare provider: what it holds and dpm does not manage is listed here, to be adopted."
+                            description="Add a provider: what it holds and dpm does not manage is listed here, to be adopted."
                         />
                     ) : entries.length === 0 ? (
                         <EmptyState

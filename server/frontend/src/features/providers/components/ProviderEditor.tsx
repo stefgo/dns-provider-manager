@@ -54,10 +54,10 @@ export const ProviderEditorRoute = () => {
 };
 
 /**
- * The zones a Cloudflare provider's token sees, as its last reading found them. Under "All
- * zones" they are listed with who uses each; under "Selected zones" each can be ticked -- a
- * zone another provider merely sees is taken over that way, one another provider has ticked
- * cannot be.
+ * The zones a provider sees, as its last reading found them. Under "All zones" -- the only
+ * way a Samba AD domain is read -- they are listed with who uses each; under Cloudflare's
+ * "Selected zones" each can be ticked: a zone another provider merely sees is taken over
+ * that way, one another provider has ticked cannot be.
  */
 const ZoneChoice = ({
     provider,
@@ -71,7 +71,7 @@ const ZoneChoice = ({
     const { providers } = useProviders();
     const zones = provider?.zones ?? [];
     if (!provider) {
-        return <p className="text-sm text-text-muted">Save the provider, and the zones its token sees are read.</p>;
+        return <p className="text-sm text-text-muted">Save the provider, and the zones it sees are read.</p>;
     }
     if (zones.length === 0) {
         return (
@@ -89,7 +89,7 @@ const ZoneChoice = ({
                 const takenExplicitly =
                     owner?.type === "cloudflare" && owner.zoneMode === "selected" && owner.zoneIds.includes(zone.id);
                 const note = owner ? `used by ${owner.name}` : zone.owner === provider.id ? "used here" : "not used";
-                return draft.zoneMode === "selected" ? (
+                return draft.type === "cloudflare" && draft.zoneMode === "selected" ? (
                     <Checkbox
                         key={zone.id}
                         label={zone.name}
@@ -243,13 +243,6 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                     </div>
                 )}
 
-                {draft.type === "cloudflare" && (
-                    <div>
-                        <FieldLabel as="div">Zones</FieldLabel>
-                        <ZoneChoice provider={provider} draft={draft} onChange={(zoneIds) => set("zoneIds", zoneIds)} />
-                    </div>
-                )}
-
                 {draft.type === "adguard" && (
                     <>
                         <Input
@@ -313,6 +306,13 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                             />
                         </div>
                     </>
+                )}
+
+                {draft.type !== "adguard" && (
+                    <div>
+                        <FieldLabel as="div">Zones</FieldLabel>
+                        <ZoneChoice provider={provider} draft={draft} onChange={(zoneIds) => set("zoneIds", zoneIds)} />
+                    </div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
