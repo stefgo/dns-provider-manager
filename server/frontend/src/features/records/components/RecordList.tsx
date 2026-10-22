@@ -1,5 +1,5 @@
-import { Edit2, Globe, Plus, Trash2 } from "lucide-react";
-import type { DnsRecord, Site } from "@dpm/shared";
+import { AlertTriangle, Download, Edit2, Globe, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import type { DnsRecord, Provider, RecordLinkView, Site } from "@dpm/shared";
 import {
     Badge,
     Button,
@@ -14,14 +14,23 @@ import {
 } from "@stefgo/react-ui-components";
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
+import { hasProblem, providerName } from "../lib/recordSync";
+import { ProviderDots } from "./ProviderDots";
 
 interface RecordListProps {
     records: DnsRecord[];
     sites: Site[];
+    providers: Provider[];
     isLoading: boolean;
+    /** Show only the records that failed or drifted somewhere. */
+    problemsOnly: boolean;
+    onProblemsOnly: (on: boolean) => void;
     onAdd: () => void;
     onEdit: (record: DnsRecord) => void;
     onDelete: (record: DnsRecord) => void;
+    onSync: (record: DnsRecord) => void;
+    onRewrite: (record: DnsRecord, link: RecordLinkView) => void;
+    onAccept: (record: DnsRecord, link: RecordLinkView) => void;
 }
 
 /** The names of a record's sites, in the order of the site list. */
@@ -32,8 +41,24 @@ const siteNamesOf = (record: DnsRecord, sites: Site[]) =>
  * The records, ordered by name so that the records of one name stand together: several A
  * records of round robin, and the same name in two sites with two answers.
  */
-export const RecordList = ({ records, sites, isLoading, onAdd, onEdit, onDelete }: RecordListProps) => {
+export const RecordList = ({
+    records,
+    sites,
+    providers,
+    isLoading,
+    problemsOnly,
+    onProblemsOnly,
+    onAdd,
+    onEdit,
+    onDelete,
+    onSync,
+    onRewrite,
+    onAccept,
+}: RecordListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
+    const problems = records.filter(hasProblem).length;
+    // A filter of its own, not the search: with it on, an empty list says that nothing failed.
+    const shown = problemsOnly ? records.filter(hasProblem) : records;
 
     // Handed to the view instead of applied in front of it: only then can the view tell a
     // search without a hit from a list with nothing in it.
@@ -44,13 +69,26 @@ export const RecordList = ({ records, sites, isLoading, onAdd, onEdit, onDelete 
         );
     };
 
-    const renderActions = (record: DnsRecord) => (
-        <DataAction
-            rowId={record.id}
-            actions={[{ icon: Edit2, onClick: () => onEdit(record), color: "blue", tooltip: "Edit" }]}
-            menuEntries={[{ label: "Delete", icon: Trash2, onClick: () => onDelete(record), variant: "danger" }]}
-        />
-    );
+    const renderActions = (record: DnsRecord) => {
+        const drifted = record.links.filter((l) => l.status === "drift" || l.status === "missing");
+        return (
+            <DataAction
+                rowId={record.id}
+                actions={[{ icon: Edit2, onClick: () => onEdit(record), color: "blue", tooltip: "Edit" }]}
+                menuEntries={[
+                    { label: "Write again", icon: RefreshCw, onClick: () => onSync(record), disabled: record.links.length === 0 },
+                    ...drifted.flatMap((link) => {
+                        const name = providerName(link.providerId, providers);
+                        return [
+                            { label: `Write again to ${name}`, icon: Upload, onClick: () => onRewrite(record, link) },
+                            { label: `Take over from ${name}`, icon: Download, onClick: () => onAccept(record, link) },
+                        ];
+                    }),
+                    { label: "Delete", icon: Trash2, onClick: () => onDelete(record), variant: "danger" as const },
+                ]}
+            />
+        );
+    };
 
     const columns: DataColumnDef<DnsRecord>[] = [
         {
@@ -95,6 +133,13 @@ export const RecordList = ({ records, sites, isLoading, onAdd, onEdit, onDelete 
             ),
         },
         {
+            header: "Providers",
+            sortable: true,
+            // Problems first when sorted: they are what the column is looked at for.
+            sortValue: (r) => (hasProblem(r) ? 0 : 1),
+            render: (r) => <ProviderDots record={r} providers={providers} />,
+        },
+        {
             header: "TTL",
             sortable: true,
             sortValue: (r) => r.ttl ?? 0,
@@ -116,13 +161,26 @@ export const RecordList = ({ records, sites, isLoading, onAdd, onEdit, onDelete 
                 </>
             }
             extraActions={
-                <Button size="sm" icon={Plus} onClick={onAdd}>
-                    Add Record
-                </Button>
+                <>
+                    {(problems > 0 || problemsOnly) && (
+                        <Button
+                            size="sm"
+                            variant={problemsOnly ? "primary" : "secondary"}
+                            icon={AlertTriangle}
+                            onClick={() => onProblemsOnly(!problemsOnly)}
+                            aria-pressed={problemsOnly}
+                        >
+                            Problems ({problems})
+                        </Button>
+                    )}
+                    <Button size="sm" icon={Plus} onClick={onAdd}>
+                        Add Record
+                    </Button>
+                </>
             }
             sort={{ defaultValue: [{ colIndex: 0, direction: "asc" }] }}
             viewMode={{ persist: { key: STORAGE_KEYS.recordsView, scope: "local" } }}
-            data={records}
+            data={shown}
             columns={columns}
             listGroups={listGroups("flex-1 min-w-0")}
             keyField="id"
@@ -134,15 +192,19 @@ export const RecordList = ({ records, sites, isLoading, onAdd, onEdit, onDelete 
             searchFilter={matchesSearch}
             noResultsMessage={`No records match “${searchQuery}”.`}
             emptyMessage={
-                <EmptyState
-                    icon={Globe}
-                    title="No records yet"
-                    description={
-                        sites.length === 0
-                            ? "A record belongs to a site. Add a site first, then the records that go to it."
-                            : "Add an A, AAAA or CNAME record and choose the sites it goes to."
-                    }
-                />
+                problemsOnly ? (
+                    <EmptyState icon={Globe} title="No problems" description="Every record is where dpm wrote it." />
+                ) : (
+                    <EmptyState
+                        icon={Globe}
+                        title="No records yet"
+                        description={
+                            sites.length === 0
+                                ? "A record belongs to a site. Add a site first, then the records that go to it."
+                                : "Add an A, AAAA or CNAME record and choose the sites it goes to."
+                        }
+                    />
+                )
             }
             pagination={listPagination(PAGE_SIZE.page)}
         />

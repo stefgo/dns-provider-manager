@@ -4,8 +4,8 @@ import type { Provider, Site, UnmanagedEntry } from "@dpm/shared";
 import { Alert, Button, Modal, Select, useToast } from "@stefgo/react-ui-components";
 import { useAdopt } from "../../../queries/unmanaged";
 import { ROUTES } from "../../../lib/paths";
-import { getErrorMessage, plural } from "../../../utils";
-import { adoptOutcome, adoptableSites } from "../lib/adopt";
+import { getErrorMessage, nameList, plural } from "../../../utils";
+import { adoptOutcome, adoptableSites, alsoWrittenTo } from "../lib/adopt";
 
 interface AdoptDialogProps {
     entries: UnmanagedEntry[];
@@ -19,7 +19,7 @@ interface AdoptDialogProps {
 /**
  * Takes entries over into one site. It asks only for the site -- among those that write to
  * every provider of the entries -- and says what happens: dpm keeps them as records from now
- * on, and nothing is written to the provider.
+ * on, the entries stay as they are, and the site's other providers get them written.
  */
 export const AdoptDialog = ({ entries, sites, providers, onClose, onDone }: AdoptDialogProps) => {
     const choices = adoptableSites(entries, sites);
@@ -29,6 +29,7 @@ export const AdoptDialog = ({ entries, sites, providers, onClose, onDone }: Adop
     const { show } = useToast();
 
     const providerNames = [...new Set(entries.map((e) => providers.find((p) => p.id === e.providerId)?.name ?? e.providerId))];
+    const others = alsoWrittenTo(entries, choices.find((s) => s.id === siteId), providers);
 
     const submit = async () => {
         setError(null);
@@ -51,7 +52,7 @@ export const AdoptDialog = ({ entries, sites, providers, onClose, onDone }: Adop
             isOpen
             onClose={onClose}
             title={`Adopt ${plural(entries.length, "entry", "entries")}`}
-            description={`From ${providerNames.join(", ")}. They become records of dpm; nothing is written to the provider.`}
+            description={`From ${providerNames.join(", ")}. They become records of dpm; the entries there stay as they are.`}
             footer={
                 <div className="flex justify-end gap-3">
                     <Button variant="secondary" onClick={onClose}>
@@ -81,6 +82,12 @@ export const AdoptDialog = ({ entries, sites, providers, onClose, onDone }: Adop
                         options={choices.map((site) => ({ value: site.id, label: site.name }))}
                         hint="Only sites that write to the entries' provider. A record can get more sites afterwards."
                     />
+                )}
+                {others.length > 0 && (
+                    <Alert tone="info">
+                        The site also writes to {nameList(others)}: {entries.length === 1 ? "the record is" : "the records are"} written
+                        there after adopting.
+                    </Alert>
                 )}
             </div>
         </Modal>

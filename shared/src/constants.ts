@@ -22,6 +22,13 @@ export const WS_EVENTS = {
      */
     READINGS_UPDATE: "READINGS_UPDATE",
 
+    // Record events
+    /**
+     * `{ recordIds }` were written to a provider, or their state there changed -- written,
+     * failed, drifted. The dashboard reads the records anew.
+     */
+    RECORDS_UPDATE: "RECORDS_UPDATE",
+
     // Scheduler events
     /** One scheduler's status, whenever a run starts or ends. */
     SCHEDULER_STATUS_UPDATE: "SCHEDULER_STATUS_UPDATE",
@@ -57,6 +64,11 @@ export const ACTIVITY_KINDS = [
     "record.deleted",
     "record.adopted",
     "record.adoption",
+    "record.written",
+    "record.write_failed",
+    "record.drift",
+    "record.corrected",
+    "record.accepted",
     "site.created",
     "site.changed",
     "site.deleted",
@@ -96,6 +108,31 @@ export const RECORD_TYPES = ["A", "AAAA", "CNAME"] as const;
  * an AdGuard Home instance, a Samba AD domain.
  */
 export const PROVIDER_TYPES = ["cloudflare", "adguard", "samba-ad"] as const;
+
+/**
+ * The types dpm writes to. A provider of another type is read and compared, never written:
+ * writing to Samba AD comes with a later version.
+ */
+export const WRITABLE_PROVIDER_TYPES: readonly (typeof PROVIDER_TYPES)[number][] = ["cloudflare", "adguard"];
+
+/**
+ * Where a record stands at one of its providers:
+ *
+ * - `in_sync` -- the provider holds what dpm wrote.
+ * - `pending` -- to be written: not yet tried, or held back (read only, zones not read yet).
+ * - `error` -- the last attempt failed; it is tried again after the provider's next reading.
+ * - `drift` -- the provider holds something else than dpm wrote: changed there, or switched off.
+ * - `missing` -- what dpm wrote is gone from the provider.
+ * - `removing` -- to be deleted at the provider: the record was deleted, or no longer goes there.
+ */
+export const LINK_STATUSES = ["in_sync", "pending", "error", "drift", "missing", "removing"] as const;
+
+/**
+ * What saving or deleting a record does at one provider: write it anew, change it, remove
+ * it, take over an entry that is there already, nothing, held back (read only, zones not read
+ * yet), or refused.
+ */
+export const SYNC_ACTIONS = ["create", "update", "delete", "adopt", "none", "blocked", "conflict"] as const;
 
 /** How the providers are named on screen. */
 export const PROVIDER_TYPE_LABELS: Record<(typeof PROVIDER_TYPES)[number], string> = {

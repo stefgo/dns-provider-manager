@@ -2,6 +2,9 @@ import db from "../core/Database.js";
 import { RECORD_TYPES, type DnsRecord, type RecordFields, type RecordType } from "@dpm/shared";
 import { idsColumn } from "./SiteRepository.js";
 
+/** A record as stored: without where it stands at its providers, which `SyncService` adds. */
+export type StoredRecord = Omit<DnsRecord, "links" | "skipped">;
+
 interface RecordRow {
     id: string;
     name: string;
@@ -24,7 +27,7 @@ const SELECT_RECORD = `
     FROM records r`;
 
 /** A row of a type this build does not manage is left out rather than shown as another. */
-function rowToRecord(row: RecordRow): DnsRecord | null {
+function rowToRecord(row: RecordRow): StoredRecord | null {
     if (!(RECORD_TYPES as readonly string[]).includes(row.type)) return null;
     return {
         id: row.id,
@@ -50,12 +53,12 @@ const replaceSites = (recordId: string, siteIds: readonly string[]) => {
 
 export class RecordRepository {
     /** Ordered by name, then type and value, so the records of one name stand together. */
-    static findAll(): DnsRecord[] {
+    static findAll(): StoredRecord[] {
         const rows = db.prepare(`${SELECT_RECORD} ORDER BY r.name, r.type, r.value`).all() as RecordRow[];
-        return rows.map(rowToRecord).filter((r): r is DnsRecord => r !== null);
+        return rows.map(rowToRecord).filter((r): r is StoredRecord => r !== null);
     }
 
-    static findById(id: string): DnsRecord | undefined {
+    static findById(id: string): StoredRecord | undefined {
         const row = db.prepare(`${SELECT_RECORD} WHERE r.id = ?`).get(id) as RecordRow | undefined;
         return (row && rowToRecord(row)) ?? undefined;
     }

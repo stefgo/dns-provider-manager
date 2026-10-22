@@ -12,6 +12,12 @@ vi.mock("./ProviderReadService.js", () => ({
         forget: (id: string) => readings.delete(id),
         entries: () => readings,
         readings: () => [],
+        patch: () => undefined,
+    },
+}));
+vi.mock("../providers/clients.js", () => ({
+    clientFor: () => {
+        throw new Error("No test here talks to a provider");
     },
 }));
 vi.mock("../core/Database.js", async () => {
@@ -27,6 +33,7 @@ import { SiteService } from "./SiteService.js";
 import { RequestError } from "./RequestError.js";
 import { decryptSecret } from "./SecretCrypto.js";
 import { UnmanagedService } from "./UnmanagedService.js";
+import { SyncService } from "./SyncService.js";
 import { ProviderZoneRepository } from "../repositories/ProviderZoneRepository.js";
 import { ActivityRepository } from "../repositories/ActivityRepository.js";
 import { ProviderRepository } from "../repositories/ProviderRepository.js";
@@ -37,7 +44,7 @@ const USER = "admin";
 
 beforeEach(() => {
     readings.clear();
-    db.exec("DELETE FROM record_sites; DELETE FROM records; DELETE FROM site_providers; DELETE FROM sites; DELETE FROM provider_zones; DELETE FROM providers; DELETE FROM activity;");
+    db.exec("DELETE FROM record_links; DELETE FROM record_sites; DELETE FROM records; DELETE FROM site_providers; DELETE FROM sites; DELETE FROM provider_zones; DELETE FROM providers; DELETE FROM activity;");
 });
 
 const provider = (over: object = {}) =>
@@ -55,10 +62,10 @@ const record = (siteIds: string[], over: object = {}) =>
  */
 const events = (kind: string) => ActivityRepository.list(0).filter((e) => e.kind === kind);
 
-/** The status a service call is refused with. */
-function refusal(run: () => unknown): number | undefined {
+/** The status a service call is refused with, at once or awaited. */
+async function refusal(run: () => unknown): Promise<number | undefined> {
     try {
-        run();
+        await run();
     } catch (err) {
         if (err instanceof RequestError) return err.status;
         throw err;
@@ -67,13 +74,13 @@ function refusal(run: () => unknown): number | undefined {
 }
 
 describe("the database", () => {
-    it("checks foreign keys", () => {
+    it("checks foreign keys", async () => {
         expect(() => db.prepare("INSERT INTO site_providers (site_id, provider_id) VALUES ('x', 'y')").run()).toThrow(/FOREIGN KEY/);
     });
 });
 
 describe("SiteService", () => {
-    it("keeps the providers of a site and names them in the activity", () => {
+    it("keeps the providers of a site and names them in the activity", async () => {
         const ag = provider();
         const internal = site("internal", [ag.id]);
         expect(internal).toMatchObject({ name: "internal", providerIds: [ag.id], recordCount: 0 });
@@ -84,13 +91,13 @@ describe("SiteService", () => {
         });
     });
 
-    it("refuses a name another site has, ignoring case, and a provider that does not exist", () => {
+    it("refuses a name another site has, ignoring case, and a provider that does not exist", async () => {
         site("internal");
-        expect(refusal(() => site("Internal"))).toBe(409);
-        expect(refusal(() => site("external", ["nope"]))).toBe(400);
+        expect(await refusal(() => site("Internal"))).toBe(409);
+        expect(await refusal(() => site("external", ["nope"]))).toBe(400);
     });
 
-    it("records what a change changed, and nothing for no change", () => {
+    it("records what a change changed, and nothing for no change", async () => {
         const internal = site("internal");
         SiteService.update(internal.id, SiteInputSchema.parse({ name: "home" }), USER);
         expect(events("site.changed")[0].data).toMatchObject({ changes: [{ field: "name", from: "internal", to: "home" }] });
@@ -99,13 +106,13 @@ describe("SiteService", () => {
         expect(ActivityRepository.count()).toBe(stored);
     });
 
-    it("refuses to delete the only site of a record, and takes itself out of the others' sites", () => {
+    it("refuses to delete the only site of a record, and takes itself out of the others' sites", async () => {
         const internal = site("internal");
         const external = site("external");
-        const alone = record([internal.id]);
-        expect(refusal(() => SiteService.delete(internal.id, USER))).toBe(409);
+        const alone = await record([internal.id]);
+        expect(await refusal(() => SiteService.delete(internal.id, USER))).toBe(409);
 
-        RecordService.update(alone.id, RecordInputSchema.parse({ ...alone, siteIds: [internal.id, external.id] }), USER);
+        await RecordService.update(alone.id, RecordInputSchema.parse({ ...alone, siteIds: [internal.id, external.id] }), USER);
         SiteService.delete(internal.id, USER);
         expect(SiteRepository.findById(internal.id)).toBeUndefined();
         expect(RecordRepository.findById(alone.id)?.siteIds).toEqual([external.id]);
@@ -113,10 +120,10 @@ describe("SiteService", () => {
 });
 
 describe("RecordService", () => {
-    it("stores a record with its sites and who made it", () => {
+    it("stores a record with its sites and who made it", async () => {
         const internal = site("internal");
-        const created = record([internal.id]);
-        expect(RecordListSchema.safeParse(RecordRepository.findAll()).success).toBe(true);
+        const created = await record([internal.id]);
+        expect(RecordListSchema.safeParse(SyncService.views(RecordRepository.findAll())).success).toBe(true);
         expect(SiteListSchema.safeParse(SiteRepository.findAll()).success).toBe(true);
         expect(created).toMatchObject({ name: "app.example.com", siteIds: [internal.id], createdBy: USER, ttl: null });
         expect(SiteRepository.findById(internal.id)?.recordCount).toBe(1);
@@ -125,26 +132,26 @@ describe("RecordService", () => {
         });
     });
 
-    it("refuses an unknown site and a conflict", () => {
+    it("refuses an unknown site and a conflict", async () => {
         const internal = site("internal");
-        expect(refusal(() => record(["nope"]))).toBe(400);
-        record([internal.id]);
-        expect(refusal(() => record([internal.id]))).toBe(409);
-        expect(refusal(() => record([internal.id], { type: "CNAME", value: "web.example.com" }))).toBe(409);
+        expect(await refusal(() => record(["nope"]))).toBe(400);
+        await record([internal.id]);
+        expect(await refusal(() => record([internal.id]))).toBe(409);
+        expect(await refusal(() => record([internal.id], { type: "CNAME", value: "web.example.com" }))).toBe(409);
     });
 
-    it("finds a conflict through a provider two sites share", () => {
+    it("finds a conflict through a provider two sites share", async () => {
         const ag = provider();
         const internal = site("internal", [ag.id]);
         const lab = site("lab", [ag.id]);
-        record([internal.id]);
-        expect(refusal(() => record([lab.id], { type: "CNAME", value: "web.example.com" }))).toBe(409);
+        await record([internal.id]);
+        expect(await refusal(() => record([lab.id], { type: "CNAME", value: "web.example.com" }))).toBe(409);
     });
 
-    it("lists the changes and leaves an unchanged record alone", () => {
+    it("lists the changes and leaves an unchanged record alone", async () => {
         const internal = site("internal");
-        const created = record([internal.id]);
-        RecordService.update(created.id, RecordInputSchema.parse({ ...created, value: "192.168.1.11", ttl: 300 }), "bob");
+        const created = await record([internal.id]);
+        await RecordService.update(created.id, RecordInputSchema.parse({ ...created, value: "192.168.1.11", ttl: 300 }), "bob");
         expect(RecordRepository.findById(created.id)).toMatchObject({ value: "192.168.1.11", updatedBy: "bob" });
         expect(events("record.changed")[0].data).toMatchObject({
             changes: [
@@ -153,18 +160,18 @@ describe("RecordService", () => {
             ],
         });
         const stored = ActivityRepository.count();
-        RecordService.update(created.id, RecordInputSchema.parse({ ...created, value: "192.168.1.11", ttl: 300 }), USER);
+        await RecordService.update(created.id, RecordInputSchema.parse({ ...created, value: "192.168.1.11", ttl: 300 }), USER);
         expect(ActivityRepository.count()).toBe(stored);
         expect(RecordRepository.findById(created.id)?.updatedBy).toBe("bob");
     });
 
-    it("answers 404 for a record that is not there", () => {
-        expect(refusal(() => RecordService.delete("nope", USER))).toBe(404);
+    it("answers 404 for a record that is not there", async () => {
+        expect(await refusal(() => RecordService.delete("nope", USER))).toBe(404);
     });
 });
 
 describe("ProviderService", () => {
-    it("reads back what each type was created with", () => {
+    it("reads back what each type was created with", async () => {
         const cf = ProviderService.create(ProviderInputSchema.parse({ type: "cloudflare", name: "CF", secret: "t", zoneMode: "selected" }), USER);
         const samba = ProviderService.create(
             ProviderInputSchema.parse({ type: "samba-ad", name: "Samba", servers: ["dc1", "dc2:636"], username: "dpm@ad", secret: "pw", allowSelfSigned: true }),
@@ -176,8 +183,8 @@ describe("ProviderService", () => {
         expect(ProviderListSchema.safeParse(ProviderRepository.findAll()).success).toBe(true);
     });
 
-    it("needs a secret to be created, and stores it encrypted", () => {
-        expect(refusal(() => provider({ secret: undefined }))).toBe(400);
+    it("needs a secret to be created, and stores it encrypted", async () => {
+        expect(await refusal(() => provider({ secret: undefined }))).toBe(400);
         const ag = provider({ secret: "s3cret" });
         expect(ag.hasSecret).toBe(true);
         expect(ag).not.toHaveProperty("secret");
@@ -186,7 +193,7 @@ describe("ProviderService", () => {
         expect(decryptSecret(stored)).toBe("s3cret");
     });
 
-    it("keeps the secret when an update leaves it out, and says only that it was replaced", () => {
+    it("keeps the secret when an update leaves it out, and says only that it was replaced", async () => {
         const ag = provider({ secret: "first" });
         const read = () => decryptSecret((db.prepare("SELECT secret FROM providers WHERE id = ?").get(ag.id) as { secret: string }).secret);
         ProviderService.update(ag.id, ProviderInputSchema.parse({ ...ag, secret: undefined, name: "AdGuard A" }), USER);
@@ -199,13 +206,13 @@ describe("ProviderService", () => {
         expect(replaced[0].data).toMatchObject({ changes: [{ field: "secret", from: "stored", to: "replaced" }] });
     });
 
-    it("refuses to change the type and a name another provider has", () => {
+    it("refuses to change the type and a name another provider has", async () => {
         const ag = provider();
-        expect(refusal(() => ProviderService.update(ag.id, ProviderInputSchema.parse({ type: "cloudflare", name: "x" }), USER))).toBe(400);
-        expect(refusal(() => provider({ name: "adguard 1" }))).toBe(409);
+        expect(await refusal(() => ProviderService.update(ag.id, ProviderInputSchema.parse({ type: "cloudflare", name: "x" }), USER))).toBe(400);
+        expect(await refusal(() => provider({ name: "adguard 1" }))).toBe(409);
     });
 
-    it("leaves every site it was in when it is deleted", () => {
+    it("leaves every site it was in when it is deleted", async () => {
         const ag = provider();
         const internal = site("internal", [ag.id]);
         ProviderService.delete(ag.id, USER);
@@ -229,18 +236,19 @@ describe("UnmanagedService", () => {
                 value: "203.0.113.10",
                 ttl: null,
                 proxied: false,
+                disabled: false,
                 ...e,
             })),
         );
         return { cf, external: site("external", [cf.id]) };
     }
 
-    it("lists what Cloudflare holds and dpm does not", () => {
+    it("lists what Cloudflare holds and dpm does not", async () => {
         cloudflare([{}, { name: "www.example.com", type: "CNAME", value: "app.example.com" }]);
         expect(UnmanagedService.list().entries.map((e) => e.name)).toEqual(["app.example.com", "www.example.com"]);
     });
 
-    it("takes entries over into a site of their provider, as one group in the activity", () => {
+    it("takes entries over into a site of their provider, as one group in the activity", async () => {
         const { cf, external } = cloudflare([{ ttl: 300, proxied: true }, { name: "www.example.com" }]);
         const result = UnmanagedService.adopt(
             external.id,
@@ -266,17 +274,17 @@ describe("UnmanagedService", () => {
         expect(adopted[0].data).toMatchObject({ provider: "Cloudflare", merged: false });
     });
 
-    it("gives the record dpm has in other sites the site, instead of a second record", () => {
+    it("gives the record dpm has in other sites the site, instead of a second record", async () => {
         const { cf, external } = cloudflare([{}]);
         const internal = site("internal");
-        const existing = record([internal.id], { value: "203.0.113.10" });
+        const existing = await record([internal.id], { value: "203.0.113.10" });
         const result = UnmanagedService.adopt(external.id, [{ providerId: cf.id, externalId: "e0" }], USER);
         expect(result.adopted).toEqual([{ name: "app.example.com", type: "A", value: "203.0.113.10", merged: true }]);
         expect(RecordRepository.findById(existing.id)?.siteIds.sort()).toEqual([external.id, internal.id].sort());
         expect(RecordRepository.findAll()).toHaveLength(1);
     });
 
-    it("refuses a site that does not write to the provider, a name dpm cannot hold and a conflict -- and goes on", () => {
+    it("refuses a site that does not write to the provider, a name dpm cannot hold and a conflict -- and goes on", async () => {
         const { cf, external } = cloudflare([{}, { name: "bad_name.example.com" }, { type: "CNAME", value: "web.example.com" }]);
         const elsewhere = site("lab");
         expect(UnmanagedService.adopt(elsewhere.id, [{ providerId: cf.id, externalId: "e0" }], USER).refused[0].reason).toBe(
@@ -295,8 +303,8 @@ describe("UnmanagedService", () => {
         ]);
     });
 
-    it("refuses a site that does not exist", () => {
-        expect(refusal(() => UnmanagedService.adopt("nope", [{ providerId: "p", externalId: "e" }], USER))).toBe(400);
+    it("refuses a site that does not exist", async () => {
+        expect(await refusal(() => UnmanagedService.adopt("nope", [{ providerId: "p", externalId: "e" }], USER))).toBe(400);
     });
 });
 
@@ -304,7 +312,7 @@ describe("zones", () => {
     const cloudflareProvider = (name: string, over: object = {}) =>
         ProviderService.create(ProviderInputSchema.parse({ type: "cloudflare", name, secret: "t", ...over }), USER);
 
-    it("are used by the provider created first, until another one ticks them", () => {
+    it("are used by the provider created first, until another one ticks them", async () => {
         const first = cloudflareProvider("First");
         const second = cloudflareProvider("Second", { zoneMode: "selected" });
         ProviderZoneRepository.replace(first.id, [{ id: "z1", name: "example.com" }]);
@@ -316,17 +324,17 @@ describe("zones", () => {
         expect(ProviderRepository.findById(second.id)).toMatchObject({ zoneIds: ["z1"] });
     });
 
-    it("refuse a zone another provider has ticked already", () => {
+    it("refuse a zone another provider has ticked already", async () => {
         const a = cloudflareProvider("A", { zoneMode: "selected" });
         const b = cloudflareProvider("B", { zoneMode: "selected" });
         for (const p of [a, b]) ProviderZoneRepository.replace(p.id, [{ id: "z1", name: "example.com" }]);
         ProviderService.update(a.id, ProviderInputSchema.parse({ ...ProviderRepository.findById(a.id), zoneIds: ["z1"] }), USER);
         expect(
-            refusal(() => ProviderService.update(b.id, ProviderInputSchema.parse({ ...ProviderRepository.findById(b.id), zoneIds: ["z1"] }), USER)),
+            await refusal(() => ProviderService.update(b.id, ProviderInputSchema.parse({ ...ProviderRepository.findById(b.id), zoneIds: ["z1"] }), USER)),
         ).toBe(409);
     });
 
-    it("keep their tick across a reading, and lose it when they are gone", () => {
+    it("keep their tick across a reading, and lose it when they are gone", async () => {
         const a = cloudflareProvider("A", { zoneMode: "selected" });
         ProviderZoneRepository.replace(a.id, [{ id: "z1", name: "example.com" }, { id: "z2", name: "example.net" }]);
         ProviderZoneRepository.setSelected(a.id, ["z1", "z2"]);

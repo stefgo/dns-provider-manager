@@ -31,11 +31,12 @@ server/backend/src/
 │       ├── context.ts                # MigrationContext: the database Umzug hands a migration
 │       ├── 00_initial.ts             # users, activity, activity_seen, scheduler_state, webhooks
 │       ├── 01_dns.ts                 # providers, sites, site_providers, records, record_sites
-│       └── 02_provider_zones.ts      # provider_zones
+│       ├── 02_provider_zones.ts      # provider_zones
+│       └── 03_record_links.ts        # record_links, providers.read_only
 ├── providers/                        # The clients that talk to the DNS servers
-│   ├── DnsProvider.ts                # What dpm asks of one: zones, records (read only for now)
+│   ├── DnsProvider.ts                # What dpm asks of one: zones, records, writes; what each type knows
 │   ├── clients.ts                    # The client for a provider's type
-│   ├── http.ts                       # One GET over node:http(s), with the certificate check a setting
+│   ├── http.ts                       # One request over node:http(s), with the certificate check a setting
 │   ├── cloudflare/                   # CloudflareClient (API v4, paged) and cloudflareMapping (pure)
 │   ├── adguard/                      # AdGuardClient (DNS rewrites, Basic Auth) and adguardMapping (pure)
 │   └── samba/                        # SambaClient (LDAPS, ldapts), dnsRecord decoding, the domain's own names (pure)
@@ -44,6 +45,7 @@ server/backend/src/
 │   ├── HealthRepository.ts           # SELECT 1 for the liveness probe
 │   ├── ProviderRepository.ts         # providers, without their secret on the way out, with their zones
 │   ├── ProviderZoneRepository.ts     # provider_zones: what each reading found, which are ticked
+│   ├── RecordLinkRepository.ts       # record_links: each record at each provider
 │   ├── RecordRepository.ts           # records with their sites
 │   ├── SiteRepository.ts             # sites with their providers and record count
 │   ├── SchedulerStateRepository.ts   # scheduler_state: last run, planned run
@@ -61,7 +63,11 @@ server/backend/src/
 │   ├── UnmanagedService.ts           # What the providers hold and dpm does not; adopting it
 │   ├── unmanaged.ts                  # Which entries are unmanaged (pure)
 │   ├── zoneOwnership.ts              # Which provider uses a zone (pure)
-│   ├── RecordService.ts              # Records: sites exist, no conflict (recordConflict)
+│   ├── RecordService.ts              # Records: checks, store, write; drift actions
+│   ├── SyncService.ts                # Brings records to their providers; previews, views, removals
+│   ├── recordTargets.ts              # Which providers a record goes to, into which zone (pure)
+│   ├── syncPlan.ts                   # What to do per provider: planRecord, observe (pure)
+│   ├── providerQueue.ts              # One thing at a time per provider: reading or writing
 │   ├── RequestError.ts               # A refusal with its HTTP status (400, 404, 409)
 │   ├── SiteService.ts                # Sites: names, providers exist, no record left without a site
 │   ├── changes.ts                    # What a change changed, for the *.changed events
@@ -97,9 +103,25 @@ server/backend/src/
 - **Reading the providers** is `ProviderReadService`: the `provider-read` scheduler, a reading
   at startup and after a provider is saved, one provider or all on request. A reading fetches
   the zones (`ProviderZoneRepository`), works out which the provider uses (`zoneOwnership`),
-  and keeps the A, AAAA and CNAME records of those in memory — a restart reads again. It
-  writes nothing to a provider. The moment a provider stops or starts answering is an
-  activity event; every reading is a `READINGS_UPDATE` on the dashboard socket.
+  and keeps the A, AAAA and CNAME records of those in memory — a restart reads again. The
+  moment a provider stops or starts answering is an activity event; every reading is a
+  `READINGS_UPDATE` on the dashboard socket. A reading that succeeded is followed by
+  `SyncService.afterReading`.
+- **Writing** is `SyncService`. Where a record goes is `recordTargets` (every provider of its
+  sites without zones; per site, the provider with zones whose used zone holds the name, the
+  longest of nested ones). What to do at each is `planRecord`, pure and tested: it compares
+  the record with `record_links` — what dpm last wrote there — and the last reading. A record
+  changed in dpm is written; an entry changed at the provider is drift, left alone unless the
+  provider is to be corrected; an entry the provider holds already is taken over rather than
+  written twice; a provider never read gets nothing new. `SyncService` does what the plan
+  says, in each provider's queue (`queueFor`, which readings use too): writes first, side by
+  side, removals only after every provider the record goes to holds it. Each step keeps its
+  link and the reading in memory true to it; a change of state is an activity event, and
+  `RECORDS_UPDATE` tells the dashboards. A save waits for its record; site changes and
+  adoptions write in the background; `afterReading` goes over every record for one provider —
+  that is where drift is found and failures are tried again.
+- **`record_links`** outlive their record: a deleted record keeps its links until each provider
+  has removed it. A provider's links go with the provider; dpm then deletes nothing there.
 - **`DashboardService`** keeps every open dashboard socket with the user who opened it.
   `broadcastToDashboard` and `sendToUser` take a `DashboardMessage`, so a message that is not
   part of the union in `shared/src/dashboardMessages.ts` does not compile.

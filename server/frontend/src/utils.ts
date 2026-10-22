@@ -92,6 +92,10 @@ export const formatTime = (date: Date | string | number | null | undefined, loca
 export const plural = (count: number, one: string, many = `${one}s`): string =>
     `${count} ${count === 1 ? one : many}`;
 
+/** Names in a sentence: "A", "A and B", "A, B and C". */
+export const nameList = (names: readonly string[]): string =>
+    names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+
 export const getErrorMessage = (error: unknown): string => {
     if (error instanceof Error) return error.message;
     if (typeof error === "string") return error;

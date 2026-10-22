@@ -13,6 +13,7 @@ function describe(provider: ProviderFields | Provider, zoneNames: (ids: string[]
     const common = {
         name: provider.name,
         "auto-correct": provider.autoCorrect ? "on" : "off",
+        "read only": provider.readOnly ? "on" : "off",
     };
     switch (provider.type) {
         case "cloudflare":

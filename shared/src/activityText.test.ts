@@ -49,6 +49,31 @@ describe("activityMessage: changes made by a user", () => {
         );
     });
 
+    it("says what was written to a provider, and what went wrong there", () => {
+        const facts = { name: "nas.lan", type: "A", value: "192.168.1.20", provider: "AdGuard 1" };
+        expect(activityMessage(event("record.written", { data: { ...facts, action: "created" } }))).toBe(
+            "Record nas.lan A 192.168.1.20 written to AdGuard 1",
+        );
+        expect(activityMessage(event("record.written", { data: { ...facts, action: "deleted" } }))).toBe(
+            "Record nas.lan A 192.168.1.20 removed from AdGuard 1",
+        );
+        expect(activityMessage(event("record.write_failed", { data: { ...facts, action: "created", error: "timeout" } }))).toBe(
+            "Record nas.lan A 192.168.1.20 could not be written to AdGuard 1",
+        );
+        expect(activityMessage(event("record.drift", { data: { ...facts, change: "missing" } }))).toBe(
+            "Record nas.lan A 192.168.1.20 was deleted at AdGuard 1",
+        );
+        expect(activityMessage(event("record.corrected", { data: { ...facts, auto: true } }))).toBe(
+            "Record nas.lan A 192.168.1.20 written again to AdGuard 1 automatically",
+        );
+        expect(activityMessage(event("record.accepted", { data: { ...facts, user: "admin" } }))).toBe(
+            "Record nas.lan A 192.168.1.20 takes over what AdGuard 1 holds by admin",
+        );
+        expect(activityDetail(event("record.drift", { data: { ...facts, change: "changed", observed: "192.168.1.21" } }))).toBe(
+            "AdGuard 1 holds 192.168.1.21",
+        );
+    });
+
     it("names a site and a provider", () => {
         expect(activityMessage(event("site.changed", { data: { user: "admin", name: "internal" } }))).toBe(
             "Site internal changed by admin",

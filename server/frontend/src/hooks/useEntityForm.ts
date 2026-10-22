@@ -37,6 +37,8 @@ export interface EntityForm<D extends object, I> {
     /** What is wrong and belongs to no field, for the footer. */
     formError: string | null;
     isValid: boolean;
+    /** The draft as the request takes it, while it is valid; null otherwise. */
+    input: I | null;
     isDirty: boolean;
     /** Changed, valid and not being saved. */
     canSave: boolean;
@@ -124,6 +126,7 @@ export function useEntityForm<D extends object, S extends z.ZodType>({
         errors: isDirty ? check.errors : {},
         formError: isDirty ? check.formError : null,
         isValid: check.isValid,
+        input: check.input,
         isDirty,
         canSave,
         isSaving,

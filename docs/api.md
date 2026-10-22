@@ -26,11 +26,16 @@
     - [Create Record](#create-record)
     - [Update Record](#update-record)
     - [Delete Record](#delete-record)
+    - [Preview A Record](#preview-a-record)
+    - [Write A Record Again](#write-a-record-again)
+    - [Settle Drift](#settle-drift)
+    - [Pending Removals](#pending-removals)
 - [Sites](#-sites)
     - [List Sites](#list-sites)
     - [Create Site](#create-site)
     - [Update Site](#update-site)
     - [Delete Site](#delete-site)
+    - [Preview A Site](#preview-a-site)
 - [Providers](#-providers)
     - [List Providers](#list-providers)
     - [Create Provider](#create-provider)
@@ -321,8 +326,9 @@ are answered with `429 Too Many Requests` until the window has passed; the respo
 
 A record is one name, type and value. The same name with another value is another record —
 several A records of one name for round robin, or the same name in two sites with two answers
-(split horizon). A record belongs to at least one [site](#-sites); it is meant for every
-provider of its sites.
+(split horizon). A record belongs to at least one [site](#-sites); it is written to every
+provider of its sites — to a provider with zones only where one of its zones holds the name.
+How writing works is described under [Providers](providers.md#writing).
 
 ```json
 {
@@ -337,7 +343,12 @@ provider of its sites.
     "createdAt": "2026-10-22T14:45:01.501Z",
     "createdBy": "admin",
     "updatedAt": null,
-    "updatedBy": null
+    "updatedBy": null,
+    "links": [
+        { "providerId": "a50c…", "status": "in_sync", "error": null, "observed": null, "syncedAt": "2026-10-22T14:45:01.733Z" },
+        { "providerId": "95a0…", "status": "drift", "error": null, "observed": { "name": "app.example.com", "value": "192.168.1.99", "ttl": null, "proxied": false, "disabled": false }, "syncedAt": "2026-10-22T14:45:01.733Z" }
+    ],
+    "skipped": []
 }
 ```
 
@@ -350,6 +361,8 @@ provider of its sites.
 | `proxied` | Cloudflare's proxy. Every other provider ignores it. |
 | `siteIds` | At least one site. |
 | `note` | Free text, at most 500 characters. Written to no provider. |
+| `links` | Read only. Where the record stands at each provider it goes to, and at each it is still to be removed from. `status`: `in_sync`, `pending` (not written yet: read only, not read yet — `error` says why), `error` (the last attempt failed; tried again after the provider's next reading), `drift` (changed or switched off there — `observed` is what it holds), `missing` (deleted there), `removing`. |
+| `skipped` | Read only. Providers of its sites that do not get the record, with `reason` — a provider with zones none of which holds the name, or whose zones were not read yet. |
 
 ### List Records
 
@@ -357,24 +370,76 @@ provider of its sites.
 
 ### Create Record
 
-`POST /api/v1/records` with the fields above except `id` and the timestamps. Only `name`,
-`type`, `value` and `siteIds` are required. Answers **201** with the stored record.
+`POST /api/v1/records` with the fields above except `id`, the timestamps, `links` and
+`skipped`. Only `name`, `type`, `value` and `siteIds` are required. The record is stored and
+then written to its providers; the answer (**201**) comes once that is done and says in
+`links` how it went. A provider that fails does not undo the record.
 
 - **400** — a field does not match the table above, or a site does not exist.
 - **409** — the record clashes with another one: the same name, type and value exist already
   (give that record another site instead), or a CNAME would stand beside another record of its
   name where both would be answered by the same DNS server — in a site both belong to, or at a
-  provider two of their sites share.
+  provider two of their sites share — or beside an entry a provider holds that dpm does not
+  manage; or a site has providers, none of which takes the name.
 
 ### Update Record
 
 `PUT /api/v1/records/:recordId` with the same body as a create; it replaces the whole record.
-Answers the stored record; **404** for an unknown id, **400** and **409** as above. An update
-that changes nothing records no event.
+Answers the stored record once it is written; **404** for an unknown id, **400** and **409** as
+above. An update that changes nothing records no event and writes nothing. A provider the record
+no longer goes to has it removed — once every provider it still goes to holds it.
 
 ### Delete Record
 
-`DELETE /api/v1/records/:recordId` answers `{ "success": true }`, or **404**.
+`DELETE /api/v1/records/:recordId` answers `{ "success": true }`, or **404**, once the record
+is removed from its providers. A provider that cannot be reached keeps it until it can; see
+[Pending Removals](#pending-removals).
+
+### Preview A Record
+
+`POST /api/v1/records/preview` with `{ "id"?, "record": { … } }` — the body of a create or an
+update — or `{ "id", "delete": true }` answers what saving or deleting would do at each
+provider. Changes nothing.
+
+```json
+{
+    "conflict": null,
+    "steps": [
+        { "providerId": "a50c…", "action": "create", "reason": null },
+        { "providerId": "c3d1…", "action": "delete", "reason": null }
+    ],
+    "skipped": []
+}
+```
+
+`action` is `create`, `update`, `delete`, `adopt` (the provider holds the record already),
+`none`, `blocked` (read only, or not read yet; `reason` says which) or `conflict`. `conflict`
+is why saving would be refused (**409**), or `null`.
+
+### Write A Record Again
+
+`POST /api/v1/records/:recordId/sync` writes the record to its providers again: what failed,
+and dpm's value over what drifted. Answers the record.
+
+### Settle Drift
+
+For a link in `drift` or `missing`:
+
+- `POST /api/v1/records/:recordId/links/:providerId/rewrite` writes dpm's value to that provider
+  again. Answers the record.
+- `POST /api/v1/records/:recordId/links/:providerId/accept` takes over what the provider holds.
+  A changed value becomes the record's and goes to its other providers too; a deletion (or a
+  rewrite switched off in AdGuard Home) takes the record out of the sites it reached that
+  provider through, and deletes it when none is left — what the provider holds is not touched.
+  Answers `{ "record": … }`, `null` when the record was deleted.
+
+**409** when the provider holds the record as dpm wrote it, or dpm does not write to it.
+
+### Pending Removals
+
+`GET /api/v1/records/removals` lists deleted records a provider still holds, because removing
+them there failed: `[{ "providerId", "name", "type", "value", "error" }]`. Each is tried again
+after the provider's next reading.
 
 ---
 
@@ -407,7 +472,15 @@ name another site has, **400** for a provider that does not exist.
 
 ### Update Site
 
-`PUT /api/v1/sites/:siteId` with the same body; it replaces the site and its providers.
+`PUT /api/v1/sites/:siteId` with the same body; it replaces the site and its providers. A
+provider that joins gets the site's records written, one that leaves has them removed — in
+the background, after the answer.
+
+### Preview A Site
+
+`POST /api/v1/sites/preview` with `{ "id", "site": { … } }` answers, per provider, how many of
+the site's records saving it would write there and remove: `[{ "providerId", "create", "delete" }]`.
+Changes nothing; a new site (no `id`) answers `[]`.
 
 ### Delete Site
 
@@ -423,7 +496,7 @@ One provider is one access to a DNS server: a Cloudflare API token, an AdGuard H
 a Samba AD domain. Its secret — the API token or the password — is stored encrypted and never
 returned; `hasSecret` says whether one is stored.
 
-| `type` | Fields besides `name`, `autoCorrect` and `secret` |
+| `type` | Fields besides `name`, `autoCorrect`, `readOnly` and `secret` |
 | :----- | :-------------------------------------------------- |
 | `cloudflare` | `zoneMode`: `all` (every zone the token sees) or `selected`; `zoneIds`: the zones ticked under `selected`, by Cloudflare's zone id |
 | `adguard` | `url` (`http://` or `https://`), `username`, `allowSelfSigned` |
@@ -435,6 +508,8 @@ returned; `hasSecret` says whether one is stored.
     "id": "a50c…",
     "name": "AdGuard 1",
     "autoCorrect": false,
+    "readOnly": false,
+    "writable": true,
     "hasSecret": true,
     "siteIds": ["9a1e…"],
     "createdAt": "2026-10-22T14:45:01.427Z",
@@ -450,6 +525,9 @@ returned; `hasSecret` says whether one is stored.
 ```
 
 `autoCorrect` decides whether drift at this provider is written back without asking.
+`readOnly` keeps dpm from writing to it at all; it is read and compared all the same.
+`writable` (read only) is whether dpm writes to it: not `readOnly`, and of a type dpm writes
+to — not Samba AD yet.
 `lastSeenAt` and `lastError` say when the server last read the provider and why it last
 failed to. `readable` says whether this version can read the type; every type can.
 
@@ -499,9 +577,11 @@ A provider that refuses is a **200** with `ok: false` and its reason in `message
 ### Read Providers
 
 The server reads every provider on a timer (`provider_read_interval_minutes`, default 5), once
-at every start, and a provider whenever it is saved. Reading changes nothing at a provider: it
-fetches the zones and the A, AAAA and CNAME records of the zones the provider uses, and keeps
-them in memory.
+at every start, and a provider whenever it is saved. A reading fetches the zones and the A,
+AAAA and CNAME records of the zones the provider uses, and keeps them in memory. Then every
+record is compared with what the provider holds: drift is found, writes that failed are tried
+again, records still to go there are written and those to leave it removed — at this provider
+only.
 
 - `POST /api/v1/providers/:providerId/read` reads one provider now and answers its reading
   (see [List Unmanaged Records](#list-unmanaged-records)).
@@ -512,9 +592,10 @@ them in memory.
 
 ## 📥 Unmanaged
 
-What the providers hold and dpm does not manage there. An entry is managed at a provider
-when dpm has a record with its name, type and value in a site of that provider; everything
-else is unmanaged.
+What the providers hold and dpm does not manage there. An entry is managed when a record
+holds it — dpm wrote it, took it over, or sees it as what a record drifted to — or, before
+that is known, when dpm has a record with its name, type and value in a site of that
+provider. Everything else is unmanaged, except a rewrite switched off in AdGuard Home.
 
 ### List Unmanaged Records
 
@@ -553,8 +634,9 @@ else is unmanaged.
 ### Adopt
 
 `POST /api/v1/unmanaged/adopt` with `{ "siteId": "…", "entries": [{ "providerId": "…", "externalId": "…" }] }`
-(at most 1000) takes the entries over into the site. Nothing is written to a provider. The site
-has to write to each entry's provider. Each entry becomes a record with its TTL and proxy
+(at most 1000) takes the entries over into the site. The entries stay as they are; the site's
+other providers get the records written, in the background. The site has to write to each
+entry's provider. Each entry becomes a record with its TTL and proxy
 setting, or gives the existing record the site; what cannot be taken over is refused with its
 reason, and the rest goes ahead.
 
@@ -709,6 +791,11 @@ what the server did by itself.
 | `provider.changed` | `info` | `providerId` | `user`, `name`, `providerType`, `changes` |
 | `record.adopted` | `info` | `recordId`, `providerId` | `user`, `name`, `type`, `value`, `sites`, `provider`, `merged` |
 | `record.adoption` | `info` | `siteId` | `user`, `count`, `site`, `providers` — heads the `record.adopted` of one adoption of more than one record; they share its `correlationId` |
+| `record.written` | `trace`, `info` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `action` (`created`, `updated`, `deleted`) — one write at a provider; `info` when it worked after a failure. Shares the `correlationId` of the change that caused it |
+| `record.write_failed` | `error` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `action`, `error` — when a write that worked fails, or fails for another reason |
+| `record.drift` | `warning` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `change` (`changed`, `missing`, `disabled`), `observed` (what the provider holds, as text) — found by a reading |
+| `record.corrected` | `info` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, and `user` — or `auto: true` when the provider corrects drift by itself |
+| `record.accepted` | `info` | `recordId`, `providerId` | `user`, `name`, `type`, `value`, `provider` — what the provider holds was taken over; the `record.changed` or `record.deleted` that follows says how |
 | `provider.unreachable` | `warning` | `providerId` | `name`, `providerType`, `error` — once, when a provider that answered stops answering |
 | `provider.recovered` | `info` | `providerId` | `name`, `providerType` — when it answers again |
 | `scheduler.failed` | `error` | — | `scheduler`, `trigger`, `error` |
@@ -904,4 +991,5 @@ rules, and a nullable column arrives as `null`, not as a missing key.
 | `ACTIVITY_APPENDED`   | `ActivityRecord[]`                          | Events stored for the first time, to be merged into the list by id. |
 | `ACTIVITY_SEEN`       | `{ ids: string[] }`                         | Events the session's user has just marked seen. Sent to that user's sessions only. |
 | `READINGS_UPDATE`     | `{ providerId }`                            | A provider was read. The dashboard reads the providers and the unmanaged records again. |
+| `RECORDS_UPDATE`      | `{ recordIds }`                             | Records were written, or where they stand at a provider changed. The dashboard reads the records and the unmanaged records again. |
 | `SCHEDULER_STATUS_UPDATE` | `{ scheduler, status }`                 | One scheduler's status, in the shape of [Scheduler Status](#scheduler-status), whenever a run starts or ends or its timer is set. |

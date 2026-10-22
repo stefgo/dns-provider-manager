@@ -34,6 +34,8 @@ describe("recordInputFrom", () => {
             createdBy: "admin",
             updatedAt: null,
             updatedBy: null,
+            links: [],
+            skipped: [],
         };
         expect(recordInputFrom(recordDraftFrom(record))).toEqual({
             name: "app.example.com",

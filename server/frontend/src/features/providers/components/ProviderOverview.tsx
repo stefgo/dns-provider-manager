@@ -8,6 +8,8 @@ import { readProvider, useDeleteProvider, useProviders } from "../../../queries/
 import { describeFailure } from "../../../utils";
 import { useSites } from "../../../queries/sites";
 import { ProviderList } from "./ProviderList";
+import { useRecords } from "../../../queries/records";
+import { recordCounts } from "../lib/providerRecords";
 
 /** The page at `/providers`. Adding and editing happen on pages of their own. */
 export const ProviderOverview = () => {
@@ -16,6 +18,7 @@ export const ProviderOverview = () => {
     const { confirm } = useConfirm();
     const { providers, isPending, error } = useProviders();
     const { sites } = useSites();
+    const { records } = useRecords();
     const deleteProvider = useDeleteProvider();
     const { show } = useToast();
 
@@ -36,6 +39,7 @@ export const ProviderOverview = () => {
         <ProviderList
             providers={providers}
             sites={sites}
+            counts={recordCounts(records)}
             isLoading={isPending}
             onAdd={() => open(ROUTES.providerNew)}
             onEdit={(provider) => open(paths.provider(provider.id))}

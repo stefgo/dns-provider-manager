@@ -1,10 +1,12 @@
 import { z } from "zod";
 import {
     ACTIVITY_LEVELS,
+    LINK_STATUSES,
     PROVIDER_TYPES,
     RECORD_TYPES,
     SCHEDULER_RUN_STATUSES,
     SCHEDULER_TRIGGERS,
+    SYNC_ACTIONS,
     WEBHOOK_METHODS,
     ZONE_MODES,
 } from "./constants.js";
@@ -167,6 +169,33 @@ export const WebhookTestResultSchema = z.object({
 
 // ── DNS ──────────────────────────────────────────────────────────────────────
 
+/** What a provider holds in place of what dpm wrote, for a record in `drift`. */
+export const ObservedEntrySchema = z.object({
+    name: z.string(),
+    value: z.string(),
+    ttl: z.number().nullable(),
+    proxied: z.boolean(),
+    /** Switched off at the provider (AdGuard Home), rather than changed. */
+    disabled: z.boolean(),
+});
+
+/** Where a record stands at one provider it goes to, or went to. */
+export const RecordLinkViewSchema = z.object({
+    providerId: z.string(),
+    status: z.enum(LINK_STATUSES),
+    /** Why the last attempt failed, or why the record waits (`pending`, `removing`). */
+    error: z.string().nullable(),
+    observed: ObservedEntrySchema.nullable(),
+    /** When dpm last wrote it there, or found it as written. */
+    syncedAt: z.string().nullable(),
+});
+
+/** A provider of a record's sites that does not get the record, and why. */
+export const SkippedProviderSchema = z.object({
+    providerId: z.string(),
+    reason: z.string(),
+});
+
 /** A record as the API returns it, with the sites it belongs to. */
 export const RecordViewSchema = z.object({
     id: z.string(),
@@ -182,10 +211,49 @@ export const RecordViewSchema = z.object({
     createdBy: z.string().nullable(),
     updatedAt: z.string().nullable(),
     updatedBy: z.string().nullable(),
+    /** Its state at each provider it goes to, and at those it is still to be removed from. */
+    links: z.array(RecordLinkViewSchema),
+    skipped: z.array(SkippedProviderSchema),
 });
 
 /** `GET /api/v1/records`, ordered by name. */
 export const RecordListSchema = z.array(RecordViewSchema);
+
+/** What saving or deleting would do at one provider. */
+export const SyncStepViewSchema = z.object({
+    providerId: z.string(),
+    action: z.enum(SYNC_ACTIONS),
+    /** Why it is held back or refused; for `none`, where the record stands there. */
+    reason: z.string().nullable(),
+});
+
+/**
+ * `POST /api/v1/records/preview`. `conflict` is why saving would be refused altogether;
+ * `steps` is per provider, `skipped` the providers of its sites that would not get it.
+ */
+export const RecordPreviewSchema = z.object({
+    conflict: z.string().nullable(),
+    steps: z.array(SyncStepViewSchema),
+    skipped: z.array(SkippedProviderSchema),
+});
+
+/**
+ * `GET /api/v1/records/removals`: records deleted in dpm that a provider still holds, because
+ * removing them there has not worked yet.
+ */
+export const PendingRemovalSchema = z.object({
+    providerId: z.string(),
+    name: z.string(),
+    type: z.enum(RECORD_TYPES),
+    value: z.string(),
+    error: z.string().nullable(),
+});
+export const PendingRemovalListSchema = z.array(PendingRemovalSchema);
+
+/** `POST /api/v1/sites/preview`: per provider, how many records saving the site writes and removes. */
+export const SitePreviewSchema = z.array(
+    z.object({ providerId: z.string(), create: z.number(), delete: z.number() }),
+);
 
 /** A site as the API returns it: its providers, and how many records belong to it. */
 export const SiteViewSchema = z.object({
@@ -216,6 +284,9 @@ const providerView = {
     id: z.string(),
     name: z.string(),
     autoCorrect: z.boolean(),
+    readOnly: z.boolean(),
+    /** Whether dpm writes to it: not read only, and of a type dpm can write to. */
+    writable: z.boolean(),
     /** Whether a secret is stored. The secret itself never leaves the server. */
     hasSecret: z.boolean(),
     /** The sites the provider belongs to. */

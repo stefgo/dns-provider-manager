@@ -458,6 +458,8 @@ const providerCommon = {
     name: EntityNameSchema,
     /** Whether drift is written back by itself. Off: drift is reported and waits for a decision. */
     autoCorrect: z.boolean().default(false),
+    /** Read and compared, never written: nothing is created, changed or deleted there. */
+    readOnly: z.boolean().default(false),
     secret: SecretInputSchema,
 };
 
@@ -512,6 +514,21 @@ export function providerSecretMissing(input: { type: string; secret?: string }):
 export const ProviderTestRequestSchema = z.object({
     id: z.string().min(1).optional(),
     provider: ProviderInputSchema,
+});
+
+/**
+ * `POST /api/v1/records/preview`: what saving a record as the editor holds it would do at each
+ * provider, or what deleting the stored record `id` would. Changes nothing.
+ */
+export const RecordPreviewRequestSchema = z.union([
+    z.object({ id: z.string().min(1).optional(), record: RecordInputSchema }),
+    z.object({ id: z.string().min(1), delete: z.literal(true) }),
+]);
+
+/** `POST /api/v1/sites/preview`: what saving a site as the editor holds it would do to its records. */
+export const SitePreviewRequestSchema = z.object({
+    id: z.string().min(1).optional(),
+    site: SiteInputSchema,
 });
 
 /** One entry a provider holds, as the unmanaged list names it. */

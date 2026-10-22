@@ -11,8 +11,9 @@ import {
     Input,
     LoadingIndicator,
     Textarea,
+    useConfirm,
 } from "@stefgo/react-ui-components";
-import { useSaveSite, useSites } from "../../../queries/sites";
+import { fetchSitePreview, useSaveSite, useSites } from "../../../queries/sites";
 import { useProviders } from "../../../queries/providers";
 import { QueryError } from "../../../components/QueryError";
 import { useEntityForm } from "../../../hooks/useEntityForm";
@@ -22,6 +23,7 @@ import { ROUTES } from "../../../lib/paths";
 import { HeaderBreadcrumb } from "../../app/HeaderBreadcrumb";
 import { getErrorMessage, toggled } from "../../../utils";
 import { EMPTY_SITE_DRAFT, siteDraftFrom, siteInputFrom } from "../lib/siteForm";
+import { describeSiteSync } from "../lib/siteSync";
 
 /** `/sites/new` and `/sites/:siteId`, read from the list like every editor. */
 export const SiteEditorRoute = () => {
@@ -43,6 +45,7 @@ export const SiteEditorRoute = () => {
 const SiteEditor = ({ site }: { site: Site | null }) => {
     const { mutateAsync: saveSite } = useSaveSite();
     const { providers, isPending: providersPending, error: providersError } = useProviders();
+    const { confirm } = useConfirm();
 
     const form = useEntityForm({
         schema: SiteInputSchema,
@@ -54,6 +57,13 @@ const SiteEditor = ({ site }: { site: Site | null }) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!form.canSave || !form.input) return;
+        // Records follow a site's providers: what that writes and removes is asked about first.
+        if (site) {
+            const preview = await fetchSitePreview({ id: site.id, site: form.input }).catch(() => []);
+            const question = describeSiteSync(site.name, preview, providers);
+            if (question && !(await confirm(question))) return;
+        }
         if (await form.submit((input) => saveSite({ id: site?.id, input }))) leave();
     };
 

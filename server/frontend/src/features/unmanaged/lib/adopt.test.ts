@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adoptOutcome, adoptableSites, entriesOf, entryKey } from "./adopt";
+import { adoptOutcome, adoptableSites, alsoWrittenTo, entriesOf, entryKey } from "./adopt";
 
 const sites = [
     { id: "ext", name: "external", providerIds: ["cf1", "cf2"] },
@@ -41,5 +41,18 @@ describe("adoptOutcome", () => {
             description: "bad_name.example.com A 1.2.3.4: No underscores",
         });
         expect(adoptOutcome({ adopted: [], refused }).variant).toBe("error");
+    });
+});
+
+describe("alsoWrittenTo", () => {
+    it("names the site's other providers that dpm writes to", () => {
+        const providers = [
+            { id: "ag1", name: "AdGuard 1", writable: true },
+            { id: "ag2", name: "AdGuard 2", writable: true },
+            { id: "dc", name: "Samba", writable: false },
+        ];
+        const internal = { providerIds: ["ag1", "ag2", "dc"] };
+        expect(alsoWrittenTo([{ providerId: "ag1" }], internal, providers)).toEqual(["AdGuard 2"]);
+        expect(alsoWrittenTo([{ providerId: "ag1" }], undefined, providers)).toEqual([]);
     });
 });

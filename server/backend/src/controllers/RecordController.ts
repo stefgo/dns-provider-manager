@@ -1,14 +1,18 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { RecordInputSchema, firstIssue } from "@dpm/shared";
+import { RecordInputSchema, RecordPreviewRequestSchema, firstIssue } from "@dpm/shared";
 import { RecordRepository } from "../repositories/RecordRepository.js";
 import { RecordService } from "../services/RecordService.js";
+import { RequestError } from "../services/RequestError.js";
+import { SyncService } from "../services/SyncService.js";
 import { serviceReply } from "./serviceReply.js";
 
 type WithId = FastifyRequest<{ Params: { recordId: string } }>;
+type WithLink = FastifyRequest<{ Params: { recordId: string; providerId: string } }>;
 
 export class RecordController {
+    /** Every record, with where it stands at each of its providers. */
     static async list() {
-        return RecordRepository.findAll();
+        return SyncService.views(RecordRepository.findAll());
     }
 
     static async create(request: FastifyRequest, reply: FastifyReply) {
@@ -26,9 +30,40 @@ export class RecordController {
     }
 
     static async delete(request: WithId, reply: FastifyReply) {
-        return serviceReply(reply, () => {
-            RecordService.delete(request.params.recordId, request.user.username);
+        return serviceReply(reply, async () => {
+            await RecordService.delete(request.params.recordId, request.user.username);
             return { success: true };
         });
+    }
+
+    /** What saving or deleting would do at each provider. Changes nothing. */
+    static async preview(request: FastifyRequest, reply: FastifyReply) {
+        const parsed = RecordPreviewRequestSchema.safeParse(request.body);
+        if (!parsed.success) return reply.code(400).send({ error: firstIssue(parsed.error) });
+        return serviceReply(reply, () => {
+            const { id } = parsed.data;
+            if (id && !RecordRepository.findById(id)) throw new RequestError(404, "Record not found");
+            return SyncService.preview("record" in parsed.data ? parsed.data.record : null, id);
+        });
+    }
+
+    /** Deleted records that a provider still holds. */
+    static async removals() {
+        return SyncService.removals();
+    }
+
+    static async sync(request: WithId, reply: FastifyReply) {
+        return serviceReply(reply, () => RecordService.sync(request.params.recordId, request.user.username));
+    }
+
+    static async rewrite(request: WithLink, reply: FastifyReply) {
+        const { recordId, providerId } = request.params;
+        return serviceReply(reply, () => RecordService.rewrite(recordId, providerId, request.user.username));
+    }
+
+    /** Answers the record as it is now, or `null` when taking over the deletion deleted it. */
+    static async accept(request: WithLink, reply: FastifyReply) {
+        const { recordId, providerId } = request.params;
+        return serviceReply(reply, async () => ({ record: await RecordService.accept(recordId, providerId, request.user.username) }));
     }
 }

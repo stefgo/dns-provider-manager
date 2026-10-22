@@ -8,12 +8,25 @@ import {
     type UnmanagedResponse,
 } from "@dpm/shared";
 import { ProviderRepository } from "../repositories/ProviderRepository.js";
+import { RecordLinkRepository } from "../repositories/RecordLinkRepository.js";
 import { RecordRepository } from "../repositories/RecordRepository.js";
 import { SiteRepository } from "../repositories/SiteRepository.js";
 import { ActivityService } from "./ActivityService.js";
 import { ProviderReadService } from "./ProviderReadService.js";
 import { RequestError } from "./RequestError.js";
+import { SyncService } from "./SyncService.js";
+import { claimKey } from "./syncPlan.js";
 import { unmanagedEntries } from "./unmanaged.js";
+
+/** The entries a record holds, or sees as what it drifted to. */
+function claimed(): Set<string> {
+    const keys = new Set<string>();
+    for (const link of RecordLinkRepository.findAll()) {
+        if (link.externalId) keys.add(claimKey(link.providerId, link.externalId));
+        if (link.observed) keys.add(claimKey(link.providerId, link.observed.externalId));
+    }
+    return keys;
+}
 
 function current(): UnmanagedEntry[] {
     return unmanagedEntries(
@@ -21,13 +34,21 @@ function current(): UnmanagedEntry[] {
         ProviderRepository.findAll(),
         RecordRepository.findAll(),
         SiteRepository.findAll(),
+        claimed(),
     );
 }
 
 /**
- * What the providers hold and dpm does not manage, and taking it over. Taking over writes
- * nothing to a provider: the entry is there already, and from now on dpm has the record.
+ * What the providers hold and dpm does not manage, and taking it over. The entry itself is
+ * left as it is: from now on dpm has the record, and holds this entry as its own. The other
+ * providers of the site get the record written, in the background.
  */
+/** The entry a provider's last reading holds under this id. */
+const readEntry = (providerId: string, externalId: string) =>
+    ProviderReadService.entries()
+        .get(providerId)
+        ?.find((e) => e.externalId === externalId);
+
 export class UnmanagedService {
     static list(): UnmanagedResponse {
         return { readings: ProviderReadService.readings(), entries: current() };
@@ -48,6 +69,7 @@ export class UnmanagedService {
         const providers = ProviderRepository.findAll();
         const correlationId = randomUUID();
         const result: AdoptResult = { adopted: [], refused: [] };
+        const adoptedIds: string[] = [];
 
         for (const ref of refs) {
             const entry = current().find((e) => e.providerId === ref.providerId && e.externalId === ref.externalId);
@@ -87,6 +109,20 @@ export class UnmanagedService {
             const id = existing?.id ?? randomUUID();
             if (existing) RecordRepository.update(id, parsed.data, user);
             else RecordRepository.create(id, parsed.data, user);
+            RecordLinkRepository.save({
+                recordId: id,
+                providerId: entry.providerId,
+                zoneId: readEntry(entry.providerId, entry.externalId)?.zoneId ?? null,
+                externalId: entry.externalId,
+                written: { name: entry.name, type: entry.type, value: entry.value, ttl: entry.ttl, proxied: entry.proxied },
+                status: "in_sync",
+                error: null,
+                observed: null,
+                attempts: 0,
+                lastAttemptAt: null,
+                syncedAt: new Date().toISOString(),
+            });
+            adoptedIds.push(id);
             ActivityService.record({
                 kind: "record.adopted",
                 level: "info",
@@ -105,6 +141,7 @@ export class UnmanagedService {
             });
             result.adopted.push({ name: entry.name, type: entry.type, value: entry.value, merged: existing !== undefined });
         }
+        SyncService.syncSoon(adoptedIds, { correlationId });
         // The records are the steps of one operation; with more than one, it gets a line of
         // its own that heads them in the activity.
         if (result.adopted.length > 1) {

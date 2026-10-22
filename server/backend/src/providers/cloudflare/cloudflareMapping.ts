@@ -1,5 +1,5 @@
 import { RECORD_TYPES, normaliseDnsName, type RecordType } from "@dpm/shared";
-import type { ProviderEntry } from "../DnsProvider.js";
+import type { ProviderEntry, RecordData } from "../DnsProvider.js";
 
 /** A DNS record as Cloudflare's API returns it, as far as dpm reads it. */
 export interface CloudflareRecord {
@@ -33,7 +33,16 @@ export function entryFromCloudflare(record: CloudflareRecord, zone: CloudflareZo
         value: type === "CNAME" ? normaliseDnsName(record.content) : record.content.trim().toLowerCase(),
         ttl: record.ttl === undefined || record.ttl === 1 ? null : record.ttl,
         proxied: record.proxied === true,
+        disabled: false,
     };
+}
+
+/**
+ * The body of a `POST` or `PATCH`. No TTL is Cloudflare's "Auto" (1). `comment` and `tags` are
+ * left out, so a `PATCH` keeps what someone noted there.
+ */
+export function cloudflareBody(record: RecordData): Record<string, unknown> {
+    return { type: record.type, name: record.name, content: record.value, ttl: record.ttl ?? 1, proxied: record.proxied };
 }
 
 /** The errors of a refused call, as one sentence: `Authentication error (10000)`. */

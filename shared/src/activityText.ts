@@ -82,6 +82,25 @@ export function activityMessage(event: ActivityRecord): string {
         }
         case "record.adopted":
             return `Record ${recordLabel(event)} adopted from ${str(event, "provider") ?? "a provider"}${by(event)}`;
+        case "record.written": {
+            const provider = str(event, "provider") ?? "a provider";
+            const action = str(event, "action");
+            const done = action === "deleted" ? `removed from ${provider}` : action === "updated" ? `updated at ${provider}` : `written to ${provider}`;
+            return `Record ${recordLabel(event)} ${done}`;
+        }
+        case "record.write_failed":
+            return `Record ${recordLabel(event)} could not be ${str(event, "action") === "deleted" ? "removed from" : "written to"} ${str(event, "provider") ?? "a provider"}`;
+        case "record.drift": {
+            const change = str(event, "change");
+            const what = change === "missing" ? "deleted" : change === "disabled" ? "switched off" : "changed";
+            return `Record ${recordLabel(event)} was ${what} at ${str(event, "provider") ?? "a provider"}`;
+        }
+        case "record.corrected": {
+            const how = event.data?.auto === true ? " automatically" : by(event);
+            return `Record ${recordLabel(event)} written again to ${str(event, "provider") ?? "a provider"}${how}`;
+        }
+        case "record.accepted":
+            return `Record ${recordLabel(event)} takes over what ${str(event, "provider") ?? "a provider"} holds${by(event)}`;
         case "provider.unreachable":
             return `Provider ${str(event, "name") ?? "?"} cannot be read`;
         case "provider.recovered":
@@ -102,6 +121,9 @@ export function activityMessage(event: ActivityRecord): string {
 export function activityDetail(event: ActivityRecord): string | null {
     const error = str(event, "error");
     if (error) return error;
+
+    const observed = str(event, "observed");
+    if (observed) return `${str(event, "provider") ?? "The provider"} holds ${observed}`;
 
     const changed = changes(event);
     if (changed.length > 0) return changed.map((c) => `${c.field}: ${c.from} → ${c.to}`).join(" · ");

@@ -146,8 +146,8 @@ Every request goes through `api.get`, `api.post`, `api.put`, `api.patch` or `api
 | :-- | :-- | :-- |
 | `activity.ts` | The activity list as the server reads it for the session's user, so `seen` needs no user id on this side. Marking seen and deleting all are optimistic. `useUnseenTone` gives the badge its colour as a string, so the shell re-renders only when that changes. | `ACTIVITY_UPDATE`, `ACTIVITY_APPENDED`, `ACTIVITY_SEEN` |
 | `scheduler.ts` | The status of the schedulers the server runs (`notification-cleanup`). | `SCHEDULER_STATUS_UPDATE` |
-| `records.ts`, `sites.ts`, `providers.ts` | Their lists. They name each other — a site counts its records and lists its providers — so a change to one is read back into all of them and the unmanaged list (`invalidateDns` in `queries/dns.ts`). `providers.ts` also has the connection test and "Read now". | `READINGS_UPDATE` (providers) |
-| `unmanaged.ts` | What the providers hold and dpm does not manage, with each provider's reading; adopting. | `READINGS_UPDATE` |
+| `records.ts`, `sites.ts`, `providers.ts` | Their lists. They name each other — a site counts its records and lists its providers — so a change to one is read back into all of them and the unmanaged list (`invalidateDns` in `queries/dns.ts`). `providers.ts` also has the connection test and "Read now"; `records.ts` the editor's preview, the pending removals and the actions at a provider (`useRecordAction`); `sites.ts` the preview of a site's providers. | `READINGS_UPDATE` (providers), `RECORDS_UPDATE` (records) |
+| `unmanaged.ts` | What the providers hold and dpm does not manage, with each provider's reading; adopting. | `READINGS_UPDATE`, `RECORDS_UPDATE` |
 | `webhooks.ts`, `users.ts` | Their lists. Nothing broadcasts a change, so they go stale by age (30 s) and are read again after a change made here. | — |
 | `settings.ts` | No entry: the requests of the settings page. | — |
 
@@ -174,6 +174,8 @@ The `WebSocketProvider` (`src/features/app/context/WebSocketProvider.tsx`) maint
 | `ACTIVITY_APPENDED`    | `appendActivity` — merges new events by id, newest first |
 | `ACTIVITY_SEEN`        | `markActivitySeen` — marks the ids seen, also from another tab |
 | `SCHEDULER_STATUS_UPDATE` | `applySchedulerUpdate` — one scheduler, where the status has been read |
+| `READINGS_UPDATE`      | Reads the providers and the unmanaged list again |
+| `RECORDS_UPDATE`       | Reads the records (and their removals) and the unmanaged list again |
 
 On connect the server sends the activity list by itself.
 
@@ -278,19 +280,32 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   and split horizon across sites. The editor offers Cloudflare's proxy switch only while a
   chosen site writes to Cloudflare (`reachesCloudflare`). A conflict with another record is
   the server's to find (`recordConflict` in `@dpm/shared`) and is shown above the form.
+- **Where a record stands** at each provider is a `StatusDot` per provider in the list
+  (`ProviderDots`, tone and words in `lib/recordSync.ts`), with "Problems" as a filter of its
+  own — not the search, so an empty list says that nothing failed. In the editor,
+  `RecordProviders` lists the same with *Write again* and *Take over* for drift, and while the
+  draft differs from what is stored, the server's preview of what saving does — asked once
+  typing pauses (`useDebouncedValue`, by the request's text). A save that removes the record
+  from a provider, a deletion, and a site whose providers change ask first, with what the
+  server's preview says. What the actions at a provider ask and report is `useLinkActions`;
+  a save that a provider did not take is a toast, the record is stored all the same. Deleted
+  records a provider still holds are an `Alert` above the list.
 - **Providers** have one draft for every type, so switching the type of a new provider keeps
   what was typed in the fields they share; `providerInputFrom` sends only the type's own. The
   secret field is empty, never filled with the stored value, and saves nothing until something
   is typed; after a save it is empty again (`rebase`). A stored provider keeps its type.
-- **Providers** list how their last reading went. The editor tests a provider as it stands in
+- **Providers** list how their last reading went, how many records go to each and how many
+  of them need a look (`lib/providerRecords.ts`), and a badge for one dpm only reads. The editor tests a provider as it stands in
   the form ("Test Connection", the stored secret standing in for an empty field), and lists a
   Cloudflare provider's zones with who uses each; under "Selected zones" they can be ticked.
 - **Unmanaged** lists what the providers hold and dpm does not manage there, with the reason
   where an entry cannot be adopted. "Adopt" takes the picked entries — or, with nothing
   picked, what the list shows — into a site that writes to their provider (`adoptableSites`
-  in `lib/adopt.ts`); the outcome is one toast with every refusal. The sidebar entry counts
-  the entries.
-- **Sites** choose their providers. Which sites a provider belongs to is set here, not in the
+  in `lib/adopt.ts`); the dialog names the site's other providers the records are written
+  to (`alsoWrittenTo`), and the outcome is one toast with every refusal. The sidebar entry
+  counts the entries.
+- **Sites** choose their providers; saving a changed choice asks first with how many records
+  each provider gets or loses (`lib/siteSync.ts`). Which sites a provider belongs to is set here, not in the
   provider editor. A site that a record belongs to alone is not offered for deletion: a notice
   names the records first (`lib/siteDeletion.ts`).
 

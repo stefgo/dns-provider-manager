@@ -4,6 +4,8 @@ import { SiteRepository } from "../repositories/SiteRepository.js";
 import { ProviderRepository } from "../repositories/ProviderRepository.js";
 import { ActivityService } from "./ActivityService.js";
 import { RequestError } from "./RequestError.js";
+import { SyncService } from "./SyncService.js";
+import { RecordRepository } from "../repositories/RecordRepository.js";
 import { fieldChanges, nameList } from "./changes.js";
 
 /** The provider names of a list of ids, for an event; an id nobody knows stays an id. */
@@ -30,10 +32,14 @@ function check(fields: SiteFields, exceptId?: string): void {
     if (unknown) throw new RequestError(400, `There is no provider with the id ${unknown}`);
 }
 
+/** The records of a site, by id. */
+const recordsOf = (siteId: string) => RecordRepository.findAll().filter((r) => r.siteIds.includes(siteId)).map((r) => r.id);
+
 /**
  * The sites: groups of providers that give the same answers. A record goes to every provider
  * of its sites, so changing which providers a site has is what moves records between DNS
- * servers -- once dpm writes to them.
+ * servers: a provider that joins gets the site's records written, one that leaves has them
+ * removed -- in the background, one record after another.
  */
 export class SiteService {
     static create(fields: SiteFields, user: string): Site {
@@ -55,6 +61,7 @@ export class SiteService {
         if (!before) throw new RequestError(404, "Site not found");
         check(fields, id);
         SiteRepository.update(id, fields);
+        if (before.providerIds.join() !== [...fields.providerIds].sort().join()) SyncService.syncSoon(recordsOf(id));
         const changes = fieldChanges(describe(before), describe(fields));
         if (changes.length > 0) {
             ActivityService.record({
@@ -84,7 +91,9 @@ export class SiteService {
             );
         }
         // The records that are in another site as well lose this one with it.
+        const records = recordsOf(id);
         SiteRepository.delete(id);
+        SyncService.syncSoon(records);
         ActivityService.record({
             kind: "site.deleted",
             level: "info",

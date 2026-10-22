@@ -113,6 +113,11 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
                         void queryClient.invalidateQueries({ queryKey: queryKeys.unmanaged.all });
                         void queryClient.invalidateQueries({ queryKey: queryKeys.providers.all });
                         break;
+                    // Records were written, or their state at a provider changed.
+                    case WS_EVENTS.RECORDS_UPDATE:
+                        void queryClient.invalidateQueries({ queryKey: queryKeys.records.all });
+                        void queryClient.invalidateQueries({ queryKey: queryKeys.unmanaged.all });
+                        break;
                     // One scheduler at a time. Only where the status has been read: an
                     // entry made here would hold one scheduler and pass for both.
                     case WS_EVENTS.SCHEDULER_STATUS_UPDATE: {

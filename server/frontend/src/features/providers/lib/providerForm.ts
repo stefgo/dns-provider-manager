@@ -9,6 +9,7 @@ export interface ProviderDraft {
     type: ProviderType;
     name: string;
     autoCorrect: boolean;
+    readOnly: boolean;
     /** Only ever a new secret: the server never sends the stored one back. Empty keeps it. */
     secret: string;
     zoneMode: "all" | "selected";
@@ -26,6 +27,7 @@ export function emptyProviderDraft(type: ProviderType = "cloudflare"): ProviderD
         type,
         name: "",
         autoCorrect: false,
+        readOnly: false,
         secret: "",
         zoneMode: "all",
         zoneIds: [],
@@ -37,7 +39,7 @@ export function emptyProviderDraft(type: ProviderType = "cloudflare"): ProviderD
 }
 
 export function providerDraftFrom(provider: Provider): ProviderDraft {
-    const draft = { ...emptyProviderDraft(provider.type), name: provider.name, autoCorrect: provider.autoCorrect };
+    const draft = { ...emptyProviderDraft(provider.type), name: provider.name, autoCorrect: provider.autoCorrect, readOnly: provider.readOnly };
     switch (provider.type) {
         case "cloudflare":
             return { ...draft, zoneMode: provider.zoneMode, zoneIds: provider.zoneIds };
@@ -62,7 +64,12 @@ export const parseServers = (text: string): string[] =>
 
 /** The draft as the API takes it: the type's own fields, and the secret only when one was typed. */
 export function providerInputFrom(draft: ProviderDraft): ProviderInput {
-    const common = { name: draft.name, autoCorrect: draft.autoCorrect, secret: draft.secret === "" ? undefined : draft.secret };
+    const common = {
+        name: draft.name,
+        autoCorrect: draft.autoCorrect,
+        readOnly: draft.readOnly,
+        secret: draft.secret === "" ? undefined : draft.secret,
+    };
     switch (draft.type) {
         case "cloudflare":
             return { type: "cloudflare", ...common, zoneMode: draft.zoneMode, zoneIds: draft.zoneIds };
@@ -93,6 +100,7 @@ export const providerFieldOf: FieldOf<ProviderDraft> = (path) => {
     switch (head) {
         case "name":
         case "autoCorrect":
+        case "readOnly":
         case "secret":
         case "zoneMode":
         case "zoneIds":

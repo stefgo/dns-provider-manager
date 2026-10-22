@@ -1,6 +1,8 @@
 import { Client, type Entry } from "ldapts";
 import { normaliseDnsName } from "@dpm/shared";
 import type { DnsProviderClient, ProviderEntry, ProviderZoneInfo } from "../DnsProvider.js";
+
+const NOT_YET = "Writing to Samba AD comes with a later version of dpm";
 import { entriesFromNode, sambaZoneId } from "./sambaMapping.js";
 import { isSkippedZone } from "./sambaProtection.js";
 
@@ -53,7 +55,7 @@ export function ldapsUrl(server: string): string {
  * A Samba AD domain, through LDAPS on one of its domain controllers -- the first in the list
  * that answers. The DNS zones are objects of the directory: a `dnsZone` below `CN=MicrosoftDNS`
  * in the two DNS partitions (and, in a domain upgraded from an old one, below `CN=System`),
- * each name a `dnsNode` below its zone, the records in its `dnsRecord`. Reads; writes nothing.
+ * each name a `dnsNode` below its zone, the records in its `dnsRecord`. Reads; writing follows with a later version.
  *
  * One connection, opened by the first call and kept until `close`.
  */
@@ -174,6 +176,18 @@ export class SambaClient implements DnsProviderClient {
         const dcs = await this.domainControllers((await this.zoneBases()).domain);
         const nodes = await this.search(dn, "(&(objectClass=dnsNode)(!(dNSTombstoned=TRUE)))", ["name", "dnsRecord"], "one", ["dnsRecord"]);
         return nodes.flatMap((node) => entriesFromNode(zone, attr(node, "name") ?? "", bytesOf(node, "dnsRecord"), dcs));
+    }
+
+    async create(): Promise<ProviderEntry> {
+        throw new Error(NOT_YET);
+    }
+
+    async update(): Promise<ProviderEntry> {
+        throw new Error(NOT_YET);
+    }
+
+    async delete(): Promise<void> {
+        throw new Error(NOT_YET);
     }
 
     async close(): Promise<void> {

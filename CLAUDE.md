@@ -103,6 +103,15 @@ bundle without the backend, use `npm run preview -w server/frontend`.
   of samba-ad-manager). What the providers hold is
   read by `ProviderReadService` and kept in memory; which provider uses a zone is derived
   (`zoneOwnership`), never stored.
+- Writing is `SyncService`. Where a record goes is `recordTargets`, what to do at each provider
+  `planRecord` (`syncPlan.ts`) -- both pure and tested; the service only does what the plan
+  says. `record_links` hold what dpm last wrote at each provider: a record changed in dpm is
+  written, an entry changed at the provider is drift. Writes go first, removals only once every
+  provider of the record holds it. Reading and writing a provider go through its queue
+  (`queueFor`), one at a time. After every reading, `afterReading` compares all records with
+  that provider -- the only place drift is found and failures are retried. **dpm touches only
+  entries a link holds**; AdGuard Home adds duplicates, so "is it there already" is asked of the
+  reading first.
 - Secrets the server has to read back (provider credentials) are encrypted with
   `SecretCrypto` (`secretKey`); they never go back to the browser.
 

@@ -52,6 +52,7 @@ export function entriesFromNode(
             value,
             ttl: record.ttl > 0 ? record.ttl : null,
             proxied: false,
+            disabled: false,
         });
     }
     return entries;

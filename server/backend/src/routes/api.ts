@@ -89,10 +89,16 @@ export default async function apiRoutes(fastify: FastifyInstance) {
                 // DNS -- the records, the sites they belong to and the providers a site writes to.
                 protectedRoutes.get("/records", RecordController.list);
                 protectedRoutes.post("/records", RecordController.create);
+                protectedRoutes.post("/records/preview", RecordController.preview);
+                protectedRoutes.get("/records/removals", RecordController.removals);
+                protectedRoutes.post("/records/:recordId/sync", RecordController.sync);
+                protectedRoutes.post("/records/:recordId/links/:providerId/rewrite", RecordController.rewrite);
+                protectedRoutes.post("/records/:recordId/links/:providerId/accept", RecordController.accept);
                 protectedRoutes.put("/records/:recordId", RecordController.update);
                 protectedRoutes.delete("/records/:recordId", RecordController.delete);
                 protectedRoutes.get("/sites", SiteController.list);
                 protectedRoutes.post("/sites", SiteController.create);
+                protectedRoutes.post("/sites/preview", SiteController.preview);
                 protectedRoutes.put("/sites/:siteId", SiteController.update);
                 protectedRoutes.delete("/sites/:siteId", SiteController.delete);
                 protectedRoutes.get("/providers", ProviderController.list);

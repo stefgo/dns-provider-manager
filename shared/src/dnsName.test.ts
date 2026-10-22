@@ -97,6 +97,7 @@ describe("ProviderInputSchema", () => {
             name: "Cloudflare",
             secret: "t",
             autoCorrect: false,
+            readOnly: false,
             zoneMode: "all",
             zoneIds: [],
         });

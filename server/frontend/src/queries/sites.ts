@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { SiteListSchema, SiteViewSchema, type Site, type SiteInput } from "@dpm/shared";
+import { SiteListSchema, SitePreviewSchema, SiteViewSchema, type Site, type SiteInput, type SitePreviewRequest } from "@dpm/shared";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { invalidateDns } from "./dns";
@@ -43,3 +43,7 @@ export function useDeleteSite() {
         onSettled: () => invalidateDns(queryClient),
     });
 }
+
+/** What saving a site with its providers changed would write to and remove from each -- asked once, for the question before saving. */
+export const fetchSitePreview = (request: SitePreviewRequest) =>
+    api.post("/api/v1/sites/preview", request, SitePreviewSchema, { fallback: "Failed to preview the site" });

@@ -13,8 +13,10 @@ import {
     Select,
     Switch,
     Textarea,
+    useConfirm,
+    useToast,
 } from "@stefgo/react-ui-components";
-import { useRecords, useSaveRecord } from "../../../queries/records";
+import { fetchRecordPreview, useRecords, useSaveRecord } from "../../../queries/records";
 import { useSites } from "../../../queries/sites";
 import { useProviders } from "../../../queries/providers";
 import { QueryError } from "../../../components/QueryError";
@@ -32,6 +34,9 @@ import {
     recordInputFrom,
     recordRules,
 } from "../lib/recordForm";
+import { removedAt, saveOutcome } from "../lib/recordSync";
+import { describeSaveRemoving } from "../confirmations";
+import { RecordProviders } from "./RecordProviders";
 
 /**
  * `/records/new` and `/records/:recordId`. The record is read from the list -- there is no
@@ -60,6 +65,8 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
     const { mutateAsync: saveRecord } = useSaveRecord();
     const { sites, isPending: sitesPending, error: sitesError } = useSites();
     const { providers } = useProviders();
+    const { confirm } = useConfirm();
+    const { show } = useToast();
 
     const form = useEntityForm({
         schema: RecordInputSchema,
@@ -72,7 +79,22 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (await form.submit((input) => saveRecord({ id: record?.id, input }))) leave();
+        if (!form.canSave || !form.input) return;
+        // A save that takes the record off a provider is asked about first.
+        if (record) {
+            const preview = await fetchRecordPreview({ id: record.id, record: form.input }).catch(() => null);
+            const removed = removedAt(preview, providers);
+            if (removed.length > 0 && !(await confirm(describeSaveRemoving(record.name, removed)))) return;
+        }
+        let saved = null as DnsRecord | null;
+        const stored = await form.submit(async (input) => {
+            saved = await saveRecord({ id: record?.id, input });
+        });
+        if (!stored) return;
+        // Stored either way; a provider that did not take it is said, and tried again later.
+        const outcome = saved && saveOutcome(saved, providers);
+        if (outcome) show({ ...outcome, duration: 0 });
+        leave();
     };
 
     // Only where a site of the record writes to Cloudflare -- or where it is on already, so
@@ -170,6 +192,8 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
                         </div>
                     )}
                 </div>
+
+                <RecordProviders record={record} input={form.input} isDirty={form.isDirty} providers={providers} />
 
                 <Textarea
                     label="Note"

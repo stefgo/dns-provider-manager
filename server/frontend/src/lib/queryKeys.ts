@@ -10,10 +10,13 @@ export const queryKeys = {
     records: {
         all: ["records"] as const,
         list: () => ["records", "list"] as const,
+        removals: () => ["records", "removals"] as const,
+        preview: (request: unknown) => ["records", "preview", request] as const,
     },
     sites: {
         all: ["sites"] as const,
         list: () => ["sites", "list"] as const,
+        preview: (request: unknown) => ["sites", "preview", request] as const,
     },
     providers: {
         all: ["providers"] as const,

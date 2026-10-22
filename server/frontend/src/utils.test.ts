@@ -7,6 +7,7 @@ import {
     formatRelative,
     formatTime,
     getErrorMessage,
+    nameList,
     plural,
 } from "./utils";
 
@@ -96,6 +97,15 @@ describe("formatTime", () => {
     it("shows the empty value when there is no date", () => {
         expect(formatTime(null)).toBe(EMPTY_VALUE);
         expect(formatTime("yesterday")).toBe(EMPTY_VALUE);
+    });
+});
+
+describe("nameList", () => {
+    it("joins names as a sentence does", () => {
+        expect(nameList([])).toBe("");
+        expect(nameList(["A"])).toBe("A");
+        expect(nameList(["A", "B"])).toBe("A and B");
+        expect(nameList(["A", "B", "C"])).toBe("A, B and C");
     });
 });
 

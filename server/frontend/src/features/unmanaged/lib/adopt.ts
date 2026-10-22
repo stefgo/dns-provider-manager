@@ -1,4 +1,4 @@
-import type { AdoptResult, Site, UnmanagedEntry } from "@dpm/shared";
+import type { AdoptResult, Provider, Site, UnmanagedEntry } from "@dpm/shared";
 import { plural } from "../../../utils";
 
 /** How the list and the server tell an entry apart: its provider and the provider's own id. */
@@ -35,4 +35,17 @@ export function adoptOutcome(result: AdoptResult): { variant: "success" | "warni
         title,
         description: result.refused.map((r) => `${[r.name, r.type, r.value].filter(Boolean).join(" ")}: ${r.reason}`).join("\n"),
     };
+}
+
+/**
+ * The other providers of the site, by name, that dpm writes the adopted records to: a
+ * record goes to every provider of its sites. One it only reads gets nothing.
+ */
+export function alsoWrittenTo(
+    entries: readonly Pick<UnmanagedEntry, "providerId">[],
+    site: Pick<Site, "providerIds"> | undefined,
+    providers: readonly Pick<Provider, "id" | "name" | "writable">[],
+): string[] {
+    const from = new Set(entries.map((e) => e.providerId));
+    return providers.filter((p) => site?.providerIds.includes(p.id) && !from.has(p.id) && p.writable).map((p) => p.name);
 }

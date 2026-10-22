@@ -11,30 +11,30 @@ any number of AdGuard Home instances and, where there is one, Samba AD for the i
 network. A record belongs to one or more **sites**, groups of providers that give the same
 answers; split horizon is the same name in two sites with two answers.
 
-> **In development.** Records, sites and providers can be managed; Cloudflare, AdGuard Home
-> and Samba AD are read and what they hold can be adopted. Writing to the DNS servers follows.
+> **In development.** Records are written to Cloudflare and AdGuard Home and kept there;
+> Samba AD is read and compared, and writing to it follows.
 
-## 🚀 Planned features
+## 🚀 Features
 
-- **One record, many DNS servers:** a record is written to every provider of its sites. A new
-  AdGuard Home instance in a site receives every record of that site without touching one.
-- **Cloudflare, AdGuard Home, Samba AD:** over their own APIs — HTTPS, HTTP and LDAPS. There
-  is no agent to install.
+- **One record, many DNS servers:** a record is written to every provider of its sites as it
+  is saved — Cloudflare and AdGuard Home today, Samba AD next. A new AdGuard Home instance in a
+  site receives every record of that site without touching one. Before saving, the editor
+  shows what will happen at which provider.
+- **Moves without a gap:** a record that changes its site — from Cloudflare to the internal
+  AdGuard Home instances — is removed from the old provider only once the new ones hold it.
+- **Drift:** a record changed or deleted at the provider behind DPM's back is reported, with
+  the choice to write DPM's value again or to take over the provider's; per provider, drift can
+  be written over without asking. A write that fails is tried again after the next reading.
 - **Takes over what is there:** records a provider already holds are shown as *unmanaged* and
   can be taken over one by one or in bulk — the way today's Cloudflare records move into DPM.
-- **Drift:** a record changed or deleted at the provider behind DPM's back is reported, with
-  the choice to write DPM's value again or to take over the provider's.
-- **Leaves the rest alone:** DPM deletes only what it created or took over.
-
-Available today:
-
+- **Leaves the rest alone:** DPM changes and deletes only what it created or took over, and a
+  provider can be set to *read only*.
+- **Cloudflare, AdGuard Home, Samba AD:** over their own APIs — HTTPS, HTTP and LDAPS. There
+  is no agent to install. Samba AD is read without the records its domain controllers
+  register for themselves.
 - **Records, sites and providers:** A, AAAA and CNAME records with the sites they go to,
-  checked for conflicts — the same record twice, a CNAME beside another record of its name.
-  Provider credentials are stored encrypted and never shown again.
-- **Cloudflare, AdGuard Home and Samba AD, read:** the zones of every Cloudflare token, the DNS
-  rewrites of every AdGuard Home instance, the zones of the Samba AD domain — without the
-  records the domain controllers register for themselves. What dpm does not manage yet is
-  listed as *unmanaged* and adopted into a site, one by one or all at once.
+  checked for conflicts — the same record twice, a CNAME beside another record of its name,
+  here or at the provider. Provider credentials are stored encrypted and never shown again.
 - **Authentication:** local accounts and OIDC (OpenID Connect), configurable per user.
 - **Activity history and webhooks:** every event, filtered by level and kind, to a chat
   channel or an endpoint of your own with a JSON body template.

@@ -4,6 +4,7 @@ import { PlugZap, Server, X } from "lucide-react";
 import {
     PROVIDER_TYPES,
     PROVIDER_TYPE_LABELS,
+    WRITABLE_PROVIDER_TYPES,
     ProviderInputSchema,
     type Provider,
     type ProviderTestResult,
@@ -325,6 +326,17 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                             hint="For a server whose certificate this host cannot verify. Off: such a connection fails."
                         />
                     )}
+                    <SwitchField
+                        id="provider-read-only"
+                        label="Read Only"
+                        value={draft.readOnly}
+                        onChange={(on) => set("readOnly", on)}
+                        hint={
+                            WRITABLE_PROVIDER_TYPES.includes(draft.type)
+                                ? "Read and compared, never written: nothing is created, changed or removed there. Records wait until it is switched off."
+                                : `dpm does not write to ${PROVIDER_TYPE_LABELS[draft.type]} yet; it is read and compared either way.`
+                        }
+                    />
                     <SwitchField
                         id="provider-auto-correct"
                         label="Correct Drift by Itself"

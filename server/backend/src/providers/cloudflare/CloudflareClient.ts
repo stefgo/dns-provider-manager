@@ -1,5 +1,6 @@
-import type { DnsProviderClient, ProviderEntry, ProviderZoneInfo } from "../DnsProvider.js";
+import type { DnsProviderClient, EntryRef, ProviderEntry, ProviderZoneInfo, RecordData } from "../DnsProvider.js";
 import {
+    cloudflareBody,
     cloudflareErrors,
     entryFromCloudflare,
     type CloudflareRecord,
@@ -29,8 +30,12 @@ interface Page<T> {
     result_info?: { page?: number; total_pages?: number };
 }
 
+/** A refusal that says the record is not there (`DELETE` of an id that is gone). */
+class NotFound extends Error {}
+
 /**
- * Cloudflare's API v4 with one API token. Reads zones and DNS records; writes nothing yet.
+ * Cloudflare's API v4 with one API token: zones and DNS records. Every record is written one
+ * by one; `comment` is never sent, so what someone noted at Cloudflare stays.
  *
  * `fetchImpl` is the network, handed in so a test can answer in its place.
  */
@@ -42,12 +47,25 @@ export class CloudflareClient implements DnsProviderClient {
         private readonly fetchImpl: Fetch = fetch,
     ) {}
 
-    /** One page of a list. Throws with Cloudflare's own reason on a refusal. */
-    private async page<T>(path: string, params: Record<string, string>): Promise<Page<T>> {
+    /**
+     * One call. Answers the `result` and the paging of a success; throws with Cloudflare's own
+     * reason on a refusal.
+     */
+    private async call(
+        method: "GET" | "POST" | "PATCH" | "DELETE",
+        path: string,
+        { params, body }: { params?: Record<string, string>; body?: unknown } = {},
+    ): Promise<{ result: unknown; result_info?: Page<unknown>["result_info"] }> {
         let response: Response;
         try {
-            response = await this.fetchImpl(`${apiUrl()}${path}?${new URLSearchParams(params)}`, {
-                headers: { Authorization: `Bearer ${this.token}`, Accept: "application/json" },
+            response = await this.fetchImpl(`${apiUrl()}${path}${params ? `?${new URLSearchParams(params)}` : ""}`, {
+                method,
+                headers: {
+                    Authorization: `Bearer ${this.token}`,
+                    Accept: "application/json",
+                    ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+                },
+                body: body === undefined ? undefined : JSON.stringify(body),
                 signal: AbortSignal.timeout(TIMEOUT_MS),
             });
         } catch (err) {
@@ -58,17 +76,24 @@ export class CloudflareClient implements DnsProviderClient {
                 cause: err,
             });
         }
-        const body: unknown = await response.json().catch(() => null);
-        const success = (body as { success?: unknown } | null)?.success === true;
+        const answer: unknown = await response.json().catch(() => null);
+        const success = (answer as { success?: unknown } | null)?.success === true;
         if (!response.ok || !success) {
-            const reason = cloudflareErrors(body) ?? `HTTP ${response.status}`;
+            const reason = cloudflareErrors(answer) ?? `HTTP ${response.status}`;
             if (response.status === 401 || response.status === 403) {
                 throw new Error(`Cloudflare refused the API token: ${reason}`);
             }
+            if (response.status === 404) throw new NotFound(`Cloudflare does not know it: ${reason}`);
             throw new Error(`Cloudflare refused the request: ${reason}`);
         }
-        const result = (body as { result?: unknown }).result;
-        return { result: Array.isArray(result) ? (result as T[]) : [], result_info: (body as Page<T>).result_info };
+        const { result, result_info } = answer as { result?: unknown; result_info?: Page<unknown>["result_info"] };
+        return { result, result_info };
+    }
+
+    /** One page of a list. */
+    private async page<T>(path: string, params: Record<string, string>): Promise<Page<T>> {
+        const { result, result_info } = await this.call("GET", path, { params });
+        return { result: Array.isArray(result) ? (result as T[]) : [], result_info };
     }
 
     /** Every page of a list, one after another. */
@@ -100,4 +125,42 @@ export class CloudflareClient implements DnsProviderClient {
         const records = await this.all<CloudflareRecord>(`/zones/${encodeURIComponent(zone.id)}/dns_records`, RECORDS_PER_PAGE);
         return records.map((record) => entryFromCloudflare(record, zone)).filter((e): e is ProviderEntry => e !== null);
     }
+
+    /** The record Cloudflare answers a write with, as an entry. */
+    private written(result: unknown, zone: ProviderZoneInfo): ProviderEntry {
+        const entry = result && typeof result === "object" ? entryFromCloudflare(result as CloudflareRecord, zone) : null;
+        if (!entry) throw new Error("Cloudflare accepted the record but did not send it back");
+        return entry;
+    }
+
+    async create(zone: ProviderZoneInfo | null, record: RecordData): Promise<ProviderEntry> {
+        if (!zone) throw new Error("A Cloudflare record needs a zone");
+        const { result } = await this.call("POST", `/zones/${encodeURIComponent(zone.id)}/dns_records`, { body: cloudflareBody(record) });
+        return this.written(result, zone);
+    }
+
+    async update(target: EntryRef, record: RecordData): Promise<ProviderEntry> {
+        const zone = zoneOf(target);
+        const { result } = await this.call(
+            "PATCH",
+            `/zones/${encodeURIComponent(zone.id)}/dns_records/${encodeURIComponent(target.externalId)}`,
+            { body: cloudflareBody(record) },
+        );
+        return this.written(result, zone);
+    }
+
+    async delete(target: EntryRef): Promise<void> {
+        const zone = zoneOf(target);
+        try {
+            await this.call("DELETE", `/zones/${encodeURIComponent(zone.id)}/dns_records/${encodeURIComponent(target.externalId)}`);
+        } catch (err) {
+            // Gone already: what the deletion was for.
+            if (!(err instanceof NotFound)) throw err;
+        }
+    }
+}
+
+function zoneOf(target: EntryRef): ProviderZoneInfo {
+    if (!target.zoneId) throw new Error("A Cloudflare record needs a zone");
+    return { id: target.zoneId, name: target.zone ?? "" };
 }

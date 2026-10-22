@@ -15,12 +15,15 @@ import {
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import { providerTarget } from "../lib/providerTarget";
+import type { ProviderRecordCount } from "../lib/providerRecords";
 import { RelativeTime } from "../../../components/RelativeTime";
 import { plural } from "../../../utils";
 
 interface ProviderListProps {
     providers: Provider[];
     sites: Site[];
+    /** How many records go to each provider, and how many need a look there. */
+    counts: Map<string, ProviderRecordCount>;
     isLoading: boolean;
     onAdd: () => void;
     onEdit: (provider: Provider) => void;
@@ -59,7 +62,7 @@ const ReadState = ({ provider }: { provider: Provider }) => {
 const sitesOf = (provider: Provider, sites: Site[]) => sites.filter((s) => provider.siteIds.includes(s.id));
 
 /** The providers: one access each to a DNS server dpm writes to. */
-export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDelete, onRead }: ProviderListProps) => {
+export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onEdit, onDelete, onRead }: ProviderListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
 
     const matchesSearch = (provider: Provider, query: string) => {
@@ -92,7 +95,13 @@ export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDel
             header: "Type",
             sortable: true,
             sortValue: (p) => PROVIDER_TYPE_LABELS[p.type],
-            render: (p) => <Badge variant="neutral">{PROVIDER_TYPE_LABELS[p.type]}</Badge>,
+            render: (p) => (
+                <div className="flex flex-wrap gap-1">
+                    <Badge variant="neutral">{PROVIDER_TYPE_LABELS[p.type]}</Badge>
+                    {/* A provider dpm only reads, by choice or because it cannot write that type yet. */}
+                    {!p.writable && <Badge variant="warning">Read only</Badge>}
+                </div>
+            ),
         },
         {
             header: "Target",
@@ -116,6 +125,20 @@ export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDel
                             </Badge>
                         ))}
                     </div>
+                );
+            },
+        },
+        {
+            header: "Records",
+            sortable: true,
+            sortValue: (p) => counts.get(p.id)?.total ?? 0,
+            render: (p) => {
+                const count = counts.get(p.id) ?? { total: 0, problems: 0 };
+                return (
+                    <span className="whitespace-nowrap text-sm text-text-secondary">
+                        {count.total}
+                        {count.problems > 0 && <span className="text-error"> · {count.problems} to look at</span>}
+                    </span>
                 );
             },
         },

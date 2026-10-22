@@ -1,5 +1,5 @@
 import db from "../core/Database.js";
-import { ZONE_MODES, type Provider, type ProviderFields, type ProviderType } from "@dpm/shared";
+import { WRITABLE_PROVIDER_TYPES, ZONE_MODES, type Provider, type ProviderFields, type ProviderType } from "@dpm/shared";
 import { idsColumn } from "./SiteRepository.js";
 import { ProviderZoneRepository, type StoredZone } from "./ProviderZoneRepository.js";
 import { zoneOwnership } from "../services/zoneOwnership.js";
@@ -14,6 +14,7 @@ interface ProviderRow {
     settings: string;
     secret: string | null;
     auto_correct: number;
+    read_only: number;
     last_seen_at: string | null;
     last_error: string | null;
     created_at: string;
@@ -72,6 +73,8 @@ function rowToProvider(row: ProviderRow, { zones, zoneIds }: ZoneFacts): Provide
         id: row.id,
         name: row.name,
         autoCorrect: row.auto_correct === 1,
+        readOnly: row.read_only === 1,
+        writable: row.read_only !== 1 && WRITABLE_PROVIDER_TYPES.includes(row.type as ProviderType),
         hasSecret: row.secret !== null && row.secret !== "",
         siteIds: idsColumn(row.site_ids),
         createdAt: row.created_at,
@@ -175,8 +178,8 @@ export class ProviderRepository {
     /** `secret` is what `SecretCrypto` made of it; nothing here sees it in the clear. */
     static create(id: string, fields: ProviderFields, secret: string): void {
         db.prepare(`
-            INSERT INTO providers (id, type, name, settings, secret, auto_correct, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO providers (id, type, name, settings, secret, auto_correct, read_only, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             id,
             fields.type,
@@ -184,6 +187,7 @@ export class ProviderRepository {
             JSON.stringify(settingsOf(fields)),
             secret,
             fields.autoCorrect ? 1 : 0,
+            fields.readOnly ? 1 : 0,
             new Date().toISOString(),
         );
     }
@@ -192,12 +196,13 @@ export class ProviderRepository {
     static update(id: string, fields: ProviderFields, secret: string | undefined): { changes: number } {
         return db.prepare(`
             UPDATE providers
-            SET name = ?, settings = ?, auto_correct = ?, secret = COALESCE(?, secret), updated_at = ?
+            SET name = ?, settings = ?, auto_correct = ?, read_only = ?, secret = COALESCE(?, secret), updated_at = ?
             WHERE id = ?
         `).run(
             fields.name,
             JSON.stringify(settingsOf(fields)),
             fields.autoCorrect ? 1 : 0,
+            fields.readOnly ? 1 : 0,
             secret ?? null,
             new Date().toISOString(),
             id,

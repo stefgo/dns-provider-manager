@@ -17,8 +17,13 @@ import { DashboardService } from "./DashboardService.js";
 import { ScheduledJob } from "./ScheduledJob.js";
 import { decryptSecret } from "./SecretCrypto.js";
 import { RequestError } from "./RequestError.js";
+import { queueFor } from "./providerQueue.js";
+import { SyncService } from "./SyncService.js";
 
-/** What the last reading of a provider found. Kept in memory: a restart reads again. */
+/**
+ * What the last reading of a provider found -- switched-off AdGuard Home rewrites included --
+ * and what dpm wrote there since. Kept in memory: a restart reads again.
+ */
 interface ReadingState {
     readAt: string | null;
     error: string | null;
@@ -48,8 +53,12 @@ const message = (err: unknown) => (err instanceof Error ? err.message : String(e
  * found, says on the dashboards that it read, and reports the moment a provider stops or
  * starts answering -- not every failed reading, which would repeat itself every few minutes.
  * Resolves whether the reading succeeded; a provider this build cannot read counts as read.
+ *
+ * In the provider's queue: nothing writes to it meanwhile.
  */
-async function readProvider(providerId: string): Promise<boolean> {
+const readProvider = (providerId: string) => queueFor(providerId, () => readNow(providerId));
+
+async function readNow(providerId: string): Promise<boolean> {
     const provider = ProviderRepository.findById(providerId);
     if (!provider) {
         readings.delete(providerId);
@@ -106,15 +115,29 @@ async function readProvider(providerId: string): Promise<boolean> {
 }
 
 /**
- * Reading the providers: on a timer, at startup, when one is saved, and on request. Nothing
- * is written to a provider here.
+ * Reading the providers: on a timer, at startup, when one is saved, and on request. Each
+ * reading is followed by the comparison with the records (`SyncService.afterReading`), which
+ * is where drift is found and failed writes are tried again.
  */
 export class ProviderReadService {
-    /** Reads one provider now, or waits for the reading already under way. */
+    /**
+     * Reads one provider now, or waits for the reading already under way. A reading that
+     * succeeded is compared with the records -- drift, retries, what is still to be written
+     * there -- before it resolves.
+     */
     static read(providerId: string): Promise<boolean> {
         const running = inFlight.get(providerId);
         if (running) return running;
-        const reading = readProvider(providerId).finally(() => inFlight.delete(providerId));
+        const reading = readProvider(providerId)
+            .then(async (ok) => {
+                if (ok) {
+                    await SyncService.afterReading(providerId).catch((err) =>
+                        logger.error({ err, providerId }, "Comparing a provider with the records failed"),
+                    );
+                }
+                return ok;
+            })
+            .finally(() => inFlight.delete(providerId));
         inFlight.set(providerId, reading);
         return reading;
     }
@@ -143,9 +166,24 @@ export class ProviderReadService {
         readings.delete(providerId);
     }
 
-    /** The entries of the last readings, by provider. */
+    /**
+     * The entries of the last readings, by provider, switched-off ones included. A provider
+     * not read since the server started has none -- not an empty list.
+     */
     static entries(): Map<string, ProviderEntry[]> {
-        return new Map([...readings].map(([id, state]) => [id, state.entries]));
+        return new Map([...readings].filter(([, state]) => state.readAt !== null).map(([id, state]) => [id, state.entries]));
+    }
+
+    /**
+     * Keeps the last reading true to what dpm just did there, so that the next step does not
+     * go by what the provider held before: the entry `remove` names is gone, `add` is there.
+     */
+    static patch(providerId: string, change: { remove?: string; add?: ProviderEntry }): void {
+        const state = readings.get(providerId);
+        if (!state || state.readAt === null) return;
+        const entries = state.entries.filter((e) => e.externalId !== change.remove && e.externalId !== change.add?.externalId);
+        if (change.add) entries.push(change.add);
+        readings.set(providerId, { ...state, entries });
     }
 
     /** How each provider's last reading went, for the pages that show it. */
@@ -157,7 +195,7 @@ export class ProviderReadService {
                 providerType: provider.type,
                 readAt: state?.readAt ?? null,
                 error: state?.error ?? provider.lastError,
-                recordCount: state?.entries.length ?? 0,
+                recordCount: state?.entries.filter((e) => !e.disabled).length ?? 0,
             };
         });
     }

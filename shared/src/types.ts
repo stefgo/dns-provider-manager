@@ -3,11 +3,13 @@ import {
     ACTIVITY_KINDS,
     ACTIVITY_LEVELS,
     ACTIVITY_SOURCES,
+    LINK_STATUSES,
     PROVIDER_TYPES,
     RECORD_TYPES,
     SCHEDULER_IDS,
     SCHEDULER_RUN_STATUSES,
     SCHEDULER_TRIGGERS,
+    SYNC_ACTIONS,
 } from "./constants.js";
 import {
     LoginPayloadSchema,
@@ -24,9 +26,18 @@ import {
     ProviderInputSchema,
     AdoptRequestSchema,
     ProviderTestRequestSchema,
+    RecordPreviewRequestSchema,
+    SitePreviewRequestSchema,
 } from "./schemas.js";
 import {
     AdoptResultSchema,
+    ObservedEntrySchema,
+    PendingRemovalSchema,
+    RecordLinkViewSchema,
+    RecordPreviewSchema,
+    SitePreviewSchema,
+    SkippedProviderSchema,
+    SyncStepViewSchema,
     ProviderTestResultSchema,
     ProviderZoneViewSchema,
     ReadingViewSchema,
@@ -168,3 +179,14 @@ export type UnmanagedEntry = z.infer<typeof UnmanagedEntrySchema>;
 export type UnmanagedResponse = z.infer<typeof UnmanagedResponseSchema>;
 export type AdoptRequest = z.input<typeof AdoptRequestSchema>;
 export type AdoptResult = z.infer<typeof AdoptResultSchema>;
+export type LinkStatus = (typeof LINK_STATUSES)[number];
+export type SyncAction = (typeof SYNC_ACTIONS)[number];
+export type ObservedEntry = z.infer<typeof ObservedEntrySchema>;
+export type RecordLinkView = z.infer<typeof RecordLinkViewSchema>;
+export type SkippedProvider = z.infer<typeof SkippedProviderSchema>;
+export type SyncStepView = z.infer<typeof SyncStepViewSchema>;
+export type RecordPreview = z.infer<typeof RecordPreviewSchema>;
+export type RecordPreviewRequest = z.input<typeof RecordPreviewRequestSchema>;
+export type PendingRemoval = z.infer<typeof PendingRemovalSchema>;
+export type SitePreview = z.infer<typeof SitePreviewSchema>;
+export type SitePreviewRequest = z.input<typeof SitePreviewRequestSchema>;
