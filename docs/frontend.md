@@ -299,11 +299,11 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   the form ("Test Connection", the stored secret standing in for an empty field), and lists a
   Cloudflare provider's zones with who uses each; under "Selected zones" they can be ticked.
 - **Unmanaged** lists what the providers hold and dpm does not manage there, with the reason
-  where an entry cannot be adopted. "Adopt" takes the picked entries — or, with nothing
-  picked, what the list shows — into a site that writes to their provider (`adoptableSites`
-  in `lib/adopt.ts`); the dialog names the site's other providers the records are written
-  to (`alsoWrittenTo`), and the outcome is one toast with every refusal. The sidebar entry
-  counts the entries.
+  where an entry cannot be adopted. An entry is adopted from its row, the picked ones
+  together with "Adopt", which waits for a pick, into a site that writes to their provider
+  (`adoptableSites` in `lib/adopt.ts`); the dialog names the site's other providers the
+  records are written to (`alsoWrittenTo`), and the outcome is one toast with every refusal.
+  The sidebar entry counts the entries.
 - **Sites** choose their providers; saving a changed choice asks first with how many records
   each provider gets or loses (`lib/siteSync.ts`). Which sites a provider belongs to is set here, not in the
   provider editor. A site that a record belongs to alone is not offered for deletion: a notice

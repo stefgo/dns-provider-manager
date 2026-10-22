@@ -5,12 +5,14 @@ import {
     Alert,
     Badge,
     Button,
+    DataAction,
     DataMultiView,
     EmptyState,
     Select,
     type DataColumnDef,
     PAGE_SIZE,
     listPagination,
+    actionsColumn,
     listGroups,
     useToast,
 } from "@stefgo/react-ui-components";
@@ -28,8 +30,8 @@ const ALL = "";
 
 /**
  * The page at `/unmanaged`: what the providers hold and dpm does not manage there. Entries
- * are taken over into a site, picked ones or -- with nothing picked -- what the list shows.
- * Nothing here writes to a provider.
+ * are taken over into a site, one from its row or the picked ones together. Nothing here
+ * writes to a provider.
  */
 export const UnmanagedOverview = () => {
     const { readings, entries, isPending, error } = useUnmanaged();
@@ -73,6 +75,21 @@ export const UnmanagedOverview = () => {
 
     const failing = readings.filter((r) => r.error !== null);
     const readable = providers.filter((p) => p.readable);
+
+    const renderActions = (e: UnmanagedEntry) => (
+        <DataAction
+            rowId={entryKey(e)}
+            actions={[
+                {
+                    icon: Download,
+                    onClick: () => setAdopting([e]),
+                    color: "blue",
+                    tooltip: { enabled: "Adopt", disabled: "Cannot be adopted" },
+                    disabled: e.problem !== null,
+                },
+            ]}
+        />
+    );
 
     const columns: DataColumnDef<UnmanagedEntry>[] = [
         {
@@ -136,10 +153,10 @@ export const UnmanagedOverview = () => {
                     <span className="text-sm text-text-muted">–</span>
                 ),
         },
+        actionsColumn(renderActions),
     ];
 
-    const adoptTarget = (picked: ReadonlySet<string | number>) =>
-        (picked.size > 0 ? entriesOf(shown, picked) : shown).filter((e) => e.problem === null);
+    const adoptTarget = (picked: ReadonlySet<string | number>) => entriesOf(shown, picked).filter((e) => e.problem === null);
 
     return (
         <div className="space-y-4">
@@ -160,11 +177,11 @@ export const UnmanagedOverview = () => {
                     const target = adoptTarget(picked);
                     return (
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button size="sm" variant="secondary" icon={RefreshCw} onClick={readAll} isLoading={reading}>
-                                Read Now
+                            <Button size="sm" variant="secondary" icon={Download} disabled={target.length === 0} onClick={() => setAdopting(target)}>
+                                Adopt
                             </Button>
-                            <Button size="sm" icon={Download} disabled={target.length === 0} onClick={() => setAdopting(target)}>
-                                Adopt {picked.size > 0 ? `(${target.length})` : target.length > 0 ? `all ${target.length}` : ""}
+                            <Button size="sm" icon={RefreshCw} onClick={readAll} isLoading={reading}>
+                                Read Now
                             </Button>
                         </div>
                     );
