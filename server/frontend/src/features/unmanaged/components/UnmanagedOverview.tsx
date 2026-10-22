@@ -109,10 +109,10 @@ export const UnmanagedOverview = () => {
             sortable: true,
             sortValue: (e) => providerName(e.providerId),
             render: (e) => (
-                <div className="min-w-0">
-                    <span className="block text-sm text-text-primary">{providerName(e.providerId)}</span>
-                    {e.zone && <span className="block text-xs text-text-muted">{e.zone}</span>}
-                </div>
+                <span className="text-sm text-text-primary">
+                    {providerName(e.providerId)}
+                    {e.zone && <span className="text-text-muted"> ({e.zone})</span>}
+                </span>
             ),
         },
         {
