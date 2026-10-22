@@ -14,7 +14,6 @@ import {
 } from "@stefgo/react-ui-components";
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
-import { providerTarget } from "../lib/providerTarget";
 import type { ProviderRecordCount } from "../lib/providerRecords";
 import { RelativeTime } from "../../../components/RelativeTime";
 import { plural } from "../../../utils";
@@ -67,7 +66,7 @@ export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onEdi
 
     const matchesSearch = (provider: Provider, query: string) => {
         const q = query.toLowerCase();
-        return [provider.name, PROVIDER_TYPE_LABELS[provider.type], providerTarget(provider), ...sitesOf(provider, sites).map((s) => s.name)].some(
+        return [provider.name, PROVIDER_TYPE_LABELS[provider.type], ...sitesOf(provider, sites).map((s) => s.name)].some(
             (text) => text.toLowerCase().includes(q),
         );
     };
@@ -101,14 +100,6 @@ export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onEdi
                     {/* A provider dpm only reads, by choice or because it cannot write that type yet. */}
                     {!p.writable && <Badge variant="warning">Read only</Badge>}
                 </div>
-            ),
-        },
-        {
-            header: "Target",
-            render: (p) => (
-                <span className="block max-w-md truncate text-sm text-text-muted" title={providerTarget(p)}>
-                    {providerTarget(p)}
-                </span>
             ),
         },
         {
