@@ -106,7 +106,8 @@ Requests are logged at `debug`, failed ones at `warn`, server errors at `error`.
 ## 🗄️ Database Management
 
 SQLite through better-sqlite3, in WAL mode, at `server/backend/data/server.db`, with foreign
-keys switched on for every connection — SQLite leaves them unchecked otherwise. The schema
+keys switched on explicitly for every connection, rather than relying on how better-sqlite3 was
+compiled. The schema
 is managed by Umzug: each migration is a module in `core/migrations/` and is listed in
 `Database.ts`. `00_initial.ts` is the schema DPM starts from; every later change is a
 migration of its own.

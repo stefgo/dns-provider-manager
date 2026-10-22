@@ -37,9 +37,9 @@ logger.info(`Database opened: ${dbPath}`);
 
 // Enable WAL mode for better concurrency
 db.pragma("journal_mode = WAL");
-// SQLite leaves foreign keys unchecked unless every connection asks for them. Without this
-// the REFERENCES clauses are decoration: a site deleted under its records, or a seen mark
-// outliving its event, would go through unnoticed.
+// The REFERENCES clauses carry rules: a site cannot go while a record has no other one, and
+// what hangs off a deleted row goes with it. better-sqlite3 happens to be built with foreign
+// keys on; set it here so that does not depend on how the library was compiled.
 db.pragma("foreign_keys = ON");
 
 // Run umzug migrations
