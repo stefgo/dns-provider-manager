@@ -123,6 +123,7 @@ export const CleanupSettingsSchema = z.looseObject({
     notification_retention_count: WholeNumberSettingSchema.optional(),
     notification_cleanup_interval_hours: WholeNumberSettingSchema.optional(),
     activity_level_overrides: ActivityLevelOverridesSettingSchema.optional(),
+    provider_read_interval_minutes: WholeNumberSettingSchema.optional(),
     security: z
         .undefined({
             error: "Configured in config.yaml only, not through this endpoint",
@@ -143,6 +144,8 @@ export const AppSettingsSchema = z
         notification_retention_count: WholeNumberSettingSchema.default("500"),
         notification_cleanup_interval_hours: WholeNumberSettingSchema.default("24"),
         activity_level_overrides: ActivityLevelOverridesSettingSchema.default(""),
+        /** Minutes between two readings of every provider; 0 reads only on request. */
+        provider_read_interval_minutes: WholeNumberSettingSchema.default("5"),
     })
     .prefault({});
 
@@ -467,6 +470,11 @@ export const ProviderInputSchema = z.discriminatedUnion("type", [
         type: z.literal("cloudflare"),
         ...providerCommon,
         zoneMode: z.enum(ZONE_MODES).default("all"),
+        /**
+         * The zones ticked under "Selected zones", by Cloudflare's zone id. Kept while the mode
+         * is "all", so switching back and forth does not lose the choice.
+         */
+        zoneIds: z.array(z.string().min(1)).default([]).transform(unique),
     }),
     z.object({
         type: z.literal("adguard"),
@@ -496,3 +504,27 @@ export function providerSecretMissing(input: { type: string; secret?: string }):
     if (input.secret) return null;
     return input.type === "cloudflare" ? "Enter the API token" : "Enter the password";
 }
+
+/**
+ * `POST /api/v1/providers/test`: a provider as the editor holds it, saved or not. `id` names
+ * the stored provider whose secret stands in while the editor's secret field is empty.
+ */
+export const ProviderTestRequestSchema = z.object({
+    id: z.string().min(1).optional(),
+    provider: ProviderInputSchema,
+});
+
+/** One entry a provider holds, as the unmanaged list names it. */
+export const UnmanagedRefSchema = z.object({
+    providerId: z.string().min(1),
+    externalId: z.string().min(1),
+});
+
+/**
+ * `POST /api/v1/unmanaged/adopt`: entries to take over, into one site. The site has to be one
+ * of each entry's provider, so that dpm takes over what it will write there.
+ */
+export const AdoptRequestSchema = z.object({
+    siteId: z.string().min(1, { error: "Choose a site" }),
+    entries: z.array(UnmanagedRefSchema).min(1, { error: "Choose at least one entry" }).max(1000),
+});

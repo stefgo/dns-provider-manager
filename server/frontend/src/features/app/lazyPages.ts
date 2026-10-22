@@ -12,6 +12,9 @@ export const RecordOverview = lazy(() =>
 export const RecordEditorRoute = lazy(() =>
     import("../records/components/RecordEditor").then((m) => ({ default: m.RecordEditorRoute })),
 );
+export const UnmanagedOverview = lazy(() =>
+    import("../unmanaged/components/UnmanagedOverview").then((m) => ({ default: m.UnmanagedOverview })),
+);
 export const ProviderOverview = lazy(() =>
     import("../providers/components/ProviderOverview").then((m) => ({ default: m.ProviderOverview })),
 );

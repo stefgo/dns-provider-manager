@@ -75,7 +75,12 @@ export const RecordList = ({ records, sites, isLoading, onAdd, onEdit, onDelete 
             header: "Value",
             sortable: true,
             sortValue: (r) => r.value,
-            render: (r) => <span className="font-mono text-sm text-text-primary break-all">{r.value}</span>,
+            // An address stays on one line; a long CNAME target may wrap.
+            render: (r) => (
+                <span className={`font-mono text-sm text-text-primary ${r.type === "CNAME" ? "break-all" : "whitespace-nowrap"}`}>
+                    {r.value}
+                </span>
+            ),
         },
         {
             header: "Sites",

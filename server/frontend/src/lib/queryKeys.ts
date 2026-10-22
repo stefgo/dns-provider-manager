@@ -19,6 +19,11 @@ export const queryKeys = {
         all: ["providers"] as const,
         list: () => ["providers", "list"] as const,
     },
+    /** What the providers hold and dpm does not manage, with how each provider's reading went. */
+    unmanaged: {
+        all: ["unmanaged"] as const,
+        list: () => ["unmanaged", "list"] as const,
+    },
     activity: {
         all: ["activity"] as const,
         list: () => ["activity", "list"] as const,

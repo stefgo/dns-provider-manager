@@ -4,6 +4,16 @@ vi.mock("../config/AppConfig.js", () => ({
     appConfig: { secretKey: "test-secret-key", settings: { activity_level_overrides: "" } },
     secretKeyPersisted: () => true,
 }));
+// Nothing here may talk to a real provider. The readings are what a test puts in.
+const readings = vi.hoisted(() => new Map<string, import("../providers/DnsProvider.js").ProviderEntry[]>());
+vi.mock("./ProviderReadService.js", () => ({
+    ProviderReadService: {
+        readSoon: () => undefined,
+        forget: (id: string) => readings.delete(id),
+        entries: () => readings,
+        readings: () => [],
+    },
+}));
 vi.mock("../core/Database.js", async () => {
     const { migratedMemoryDatabase } = await import("../testing/memoryDatabase.js");
     return { default: await migratedMemoryDatabase() };
@@ -16,6 +26,8 @@ import { RecordService } from "./RecordService.js";
 import { SiteService } from "./SiteService.js";
 import { RequestError } from "./RequestError.js";
 import { decryptSecret } from "./SecretCrypto.js";
+import { UnmanagedService } from "./UnmanagedService.js";
+import { ProviderZoneRepository } from "../repositories/ProviderZoneRepository.js";
 import { ActivityRepository } from "../repositories/ActivityRepository.js";
 import { ProviderRepository } from "../repositories/ProviderRepository.js";
 import { RecordRepository } from "../repositories/RecordRepository.js";
@@ -24,7 +36,8 @@ import { SiteRepository } from "../repositories/SiteRepository.js";
 const USER = "admin";
 
 beforeEach(() => {
-    db.exec("DELETE FROM record_sites; DELETE FROM records; DELETE FROM site_providers; DELETE FROM sites; DELETE FROM providers; DELETE FROM activity;");
+    readings.clear();
+    db.exec("DELETE FROM record_sites; DELETE FROM records; DELETE FROM site_providers; DELETE FROM sites; DELETE FROM provider_zones; DELETE FROM providers; DELETE FROM activity;");
 });
 
 const provider = (over: object = {}) =>
@@ -197,5 +210,130 @@ describe("ProviderService", () => {
         const internal = site("internal", [ag.id]);
         ProviderService.delete(ag.id, USER);
         expect(SiteRepository.findById(internal.id)?.providerIds).toEqual([]);
+    });
+});
+
+describe("UnmanagedService", () => {
+    /** A Cloudflare provider that sees example.com, in a site of its own, holding `entries`. */
+    function cloudflare(entries: Array<Partial<import("../providers/DnsProvider.js").ProviderEntry>>) {
+        const cf = ProviderService.create(ProviderInputSchema.parse({ type: "cloudflare", name: "Cloudflare", secret: "t" }), USER);
+        ProviderZoneRepository.replace(cf.id, [{ id: "z1", name: "example.com" }]);
+        readings.set(
+            cf.id,
+            entries.map((e, i) => ({
+                externalId: `e${i}`,
+                zoneId: "z1",
+                zone: "example.com",
+                name: "app.example.com",
+                type: "A",
+                value: "203.0.113.10",
+                ttl: null,
+                proxied: false,
+                ...e,
+            })),
+        );
+        return { cf, external: site("external", [cf.id]) };
+    }
+
+    it("lists what Cloudflare holds and dpm does not", () => {
+        cloudflare([{}, { name: "www.example.com", type: "CNAME", value: "app.example.com" }]);
+        expect(UnmanagedService.list().entries.map((e) => e.name)).toEqual(["app.example.com", "www.example.com"]);
+    });
+
+    it("takes entries over into a site of their provider, as one group in the activity", () => {
+        const { cf, external } = cloudflare([{ ttl: 300, proxied: true }, { name: "www.example.com" }]);
+        const result = UnmanagedService.adopt(
+            external.id,
+            [
+                { providerId: cf.id, externalId: "e0" },
+                { providerId: cf.id, externalId: "e1" },
+            ],
+            USER,
+        );
+        expect(result.refused).toEqual([]);
+        expect(result.adopted.map((a) => a.name)).toEqual(["app.example.com", "www.example.com"]);
+        expect(RecordRepository.findAll().find((r) => r.name === "app.example.com")).toMatchObject({
+            ttl: 300,
+            proxied: true,
+            siteIds: [external.id],
+        });
+        expect(UnmanagedService.list().entries).toEqual([]);
+        const adopted = events("record.adopted");
+        expect(adopted).toHaveLength(2);
+        const [summary] = events("record.adoption");
+        expect(summary.data).toMatchObject({ count: 2, site: "external", providers: ["Cloudflare"] });
+        expect(new Set([...adopted, summary].map((e) => e.correlationId)).size).toBe(1);
+        expect(adopted[0].data).toMatchObject({ provider: "Cloudflare", merged: false });
+    });
+
+    it("gives the record dpm has in other sites the site, instead of a second record", () => {
+        const { cf, external } = cloudflare([{}]);
+        const internal = site("internal");
+        const existing = record([internal.id], { value: "203.0.113.10" });
+        const result = UnmanagedService.adopt(external.id, [{ providerId: cf.id, externalId: "e0" }], USER);
+        expect(result.adopted).toEqual([{ name: "app.example.com", type: "A", value: "203.0.113.10", merged: true }]);
+        expect(RecordRepository.findById(existing.id)?.siteIds.sort()).toEqual([external.id, internal.id].sort());
+        expect(RecordRepository.findAll()).toHaveLength(1);
+    });
+
+    it("refuses a site that does not write to the provider, a name dpm cannot hold and a conflict -- and goes on", () => {
+        const { cf, external } = cloudflare([{}, { name: "bad_name.example.com" }, { type: "CNAME", value: "web.example.com" }]);
+        const elsewhere = site("lab");
+        expect(UnmanagedService.adopt(elsewhere.id, [{ providerId: cf.id, externalId: "e0" }], USER).refused[0].reason).toBe(
+            'The site "lab" does not write to Cloudflare',
+        );
+        const result = UnmanagedService.adopt(
+            external.id,
+            ["e0", "e1", "e2", "gone"].map((externalId) => ({ providerId: cf.id, externalId })),
+            USER,
+        );
+        expect(result.adopted.map((a) => a.type)).toEqual(["A"]);
+        expect(result.refused.map((r) => r.reason)).toEqual([
+            expect.stringMatching(/only letters, digits and hyphens/),
+            expect.stringMatching(/a CNAME cannot stand beside another record/),
+            "Not among the unmanaged entries any more; read the provider again",
+        ]);
+    });
+
+    it("refuses a site that does not exist", () => {
+        expect(refusal(() => UnmanagedService.adopt("nope", [{ providerId: "p", externalId: "e" }], USER))).toBe(400);
+    });
+});
+
+describe("zones", () => {
+    const cloudflareProvider = (name: string, over: object = {}) =>
+        ProviderService.create(ProviderInputSchema.parse({ type: "cloudflare", name, secret: "t", ...over }), USER);
+
+    it("are used by the provider created first, until another one ticks them", () => {
+        const first = cloudflareProvider("First");
+        const second = cloudflareProvider("Second", { zoneMode: "selected" });
+        ProviderZoneRepository.replace(first.id, [{ id: "z1", name: "example.com" }]);
+        ProviderZoneRepository.replace(second.id, [{ id: "z1", name: "example.com" }]);
+        expect(ProviderRepository.findById(first.id)?.zones[0].owner).toBe(first.id);
+
+        ProviderService.update(second.id, ProviderInputSchema.parse({ ...ProviderRepository.findById(second.id), zoneIds: ["z1"] }), USER);
+        expect(ProviderRepository.findById(first.id)?.zones[0].owner).toBe(second.id);
+        expect(ProviderRepository.findById(second.id)).toMatchObject({ zoneIds: ["z1"] });
+    });
+
+    it("refuse a zone another provider has ticked already", () => {
+        const a = cloudflareProvider("A", { zoneMode: "selected" });
+        const b = cloudflareProvider("B", { zoneMode: "selected" });
+        for (const p of [a, b]) ProviderZoneRepository.replace(p.id, [{ id: "z1", name: "example.com" }]);
+        ProviderService.update(a.id, ProviderInputSchema.parse({ ...ProviderRepository.findById(a.id), zoneIds: ["z1"] }), USER);
+        expect(
+            refusal(() => ProviderService.update(b.id, ProviderInputSchema.parse({ ...ProviderRepository.findById(b.id), zoneIds: ["z1"] }), USER)),
+        ).toBe(409);
+    });
+
+    it("keep their tick across a reading, and lose it when they are gone", () => {
+        const a = cloudflareProvider("A", { zoneMode: "selected" });
+        ProviderZoneRepository.replace(a.id, [{ id: "z1", name: "example.com" }, { id: "z2", name: "example.net" }]);
+        ProviderZoneRepository.setSelected(a.id, ["z1", "z2"]);
+        ProviderZoneRepository.replace(a.id, [{ id: "z1", name: "example.com" }, { id: "z3", name: "example.org" }]);
+        expect(ProviderRepository.findById(a.id)?.zones.map((z) => [z.id, z.selected])).toEqual([
+            ["z1", true],
+            ["z3", false],
+        ]);
     });
 });

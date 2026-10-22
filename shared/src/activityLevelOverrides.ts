@@ -26,12 +26,16 @@ export const ACTIVITY_DEFAULT_LEVELS: Record<ActivityKind, readonly ActivityLeve
     "record.created": ["info"],
     "record.changed": ["info"],
     "record.deleted": ["info"],
+    "record.adopted": ["info"],
+    "record.adoption": ["info"],
     "site.created": ["info"],
     "site.changed": ["info"],
     "site.deleted": ["info"],
     "provider.created": ["info"],
     "provider.changed": ["info"],
     "provider.deleted": ["info"],
+    "provider.unreachable": ["warning"],
+    "provider.recovered": ["info"],
     "scheduler.failed": ["error"],
 };
 

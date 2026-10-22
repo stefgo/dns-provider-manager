@@ -1,6 +1,11 @@
 import db from "../core/Database.js";
 import { ZONE_MODES, type Provider, type ProviderFields, type ProviderType } from "@dpm/shared";
 import { idsColumn } from "./SiteRepository.js";
+import { ProviderZoneRepository, type StoredZone } from "./ProviderZoneRepository.js";
+import { zoneOwnership } from "../services/zoneOwnership.js";
+
+/** The types this build can read. The others are kept and shown, and wait for their client. */
+export const READABLE_TYPES: readonly ProviderType[] = ["cloudflare"];
 
 interface ProviderRow {
     id: string;
@@ -43,16 +48,25 @@ function parseSettings(text: string): Record<string, unknown> {
     }
 }
 
+const zoneModeOf = (settings: Record<string, unknown>): (typeof ZONE_MODES)[number] =>
+    (ZONE_MODES as readonly unknown[]).includes(settings.zoneMode) ? (settings.zoneMode as (typeof ZONE_MODES)[number]) : "all";
+
 // Only ever written from checked input, but a row edited by hand must not take the list
 // down: what does not read falls back to the default of its field.
 const text = (value: unknown) => (typeof value === "string" ? value : "");
 const flag = (value: unknown) => value === true;
 
+/** What the view of a provider adds from its zones: the zones, with who uses each, and the ticked ones. */
+interface ZoneFacts {
+    zones: Provider["zones"];
+    zoneIds: string[];
+}
+
 /**
  * A row as the API shows it -- without the secret. A row of a type this build does not
  * know is left out rather than shown as something it is not.
  */
-function rowToProvider(row: ProviderRow): Provider | null {
+function rowToProvider(row: ProviderRow, { zones, zoneIds }: ZoneFacts): Provider | null {
     const settings = parseSettings(row.settings);
     const common = {
         id: row.id,
@@ -64,15 +78,16 @@ function rowToProvider(row: ProviderRow): Provider | null {
         updatedAt: row.updated_at,
         lastSeenAt: row.last_seen_at,
         lastError: row.last_error,
+        zones,
+        readable: READABLE_TYPES.includes(row.type as ProviderType),
     };
     switch (row.type as ProviderType) {
         case "cloudflare":
             return {
                 type: "cloudflare",
                 ...common,
-                zoneMode: (ZONE_MODES as readonly unknown[]).includes(settings.zoneMode)
-                    ? (settings.zoneMode as (typeof ZONE_MODES)[number])
-                    : "all",
+                zoneMode: zoneModeOf(settings),
+                zoneIds,
             };
         case "adguard":
             return {
@@ -95,15 +110,58 @@ function rowToProvider(row: ProviderRow): Provider | null {
     }
 }
 
+/**
+ * Each provider's zones with who uses them -- worked out across all providers at once,
+ * since a zone two tokens see is decided between the two.
+ */
+function zoneFacts(rows: readonly ProviderRow[], zones: readonly StoredZone[]): Map<string, ZoneFacts> {
+    const owners = zoneOwnership(
+        rows.map((row) => ({
+            id: row.id,
+            createdAt: row.created_at,
+            zoneMode: row.type === "cloudflare" ? zoneModeOf(parseSettings(row.settings)) : "all",
+        })),
+        zones,
+    );
+    return new Map(
+        rows.map((row) => {
+            const own = zones.filter((z) => z.providerId === row.id);
+            return [
+                row.id,
+                {
+                    zones: own.map((z) => ({ id: z.zoneId, name: z.name, selected: z.selected, owner: owners.get(z.zoneId) ?? null })),
+                    zoneIds: own.filter((z) => z.selected).map((z) => z.zoneId),
+                },
+            ];
+        }),
+    );
+}
+
 export class ProviderRepository {
     static findAll(): Provider[] {
         const rows = db.prepare(`${SELECT_PROVIDER} ORDER BY p.name COLLATE NOCASE`).all() as ProviderRow[];
-        return rows.map(rowToProvider).filter((p): p is Provider => p !== null);
+        const facts = zoneFacts(rows, ProviderZoneRepository.findAll());
+        return rows.map((row) => rowToProvider(row, facts.get(row.id)!)).filter((p): p is Provider => p !== null);
     }
 
+    /** Through the whole list: who uses a zone is decided among all providers. */
     static findById(id: string): Provider | undefined {
-        const row = db.prepare(`${SELECT_PROVIDER} WHERE p.id = ?`).get(id) as ProviderRow | undefined;
-        return (row && rowToProvider(row)) ?? undefined;
+        return this.findAll().find((p) => p.id === id);
+    }
+
+    /** The stored secret, as `SecretCrypto` made it -- for the one who talks to the provider. */
+    static storedSecret(id: string): string | null {
+        const row = db.prepare("SELECT secret FROM providers WHERE id = ?").get(id) as { secret: string | null } | undefined;
+        return row?.secret ?? null;
+    }
+
+    /** How the last reading went: when it succeeded, or why it failed (the time then stays). */
+    static markRead(id: string, at: string, error: string | null): void {
+        if (error === null) {
+            db.prepare("UPDATE providers SET last_seen_at = ?, last_error = NULL WHERE id = ?").run(at, id);
+        } else {
+            db.prepare("UPDATE providers SET last_error = ? WHERE id = ?").run(error, id);
+        }
     }
 
     /** Whether another provider than `exceptId` is called `name`, ignoring case. */

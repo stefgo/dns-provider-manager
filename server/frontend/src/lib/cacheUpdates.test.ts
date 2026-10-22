@@ -74,7 +74,7 @@ describe("marking activity seen", () => {
 
 describe("applySchedulerUpdate", () => {
     const idle = { isRunning: false, nextRun: null, lastRun: null };
-    const schedulers: SchedulerStatuses = { "notification-cleanup": idle };
+    const schedulers: SchedulerStatuses = { "notification-cleanup": idle, "provider-read": idle };
 
     it("replaces the scheduler's status and leaves the cache it came from alone", () => {
         const updated = applySchedulerUpdate(schedulers, {

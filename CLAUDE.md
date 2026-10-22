@@ -96,11 +96,16 @@ bundle without the backend, use `npm run preview -w server/frontend`.
   `00_initial.ts` is the schema dpm starts from; every change after it is a migration of its
   own, listed in `Database.ts`. Migrations get no tests.
 - `DashboardService` holds the open dashboard sockets; it sends `DashboardMessage` only.
+- A DNS server is reached through a client in `providers/` (`DnsProvider` interface, chosen by
+  `clientFor`); what turns its answers into dpm's terms is a pure mapping next to it, tested
+  against recorded answers. **No test talks to a real provider.** What the providers hold is
+  read by `ProviderReadService` and kept in memory; which provider uses a zone is derived
+  (`zoneOwnership`), never stored.
 - Secrets the server has to read back (provider credentials) are encrypted with
   `SecretCrypto` (`secretKey`); they never go back to the browser.
 
 ### Frontend (server/frontend/src)
-- Feature-based structure under `features/` (dashboard, records, providers, sites, activity, users, auth, webhooks, settings, app)
+- Feature-based structure under `features/` (dashboard, records, unmanaged, providers, sites, activity, users, auth, webhooks, settings, app)
 - What the server holds lives in one TanStack Query cache (`lib/queryClient.ts`), read through
   the modules in `queries/` and addressed by `lib/queryKeys.ts`. Zustand holds only
   `useUIStore`, what this browser alone knows.

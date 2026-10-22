@@ -40,6 +40,15 @@ describe("activityMessage: changes made by a user", () => {
         );
     });
 
+    it("sums up an adoption, whose records are its steps", () => {
+        expect(activityMessage(event("record.adoption", { data: { user: "admin", count: 4, site: "external" } }))).toBe(
+            "4 records adopted into external by admin",
+        );
+        expect(activityMessage(event("record.adopted", { data: { name: "nas.example.com", type: "A", value: "192.168.1.20", provider: "Cloudflare" } }))).toBe(
+            "Record nas.example.com A 192.168.1.20 adopted from Cloudflare",
+        );
+    });
+
     it("names a site and a provider", () => {
         expect(activityMessage(event("site.changed", { data: { user: "admin", name: "internal" } }))).toBe(
             "Site internal changed by admin",

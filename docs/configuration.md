@@ -4,7 +4,7 @@ DPM is configured in two places:
 
 | Where | What goes there |
 | :---- | :-------------- |
-| **Dashboard → Settings** | Retention of the activity history and the level of each event kind. Stored in the `settings` block of the server's `config.yaml`. |
+| **Dashboard → Settings** | How often the providers are read, the retention of the activity history and the level of each event kind. Stored in the `settings` block of the server's `config.yaml`. |
 | **Server `config.yaml`** | Sign-in (OIDC, sessions), port, reverse proxy — what needs a restart. |
 
 [Environment variables](#environment-variables) override a few keys of the file.
@@ -37,6 +37,7 @@ misspelled key does not leave its default in force unnoticed.
 |                            | `redirect_uri`  | OIDC Redirect URI: `https://<this server>/api/auth/callback`. |
 | `jwtExpiresIn`             | —               | Session lifetime (e.g. `"24h"`). Defaults to `"12h"`. Sessions always expire; the dashboard signs out when they do. |
 | `settings`                 | `notification_retention_days` / `_count` / `notification_cleanup_interval_hours` | Retention of the activity history (defaults 90 days, at least 500 kept, every 24 h). |
+|                            | `provider_read_interval_minutes` | Minutes between two readings of every provider (default `5`); `0` reads only on request and when a provider is saved. The server reads once at every start either way. |
 |                            | `activity_level_overrides` | The level an event kind is recorded with, as `kind=level` entries separated by commas, e.g. `scheduler.failed=warning`; edited under **Settings → Activity History → Event Levels**. `level` is `trace`, `info`, `warning`, `error`, or `none`, which keeps the kind out of the activity and away from the webhooks. An override applies to events from then on. Default `""`; a value that cannot be read stops the server at startup. |
 | `logLevel`                 | —               | pino log level; `LOG_LEVEL` wins when set.               |
 | `port`                     | —               | Listen port (default `3030`); `DPM_SERVER_PORT` wins when set. The published port: the compose port mapping has to follow it. |
@@ -56,6 +57,7 @@ write back.
 | `DPM_SERVER_PORT` | `1`–`65535`                 | `3030`        | Port the server listens on; wins over `port` in `config.yaml`. An unusable value ends the start. The container's health check follows the port either way (see [Health](operations.md#health)). |
 | `DPM_TRUSTED_PROXIES` | IPs, CIDRs, `loopback`, `linklocal`, `uniquelocal`, comma separated | _unset_ | Reverse proxies whose `X-Forwarded-*` headers the server believes; wins over `security.trusted_proxies`. An unusable entry ends the start. See [Reverse proxy](security.md#reverse-proxy). |
 | `NODE_ENV`    | `development`, `production`      | `development` | Picks the log format when `LOG_FORMAT` is unset (`production` → JSON).        |
+| `DPM_CLOUDFLARE_API_URL` | URL                   | _unset_       | Where Cloudflare's API is asked, in place of `https://api.cloudflare.com/client/v4`. Only for tests against a stand-in, never for an installation. |
 
 In Compose they go into the service's `environment:` block:
 

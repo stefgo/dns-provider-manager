@@ -31,10 +31,13 @@ describe("the scheduler schemas", () => {
     };
 
     it("take the status of every scheduler", () => {
-        const schedulers = { "notification-cleanup": { ...idle, lastRun: run } };
-        expect(SchedulerStatusResponseSchema.parse({ schedulers }).schedulers["notification-cleanup"].lastRun?.result).toEqual({
-            removed: 3,
-        });
+        const schedulers = {
+            "notification-cleanup": { ...idle, lastRun: run },
+            "provider-read": { ...idle, lastRun: { ...run, status: "partial", result: { read: 2, failed: 1 } } },
+        };
+        const parsed = SchedulerStatusResponseSchema.parse({ schedulers }).schedulers;
+        expect(parsed["notification-cleanup"].lastRun?.result).toEqual({ removed: 3 });
+        expect(parsed["provider-read"].lastRun?.result).toEqual({ read: 2, failed: 1 });
     });
 
     it("refuse a response that lacks a scheduler", () => {

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
     ACTIVITY_LEVELS,
+    PROVIDER_TYPES,
     RECORD_TYPES,
     SCHEDULER_RUN_STATUSES,
     SCHEDULER_TRIGGERS,
@@ -31,33 +32,37 @@ export const ActivityListSchema = z.array(ActivityRecordSchema);
 // ── Schedulers ───────────────────────────────────────────────────────────────
 
 /**
- * One scheduler's status. Every scheduler reports `{ removed }` as the result of a run.
+ * One scheduler's status, with the result of its last run in the shape that scheduler
+ * reports: how many rows the cleanup removed, how many providers the reading read and how
+ * many it could not.
  *
  * The result is read out of `scheduler_state`, where a run of an earlier version may have
  * left another shape behind. That reads as "no result" instead of refusing the status of
  * every scheduler along with it.
  */
-const SchedulerStatusSchema = z.object({
-    isRunning: z.boolean(),
-    /** Null when the scheduler is switched off. */
-    nextRun: z.string().nullable(),
-    lastRun: z
-        .object({
-            trigger: z.enum(SCHEDULER_TRIGGERS),
-            status: z.enum(SCHEDULER_RUN_STATUSES),
-            startedAt: z.string(),
-            /** Null for a run the server did not live to finish (`interrupted`). */
-            finishedAt: z.string().nullable(),
-            /** Null unless the run succeeded, fully or in part. */
-            result: z.object({ removed: z.number() }).nullable().catch(null),
-            error: z.string().nullable(),
-        })
-        .nullable(),
-});
+const schedulerStatus = <R extends z.ZodType>(result: R) =>
+    z.object({
+        isRunning: z.boolean(),
+        /** Null when the scheduler is switched off. */
+        nextRun: z.string().nullable(),
+        lastRun: z
+            .object({
+                trigger: z.enum(SCHEDULER_TRIGGERS),
+                status: z.enum(SCHEDULER_RUN_STATUSES),
+                startedAt: z.string(),
+                /** Null for a run the server did not live to finish (`interrupted`). */
+                finishedAt: z.string().nullable(),
+                /** Null unless the run succeeded, fully or in part. */
+                result: result.nullable().catch(null),
+                error: z.string().nullable(),
+            })
+            .nullable(),
+    });
 
 /** Every scheduler the server runs, by its id. `SCHEDULER_IDS` lists the same one. */
 export const SchedulerStatusesSchema = z.object({
-    "notification-cleanup": SchedulerStatusSchema,
+    "notification-cleanup": schedulerStatus(z.object({ removed: z.number() })),
+    "provider-read": schedulerStatus(z.object({ read: z.number(), failed: z.number() })),
 });
 
 /** `GET /api/v1/settings/scheduler-status`. */
@@ -73,6 +78,7 @@ const schedulerUpdate = <Id extends keyof typeof SchedulerStatusesSchema.shape>(
  */
 export const SchedulerStatusUpdateSchema = z.discriminatedUnion("scheduler", [
     schedulerUpdate("notification-cleanup"),
+    schedulerUpdate("provider-read"),
 ]);
 
 // ── Users, session ───────────────────────────────────────────────────────────
@@ -109,9 +115,14 @@ export const AuthConfigSchema = z.object({
  */
 export const SettingsResponseSchema = z.record(z.string(), z.unknown());
 
-/** What a maintenance job started by hand reports: `POST /api/v1/settings/cleanup/*`. */
+/**
+ * What a job started by hand reports: `POST /api/v1/settings/cleanup/*` how many rows it
+ * removed, `POST /api/v1/providers/read` how many providers it read and could not.
+ */
 export const ManualRunResultSchema = z.object({
     removed: z.number().optional(),
+    read: z.number().optional(),
+    failed: z.number().optional(),
 });
 
 // ── Webhooks ─────────────────────────────────────────────────────────────────
@@ -190,6 +201,17 @@ export const SiteViewSchema = z.object({
 /** `GET /api/v1/sites`, ordered by name. */
 export const SiteListSchema = z.array(SiteViewSchema);
 
+/**
+ * A zone a provider's token sees. `owner` is the provider that uses it -- this one, another
+ * one that sees the same zone, or null when nobody does (not ticked under "Selected zones").
+ */
+export const ProviderZoneViewSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    selected: z.boolean(),
+    owner: z.string().nullable(),
+});
+
 const providerView = {
     id: z.string(),
     name: z.string(),
@@ -203,11 +225,20 @@ const providerView = {
     /** When the server last reached the provider, and why it last failed to. */
     lastSeenAt: z.string().nullable(),
     lastError: z.string().nullable(),
+    /** The zones of the last reading; empty for a provider that has none, or was never read. */
+    zones: z.array(ProviderZoneViewSchema),
+    /** Whether this build can read the provider yet. */
+    readable: z.boolean(),
 };
 
 /** A provider as the API returns it, one shape per type, without its secret. */
 export const ProviderViewSchema = z.discriminatedUnion("type", [
-    z.object({ type: z.literal("cloudflare"), ...providerView, zoneMode: z.enum(ZONE_MODES) }),
+    z.object({
+        type: z.literal("cloudflare"),
+        ...providerView,
+        zoneMode: z.enum(ZONE_MODES),
+        zoneIds: z.array(z.string()),
+    }),
     z.object({
         type: z.literal("adguard"),
         ...providerView,
@@ -226,3 +257,56 @@ export const ProviderViewSchema = z.discriminatedUnion("type", [
 
 /** `GET /api/v1/providers`, ordered by name. */
 export const ProviderListSchema = z.array(ProviderViewSchema);
+
+/** `POST /api/v1/providers/test`: whether the provider answers, and what it said. */
+export const ProviderTestResultSchema = z.object({
+    ok: z.boolean(),
+    message: z.string(),
+    zones: z.array(z.object({ id: z.string(), name: z.string() })),
+});
+
+/** One provider's last reading, as the unmanaged page shows it. */
+export const ReadingViewSchema = z.object({
+    providerId: z.string(),
+    providerType: z.enum(PROVIDER_TYPES),
+    /** Null while the provider was never read since the server started. */
+    readAt: z.string().nullable(),
+    error: z.string().nullable(),
+    /** How many A, AAAA and CNAME records it holds in the zones it uses. */
+    recordCount: z.number(),
+});
+
+/**
+ * An entry a provider holds that dpm does not manage there. `recordId` names a record of dpm
+ * with the same name, type and value that is not meant for this provider yet: adopting the
+ * entry gives that record the site instead of creating another. `problem` says why the entry
+ * cannot be taken over at all, such as a name dpm does not accept.
+ */
+export const UnmanagedEntrySchema = z.object({
+    providerId: z.string(),
+    externalId: z.string(),
+    zone: z.string().nullable(),
+    name: z.string(),
+    type: z.enum(RECORD_TYPES),
+    value: z.string(),
+    ttl: z.number().nullable(),
+    proxied: z.boolean(),
+    recordId: z.string().nullable(),
+    problem: z.string().nullable(),
+});
+
+/** `GET /api/v1/unmanaged`. */
+export const UnmanagedResponseSchema = z.object({
+    readings: z.array(ReadingViewSchema),
+    entries: z.array(UnmanagedEntrySchema),
+});
+
+/** `POST /api/v1/unmanaged/adopt`: what was taken over, and what was refused and why. */
+export const AdoptResultSchema = z.object({
+    adopted: z.array(
+        z.object({ name: z.string(), type: z.enum(RECORD_TYPES), value: z.string(), merged: z.boolean() }),
+    ),
+    refused: z.array(
+        z.object({ name: z.string(), type: z.string(), value: z.string(), reason: z.string() }),
+    ),
+});

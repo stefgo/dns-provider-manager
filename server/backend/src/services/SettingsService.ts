@@ -2,6 +2,7 @@ import type { AppConfig } from "../config/AppConfig.js";
 import { appConfig, updateConfig } from "../config/AppConfig.js";
 import { logger } from "@dpm/shared/node";
 import { NotificationCleanupService } from "./NotificationCleanupService.js";
+import { ProviderReadService } from "./ProviderReadService.js";
 
 const NOTIFICATION_CLEANUP_KEYS = new Set([
     "notification_retention_days",
@@ -70,6 +71,9 @@ export class SettingsService {
             );
             if (notificationCleanupChanged) {
                 NotificationCleanupService.restartScheduler();
+            }
+            if (previousSettings.provider_read_interval_minutes !== newSettings.provider_read_interval_minutes) {
+                ProviderReadService.restartScheduler();
             }
         } catch (e) {
             logger.error({ err: e }, "Failed to update settings");

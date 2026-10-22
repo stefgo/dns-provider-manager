@@ -1,5 +1,14 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ProviderListSchema, ProviderViewSchema, type Provider, type ProviderInput } from "@dpm/shared";
+import {
+    ManualRunResultSchema,
+    ProviderListSchema,
+    ProviderTestResultSchema,
+    ProviderViewSchema,
+    ReadingViewSchema,
+    type Provider,
+    type ProviderInput,
+    type ProviderTestRequest,
+} from "@dpm/shared";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
 import { invalidateDns } from "./dns";
@@ -43,3 +52,18 @@ export function useDeleteProvider() {
         onSettled: () => invalidateDns(queryClient),
     });
 }
+
+/** Whether a provider as the editor holds it answers. Not cached: it is asked now or not at all. */
+export const testProvider = (request: ProviderTestRequest) =>
+    api.post("/api/v1/providers/test", request, ProviderTestResultSchema, { fallback: "The test could not be run" });
+
+/**
+ * Reads one provider now. What it found arrives through the cache: the server says on the
+ * socket that it read, and the lists are read again.
+ */
+export const readProvider = (id: string) =>
+    api.post(`/api/v1/providers/${id}/read`, undefined, ReadingViewSchema, { fallback: "The provider could not be read" });
+
+/** Reads every provider now, as a run of the scheduler. */
+export const readAllProviders = () =>
+    api.post("/api/v1/providers/read", undefined, ManualRunResultSchema, { fallback: "The providers could not be read" });

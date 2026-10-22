@@ -57,7 +57,7 @@ export const SchedulerBox = ({ scheduler, children }: { scheduler: SchedulerId; 
                     {
                         label: "Result",
                         value: lastRun ? (
-                            <span className={resultClass}>{describeRunResult(scheduler, lastRun)}</span>
+                            <span className={resultClass}>{describeRunResult(lastRun)}</span>
                         ) : (
                             EMPTY_VALUE
                         ),

@@ -25,6 +25,8 @@ export const DashboardMessageSchema = z.discriminatedUnion("type", [
         type: z.literal(WS_EVENTS.ACTIVITY_SEEN),
         payload: z.object({ ids: z.array(z.string()) }),
     }),
+    /** A provider was read again. */
+    z.object({ type: z.literal(WS_EVENTS.READINGS_UPDATE), payload: z.object({ providerId: z.string() }) }),
     /** One server scheduler, whenever a run starts or ends or its timer moves. */
     z.object({ type: z.literal(WS_EVENTS.SCHEDULER_STATUS_UPDATE), payload: SchedulerStatusUpdateSchema }),
 ]);

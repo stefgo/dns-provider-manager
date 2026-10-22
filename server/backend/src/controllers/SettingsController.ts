@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from "fastify";
 import { CleanupSettingsSchema, firstIssue, type SchedulerStatuses } from "@dpm/shared";
 import { SettingsService } from "../services/SettingsService.js";
 import { NotificationCleanupService } from "../services/NotificationCleanupService.js";
+import { ProviderReadService } from "../services/ProviderReadService.js";
 
 export class SettingsController {
     static async getSettings(request: FastifyRequest, reply: FastifyReply) {
@@ -40,6 +41,7 @@ export class SettingsController {
         return reply.send({
             schedulers: {
                 "notification-cleanup": NotificationCleanupService.getStatus(),
+                "provider-read": ProviderReadService.getStatus(),
             } satisfies SchedulerStatuses,
         });
     }

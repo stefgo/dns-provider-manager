@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import type { Provider } from "@dpm/shared";
-import { useConfirm } from "@stefgo/react-ui-components";
+import { useConfirm, useToast } from "@stefgo/react-ui-components";
 import { describeDeleteProvider } from "../confirmations";
 import { QueryError } from "../../../components/QueryError";
 import { ROUTES, paths } from "../../../lib/paths";
-import { useDeleteProvider, useProviders } from "../../../queries/providers";
+import { readProvider, useDeleteProvider, useProviders } from "../../../queries/providers";
+import { describeFailure } from "../../../utils";
 import { useSites } from "../../../queries/sites";
 import { ProviderList } from "./ProviderList";
 
@@ -16,6 +17,13 @@ export const ProviderOverview = () => {
     const { providers, isPending, error } = useProviders();
     const { sites } = useSites();
     const deleteProvider = useDeleteProvider();
+    const { show } = useToast();
+
+    // What the reading found arrives through the socket. Only a request that failed is said.
+    const read = (provider: Provider) =>
+        readProvider(provider.id).catch((err) =>
+            show({ variant: "error", ...describeFailure(`Could not read ${provider.name}`, err), duration: 0 }),
+        );
 
     const open = (pathname: string) => navigate({ pathname, search });
 
@@ -32,6 +40,7 @@ export const ProviderOverview = () => {
             onAdd={() => open(ROUTES.providerNew)}
             onEdit={(provider) => open(paths.provider(provider.id))}
             onDelete={requestDelete}
+            onRead={read}
         />
     );
 };

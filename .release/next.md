@@ -25,6 +25,20 @@ another site. A record that would clash with another is refused before it is sto
 record twice, or a CNAME next to another record of its name on the same DNS server.
 
 Providers — a Cloudflare API token, an AdGuard Home instance, a Samba AD domain — are set up
-with their credentials, which are stored encrypted and never shown again. Writing the records
-to them comes with the next versions. Every change to a record, site or provider is in the
-activity history, with who made it.
+with their credentials, which are stored encrypted and never shown again. Every change to a
+record, site or provider is in the activity history, with who made it.
+
+### Bring your Cloudflare records along
+
+Cloudflare providers are read every few minutes (adjustable under *Settings → Providers*):
+their zones and the A, AAAA and CNAME records in them. Nothing is written to Cloudflare. What
+Cloudflare holds and DNS Provider Manager does not manage yet is listed under *Unmanaged* and
+can be adopted into a site — picked entries, or all at once.
+
+Several API tokens may see the same zone; each zone is used by one provider only. A provider
+can use every zone its token sees, or only the ones ticked in its editor, and *Test
+Connection* tries a token before it is saved. When a provider stops answering, and when it
+answers again, the activity history says so.
+
+Writing to the DNS servers — Cloudflare, AdGuard Home and Samba AD — comes with the next
+versions.

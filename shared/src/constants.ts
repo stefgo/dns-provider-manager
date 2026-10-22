@@ -14,6 +14,14 @@ export const WS_EVENTS = {
     /** `{ ids }` the user of this session has just seen. Sent to that user only. */
     ACTIVITY_SEEN: "ACTIVITY_SEEN",
 
+    // Provider events
+    /**
+     * `{ providerId }` was read again -- its zones, its state and what it holds. The dashboard
+     * reads the providers and the unmanaged records anew; the payload says which provider,
+     * not what changed.
+     */
+    READINGS_UPDATE: "READINGS_UPDATE",
+
     // Scheduler events
     /** One scheduler's status, whenever a run starts or ends. */
     SCHEDULER_STATUS_UPDATE: "SCHEDULER_STATUS_UPDATE",
@@ -47,12 +55,16 @@ export const ACTIVITY_KINDS = [
     "record.created",
     "record.changed",
     "record.deleted",
+    "record.adopted",
+    "record.adoption",
     "site.created",
     "site.changed",
     "site.deleted",
     "provider.created",
     "provider.changed",
     "provider.deleted",
+    "provider.unreachable",
+    "provider.recovered",
     "scheduler.failed",
 ] as const;
 
@@ -63,7 +75,7 @@ export const WEBHOOK_METHODS = ["POST", "PUT"] as const;
  * The background jobs the server runs on a timer. Each keeps one row in `scheduler_state`:
  * its last finished run and whatever it has to remember from one run to the next.
  */
-export const SCHEDULER_IDS = ["notification-cleanup"] as const;
+export const SCHEDULER_IDS = ["notification-cleanup", "provider-read"] as const;
 
 /** Whether the timer started a run or a user did, through the settings page. */
 export const SCHEDULER_TRIGGERS = ["schedule", "manual"] as const;

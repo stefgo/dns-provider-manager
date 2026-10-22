@@ -1,9 +1,41 @@
 import { FieldLabel, NumberField, SectionHeader, Select } from "@stefgo/react-ui-components";
 import { runCleanup } from "../../../queries/settings";
+import { readAllProviders } from "../../../queries/providers";
 import type { SectionProps } from "../sections";
 import { EVENT_LEVEL_GROUPS, choiceOf, levelChoices, withChoice } from "../lib/eventLevels";
 import { SchedulerBox } from "./SchedulerBox";
 import { ManualRun } from "./SettingsParts";
+
+export const ProvidersSection = ({ values, onChange }: SectionProps) => (
+    <section>
+        <SectionHeader title="Providers">
+            How often every provider is read: its zones, and the A, AAAA and CNAME records it holds.
+            Reading changes nothing at a provider; it is what the list of unmanaged records and the
+            state of each provider come from.
+        </SectionHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <NumberField
+                label="Reading Interval (Minutes)"
+                value={values.provider_read_interval_minutes}
+                onChange={(v) => onChange("provider_read_interval_minutes", v)}
+                placeholder="5"
+                hint="Set to 0 to read only on request and when a provider is saved. The server reads once at every start either way."
+            />
+        </div>
+
+        <SchedulerBox scheduler="provider-read">
+            <ManualRun
+                description="Read every provider now."
+                failureTitle="Could not read the providers"
+                onRun={async () => {
+                    const data = await readAllProviders();
+                    return data.failed ? `${data.read ?? 0} read, ${data.failed} failed` : `${data.read ?? 0} read`;
+                }}
+            />
+        </SchedulerBox>
+    </section>
+);
 
 export const ActivitySection = ({ values, onChange }: SectionProps) => (
     <section>

@@ -5,6 +5,7 @@ import { SettingsController } from "../controllers/SettingsController.js";
 import { RecordController } from "../controllers/RecordController.js";
 import { SiteController } from "../controllers/SiteController.js";
 import { ProviderController } from "../controllers/ProviderController.js";
+import { UnmanagedController } from "../controllers/UnmanagedController.js";
 import { ActivityController } from "../controllers/ActivityController.js";
 import { WebhookController } from "../controllers/WebhookController.js";
 import { HealthRepository } from "../repositories/HealthRepository.js";
@@ -96,8 +97,14 @@ export default async function apiRoutes(fastify: FastifyInstance) {
                 protectedRoutes.delete("/sites/:siteId", SiteController.delete);
                 protectedRoutes.get("/providers", ProviderController.list);
                 protectedRoutes.post("/providers", ProviderController.create);
+                // Registered before /providers/:providerId, which they would otherwise look like.
+                protectedRoutes.post("/providers/test", ProviderController.test);
+                protectedRoutes.post("/providers/read", ProviderController.readAll);
+                protectedRoutes.post("/providers/:providerId/read", ProviderController.read);
                 protectedRoutes.put("/providers/:providerId", ProviderController.update);
                 protectedRoutes.delete("/providers/:providerId", ProviderController.delete);
+                protectedRoutes.get("/unmanaged", UnmanagedController.list);
+                protectedRoutes.post("/unmanaged/adopt", UnmanagedController.adopt);
 
                 // Settings
                 protectedRoutes.get(

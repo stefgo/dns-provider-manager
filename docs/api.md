@@ -36,6 +36,11 @@
     - [Create Provider](#create-provider)
     - [Update Provider](#update-provider)
     - [Delete Provider](#delete-provider)
+    - [Test A Provider](#test-a-provider)
+    - [Read Providers](#read-providers)
+- [Unmanaged](#-unmanaged)
+    - [List Unmanaged Records](#list-unmanaged-records)
+    - [Adopt](#adopt)
 - [Settings & Maintenance](#-settings--maintenance)
     - [Get Settings](#get-settings)
     - [Update Settings](#update-settings)
@@ -420,7 +425,7 @@ returned; `hasSecret` says whether one is stored.
 
 | `type` | Fields besides `name`, `autoCorrect` and `secret` |
 | :----- | :-------------------------------------------------- |
-| `cloudflare` | `zoneMode`: `all` (every zone the token sees) or `selected` |
+| `cloudflare` | `zoneMode`: `all` (every zone the token sees) or `selected`; `zoneIds`: the zones ticked under `selected`, by Cloudflare's zone id |
 | `adguard` | `url` (`http://` or `https://`), `username`, `allowSelfSigned` |
 | `samba-ad` | `servers` (one or more `host` or `host:port`, port 636 unless named), `username`, `allowSelfSigned` |
 
@@ -436,6 +441,8 @@ returned; `hasSecret` says whether one is stored.
     "updatedAt": null,
     "lastSeenAt": null,
     "lastError": null,
+    "zones": [],
+    "readable": false,
     "url": "http://192.168.1.2:3000",
     "username": "admin",
     "allowSelfSigned": false
@@ -443,7 +450,16 @@ returned; `hasSecret` says whether one is stored.
 ```
 
 `autoCorrect` decides whether drift at this provider is written back without asking.
-`lastSeenAt` and `lastError` say when the server last reached the provider.
+`lastSeenAt` and `lastError` say when the server last read the provider and why it last
+failed to. `readable` says whether this version can read the type at all — Cloudflare, for
+now.
+
+`zones` are the zones the provider's last reading found, each as
+`{ "id", "name", "selected", "owner" }`. `owner` is the provider that uses the zone — this one,
+another one whose token sees it too, or `null`. A zone is used by at most one provider: one
+ticked under `selected` wins over one merely seen under `all`, and otherwise the provider
+created first keeps it. Ticking a zone that another provider has ticked already is refused
+with **409**.
 
 ### List Providers
 
@@ -463,6 +479,88 @@ the type. Answers **201**; **400** without a secret, **409** for a name another 
 
 `DELETE /api/v1/providers/:providerId` answers `{ "success": true }`. The provider leaves every
 site it belonged to, and its secret is deleted.
+
+### Test A Provider
+
+`POST /api/v1/providers/test` with `{ "provider": { …as for a create… }, "id": "…" }` asks the
+provider whether it answers, without saving anything. `id` is optional: it names a stored
+provider whose secret stands in when `provider.secret` is left out.
+
+```json
+{ "ok": true, "message": "Cloudflare answered and lists 2 zones.", "zones": [{ "id": "…", "name": "example.com" }] }
+```
+
+A provider that refuses is a **200** with `ok: false` and its reason in `message`.
+
+### Read Providers
+
+The server reads every provider on a timer (`provider_read_interval_minutes`, default 5), once
+at every start, and a provider whenever it is saved. Reading changes nothing at a provider: it
+fetches the zones and the A, AAAA and CNAME records of the zones the provider uses, and keeps
+them in memory.
+
+- `POST /api/v1/providers/:providerId/read` reads one provider now and answers its reading
+  (see [List Unmanaged Records](#list-unmanaged-records)).
+- `POST /api/v1/providers/read` reads every provider now, as a run of the `provider-read`
+  scheduler, and answers `{ "success": true, "read": 2, "failed": 0 }`.
+
+---
+
+## 📥 Unmanaged
+
+What the providers hold and dpm does not manage there. An entry is managed at a provider
+when dpm has a record with its name, type and value in a site of that provider; everything
+else is unmanaged.
+
+### List Unmanaged Records
+
+`GET /api/v1/unmanaged`
+
+```json
+{
+    "readings": [
+        { "providerId": "…", "providerType": "cloudflare", "readAt": "2026-10-22T15:49:00.452Z", "error": null, "recordCount": 7 }
+    ],
+    "entries": [
+        {
+            "providerId": "…",
+            "externalId": "c3",
+            "zone": "example.com",
+            "name": "nas.example.com",
+            "type": "A",
+            "value": "192.168.1.20",
+            "ttl": 300,
+            "proxied": false,
+            "recordId": null,
+            "problem": null
+        }
+    ]
+}
+```
+
+- `readings` — per provider, when it was last read successfully, why it last failed (what it
+  held before stays listed), and how many records it holds in the zones it uses. `readAt` is
+  `null` before the first reading since the server started.
+- `recordId` — a record of dpm with the same name, type and value in other sites; adopting the
+  entry gives that record the site instead of creating another.
+- `problem` — why the entry cannot be adopted, such as a name dpm does not accept.
+
+### Adopt
+
+`POST /api/v1/unmanaged/adopt` with `{ "siteId": "…", "entries": [{ "providerId": "…", "externalId": "…" }] }`
+(at most 1000) takes the entries over into the site. Nothing is written to a provider. The site
+has to write to each entry's provider. Each entry becomes a record with its TTL and proxy
+setting, or gives the existing record the site; what cannot be taken over is refused with its
+reason, and the rest goes ahead.
+
+```json
+{
+    "adopted": [{ "name": "nas.example.com", "type": "A", "value": "192.168.1.20", "merged": false }],
+    "refused": [{ "name": "_acme.example.com", "type": "A", "value": "192.168.1.99", "reason": "…" }]
+}
+```
+
+**400** for a site that does not exist.
 
 ---
 
@@ -604,6 +702,10 @@ what the server did by itself.
 | `site.changed` | `info` | `siteId` | `user`, `name`, `changes` |
 | `provider.created` / `provider.deleted` | `info` | `providerId` | `user`, `name`, `providerType` |
 | `provider.changed` | `info` | `providerId` | `user`, `name`, `providerType`, `changes` |
+| `record.adopted` | `info` | `recordId`, `providerId` | `user`, `name`, `type`, `value`, `sites`, `provider`, `merged` |
+| `record.adoption` | `info` | `siteId` | `user`, `count`, `site`, `providers` — heads the `record.adopted` of one adoption of more than one record; they share its `correlationId` |
+| `provider.unreachable` | `warning` | `providerId` | `name`, `providerType`, `error` — once, when a provider that answered stops answering |
+| `provider.recovered` | `info` | `providerId` | `name`, `providerType` — when it answers again |
 | `scheduler.failed` | `error` | — | `scheduler`, `trigger`, `error` |
 
 `changes` lists what a change changed, as `{ field, from, to }` with both values written out
@@ -796,4 +898,5 @@ rules, and a nullable column arrives as `null`, not as a missing key.
 | `ACTIVITY_UPDATE`     | `ActivityRecord[]`                          | The whole activity list: on connect, with the seen state of the session's user, and empty after "Delete all". |
 | `ACTIVITY_APPENDED`   | `ActivityRecord[]`                          | Events stored for the first time, to be merged into the list by id. |
 | `ACTIVITY_SEEN`       | `{ ids: string[] }`                         | Events the session's user has just marked seen. Sent to that user's sessions only. |
+| `READINGS_UPDATE`     | `{ providerId }`                            | A provider was read. The dashboard reads the providers and the unmanaged records again. |
 | `SCHEDULER_STATUS_UPDATE` | `{ scheduler, status }`                 | One scheduler's status, in the shape of [Scheduler Status](#scheduler-status), whenever a run starts or ends or its timer is set. |

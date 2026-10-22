@@ -1,5 +1,5 @@
 import type { RouteObject } from "react-router-dom";
-import { Activity, Globe, Layers, LayoutDashboard, Server, Settings as SettingsIcon, Users, Webhook } from "lucide-react";
+import { Activity, Globe, Inbox, Layers, LayoutDashboard, Server, Settings as SettingsIcon, Users, Webhook } from "lucide-react";
 import type { DashboardPage } from "@stefgo/react-ui-components";
 
 import { ROUTES } from "../../lib/paths";
@@ -14,6 +14,7 @@ import {
     RecordOverview,
     SiteEditorRoute,
     SiteOverview,
+    UnmanagedOverview,
     Settings,
     UserOverview,
     WebhookEditorRoute,
@@ -79,6 +80,12 @@ export const shellRoutes: RouteObject[] = [
             // By its kind: a record's name alone does not say which of several it is.
             { path: ROUTES.record, handle: titled("Record"), element: <RecordEditorRoute /> },
         ],
+    },
+    {
+        path: ROUTES.unmanaged,
+        handle: nav({ id: "unmanaged", groupId: "dns", label: "Unmanaged", icon: Inbox }),
+        errorElement: <RouteError />,
+        element: <UnmanagedOverview />,
     },
     {
         path: ROUTES.providers,

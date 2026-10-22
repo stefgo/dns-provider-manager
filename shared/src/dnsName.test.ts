@@ -98,6 +98,7 @@ describe("ProviderInputSchema", () => {
             secret: "t",
             autoCorrect: false,
             zoneMode: "all",
+            zoneIds: [],
         });
         expect(
             ProviderInputSchema.parse({ type: "adguard", name: "AdGuard 1", url: "http://10.0.0.2:3000", username: "admin" }),

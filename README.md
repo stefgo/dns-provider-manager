@@ -11,8 +11,8 @@ any number of AdGuard Home instances and, where there is one, Samba AD for the i
 network. A record belongs to one or more **sites**, groups of providers that give the same
 answers; split horizon is the same name in two sites with two answers.
 
-> **In development.** Records, sites and providers can be managed; writing them to the DNS
-> servers follows, Cloudflare first.
+> **In development.** Records, sites and providers can be managed; Cloudflare is read and
+> what it holds can be adopted. Writing to the DNS servers follows.
 
 ## 🚀 Planned features
 
@@ -31,6 +31,9 @@ Available today:
 - **Records, sites and providers:** A, AAAA and CNAME records with the sites they go to,
   checked for conflicts — the same record twice, a CNAME beside another record of its name.
   Provider credentials are stored encrypted and never shown again.
+- **Cloudflare, read:** the zones of every token and the records in them. What dpm does not
+  manage yet is listed as *unmanaged* and adopted into a site, one by one or all at once.
+  Several tokens may see the same zone; it is used by one of them.
 - **Authentication:** local accounts and OIDC (OpenID Connect), configurable per user.
 - **Activity history and webhooks:** every event, filtered by level and kind, to a chat
   channel or an endpoint of your own with a JSON body template.

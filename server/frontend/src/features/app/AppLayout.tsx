@@ -24,6 +24,7 @@ import { useProblemToasts } from "../activity/hooks/useProblemToasts";
 import { useUnseenTone } from "../../queries/activity";
 import { useProviders } from "../../queries/providers";
 import { useSites } from "../../queries/sites";
+import { useUnmanaged } from "../../queries/unmanaged";
 
 type PageNav = NonNullable<DashboardPage["nav"]>;
 
@@ -59,6 +60,9 @@ export function AppLayout() {
     // Activity. The badge only signals that something needs a look: red for an unseen error,
     // yellow for an unseen warning, nothing otherwise.
     const activityTone = useUnseenTone() ?? undefined;
+
+    // What waits to be adopted. Read again whenever a provider was read.
+    const unmanagedCount = useUnmanaged().entries.length;
 
     // The browser tab names the area and what is open in it, and the breadcrumb in the
     // page's header spells the same out as links. Here rather than in each page: the route
@@ -138,6 +142,7 @@ export function AppLayout() {
     // What is added here is what only the running application knows.
     const pages: DashboardPage[] = useMemo(() => {
         const live: Record<string, Partial<PageNav>> = {
+            unmanaged: { badge: unmanagedCount > 0 ? String(unmanagedCount) : undefined },
             activity: { badgeDot: activityTone !== undefined, badgeTone: activityTone },
         };
 
@@ -146,7 +151,7 @@ export function AppLayout() {
             active: id === activeId,
             nav: { ...entry, ...live[id], onClick: () => navigate(path) },
         }));
-    }, [activityTone, navigate, activeId]);
+    }, [activityTone, unmanagedCount, navigate, activeId]);
 
     return (
         <StatusDotProvider live={!isLost}>

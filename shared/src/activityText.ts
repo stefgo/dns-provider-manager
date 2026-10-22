@@ -13,6 +13,7 @@ import type { ActivityRecord } from "./types.js";
 /** The server's schedulers as the settings page names them. */
 const SCHEDULER_NAMES: Record<string, string> = {
     "notification-cleanup": "Activity cleanup",
+    "provider-read": "Reading the providers",
 };
 
 function str(event: ActivityRecord, key: string): string | null {
@@ -74,6 +75,17 @@ export function activityMessage(event: ActivityRecord): string {
         }
     }
     switch (event.kind) {
+        case "record.adoption": {
+            const count = event.data?.count;
+            const records = typeof count === "number" ? (count === 1 ? "1 record" : `${count} records`) : "Records";
+            return `${records} adopted into ${str(event, "site") ?? "a site"}${by(event)}`;
+        }
+        case "record.adopted":
+            return `Record ${recordLabel(event)} adopted from ${str(event, "provider") ?? "a provider"}${by(event)}`;
+        case "provider.unreachable":
+            return `Provider ${str(event, "name") ?? "?"} cannot be read`;
+        case "provider.recovered":
+            return `Provider ${str(event, "name") ?? "?"} can be read again`;
         case "scheduler.failed": {
             const scheduler = str(event, "scheduler");
             const error = str(event, "error");

@@ -21,6 +21,7 @@ export const STORAGE_KEYS = {
     recordsView: "dpm.records.view",
     providersView: "dpm.providers.view",
     sitesView: "dpm.sites.view",
+    unmanagedView: "dpm.unmanaged.view",
     activityView: "dpm.activity.view",
     usersView: "dpm.users.view",
     webhooksView: "dpm.webhooks.view",

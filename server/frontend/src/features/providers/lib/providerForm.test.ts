@@ -25,6 +25,8 @@ const stored: Provider = {
     updatedAt: null,
     lastSeenAt: null,
     lastError: null,
+    zones: [],
+    readable: false,
     servers: ["dc1.ad.example.com", "dc2.ad.example.com:636"],
     username: "dpm@ad.example.com",
     allowSelfSigned: true,
@@ -33,7 +35,14 @@ const stored: Provider = {
 describe("providerInputFrom", () => {
     it("sends only the fields of the draft's type", () => {
         const draft = { ...emptyProviderDraft("cloudflare"), name: "CF", secret: "token", url: "http://left.over" };
-        expect(providerInputFrom(draft)).toEqual({ type: "cloudflare", name: "CF", autoCorrect: false, secret: "token", zoneMode: "all" });
+        expect(providerInputFrom(draft)).toEqual({
+            type: "cloudflare",
+            name: "CF",
+            autoCorrect: false,
+            secret: "token",
+            zoneMode: "all",
+            zoneIds: [],
+        });
     });
 
     it("leaves the secret out while the field is empty, so the stored one stays", () => {

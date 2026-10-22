@@ -27,6 +27,7 @@ src/
 │   ├── records/                          # RecordOverview, RecordList, RecordEditor, the form rules (lib/)
 │   ├── providers/                        # ProviderOverview, ProviderList, ProviderEditor, the form rules (lib/)
 │   ├── sites/                            # SiteOverview, SiteList, SiteEditor, form rules and siteDeletion (lib/)
+│   ├── unmanaged/                        # UnmanagedOverview, AdoptDialog, the adoption rules (lib/)
 │   ├── activity/                         # ActivityView, grouping, problem toasts
 │   ├── users/                            # UserOverview, UserList, UserDialog
 │   ├── webhooks/                         # WebhookOverview, WebhookEditor, the form rules (lib/)
@@ -54,6 +55,7 @@ unauthenticated users to `/login`, inside `AppLayout`.
 | `/`                 | The `DashboardOverview`.                                            |
 | `/records`          | The records (`RecordOverview`).                                     |
 | `/records/new`, `/records/:recordId` | The `RecordEditor`.                                |
+| `/unmanaged`        | What the providers hold and dpm does not manage (`UnmanagedOverview`). |
 | `/providers`        | The providers (`ProviderOverview`).                                 |
 | `/providers/new`, `/providers/:providerId` | The `ProviderEditor`.                        |
 | `/sites`            | The sites (`SiteOverview`).                                         |
@@ -77,7 +79,7 @@ top-level route with its pages below it, and these are read off it:
 - **The sidebar** is the areas that carry `handle.nav` (label, icon, group), in the tree's
   order. `AppLayout` adds what only the running application knows — the dot for unseen
   activity — and marks the entry of the innermost matched area, so an editor keeps its area
-  marked without its path being listed anywhere. The groups are `overview`, `dns` (Records),
+  marked without its path being listed anywhere. The groups are `overview`, `dns` (Records, Unmanaged),
   `infrastructure` (Providers, Sites) and `system`.
 - **The browser tab** names the open page (`lib/pageTitle.ts`): the handles along the open
   route, most specific first — `AdGuard 1 · Providers · DPM`. A route says `title` (a form, a
@@ -144,7 +146,8 @@ Every request goes through `api.get`, `api.post`, `api.put`, `api.patch` or `api
 | :-- | :-- | :-- |
 | `activity.ts` | The activity list as the server reads it for the session's user, so `seen` needs no user id on this side. Marking seen and deleting all are optimistic. `useUnseenTone` gives the badge its colour as a string, so the shell re-renders only when that changes. | `ACTIVITY_UPDATE`, `ACTIVITY_APPENDED`, `ACTIVITY_SEEN` |
 | `scheduler.ts` | The status of the schedulers the server runs (`notification-cleanup`). | `SCHEDULER_STATUS_UPDATE` |
-| `records.ts`, `sites.ts`, `providers.ts` | Their lists. They name each other — a site counts its records and lists its providers — so a change to one is read back into all three (`invalidateDns` in `queries/dns.ts`). | — |
+| `records.ts`, `sites.ts`, `providers.ts` | Their lists. They name each other — a site counts its records and lists its providers — so a change to one is read back into all of them and the unmanaged list (`invalidateDns` in `queries/dns.ts`). `providers.ts` also has the connection test and "Read now". | `READINGS_UPDATE` (providers) |
+| `unmanaged.ts` | What the providers hold and dpm does not manage, with each provider's reading; adopting. | `READINGS_UPDATE` |
 | `webhooks.ts`, `users.ts` | Their lists. Nothing broadcasts a change, so they go stale by age (30 s) and are read again after a change made here. | — |
 | `settings.ts` | No entry: the requests of the settings page. | — |
 
@@ -279,6 +282,14 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   what was typed in the fields they share; `providerInputFrom` sends only the type's own. The
   secret field is empty, never filled with the stored value, and saves nothing until something
   is typed; after a save it is empty again (`rebase`). A stored provider keeps its type.
+- **Providers** list how their last reading went. The editor tests a provider as it stands in
+  the form ("Test Connection", the stored secret standing in for an empty field), and lists a
+  Cloudflare provider's zones with who uses each; under "Selected zones" they can be ticked.
+- **Unmanaged** lists what the providers hold and dpm does not manage there, with the reason
+  where an entry cannot be adopted. "Adopt" takes the picked entries — or, with nothing
+  picked, what the list shows — into a site that writes to their provider (`adoptableSites`
+  in `lib/adopt.ts`); the outcome is one toast with every refusal. The sidebar entry counts
+  the entries.
 - **Sites** choose their providers. Which sites a provider belongs to is set here, not in the
   provider editor. A site that a record belongs to alone is not offered for deletion: a notice
   names the records first (`lib/siteDeletion.ts`).

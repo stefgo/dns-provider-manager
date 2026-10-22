@@ -1,4 +1,4 @@
-import { Edit2, Plus, Server, Trash2 } from "lucide-react";
+import { Edit2, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
 import { PROVIDER_TYPE_LABELS, type Provider, type Site } from "@dpm/shared";
 import {
     Badge,
@@ -15,6 +15,8 @@ import {
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import { providerTarget } from "../lib/providerTarget";
+import { RelativeTime } from "../../../components/RelativeTime";
+import { plural } from "../../../utils";
 
 interface ProviderListProps {
     providers: Provider[];
@@ -23,12 +25,46 @@ interface ProviderListProps {
     onAdd: () => void;
     onEdit: (provider: Provider) => void;
     onDelete: (provider: Provider) => void;
+    onRead: (provider: Provider) => void;
 }
+
+/**
+ * How the last reading went: when it succeeded and how many zones the provider uses, or why
+ * it failed -- the reason wraps onto two lines and the tooltip has all of it.
+ */
+const ReadState = ({ provider }: { provider: Provider }) => {
+    if (!provider.readable) {
+        return (
+            <span title="This version reads Cloudflare only.">
+                <Badge variant="neutral">Not read yet</Badge>
+            </span>
+        );
+    }
+    const used = provider.zones.filter((z) => z.owner === provider.id).length;
+    return (
+        <div className="flex flex-col items-start gap-1">
+            {provider.lastError !== null ? (
+                <Badge variant="error">Cannot be read</Badge>
+            ) : provider.lastSeenAt ? (
+                <span className="text-sm text-text-primary">
+                    <RelativeTime date={provider.lastSeenAt} /> · {plural(used, "zone")}
+                </span>
+            ) : (
+                <Badge variant="neutral">Not read yet</Badge>
+            )}
+            {provider.lastError !== null && (
+                <span className="line-clamp-2 max-w-sm break-words text-xs text-error" title={provider.lastError}>
+                    {provider.lastError}
+                </span>
+            )}
+        </div>
+    );
+};
 
 const sitesOf = (provider: Provider, sites: Site[]) => sites.filter((s) => provider.siteIds.includes(s.id));
 
 /** The providers: one access each to a DNS server dpm writes to. */
-export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDelete }: ProviderListProps) => {
+export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDelete, onRead }: ProviderListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
 
     const matchesSearch = (provider: Provider, query: string) => {
@@ -42,7 +78,10 @@ export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDel
         <DataAction
             rowId={provider.id}
             actions={[{ icon: Edit2, onClick: () => onEdit(provider), color: "blue", tooltip: "Edit" }]}
-            menuEntries={[{ label: "Delete", icon: Trash2, onClick: () => onDelete(provider), variant: "danger" }]}
+            menuEntries={[
+                ...(provider.readable ? [{ label: "Read Now", icon: RefreshCw, onClick: () => onRead(provider) }] : []),
+                { label: "Delete", icon: Trash2, onClick: () => onDelete(provider), variant: "danger" as const },
+            ]}
         />
     );
 
@@ -84,6 +123,12 @@ export const ProviderList = ({ providers, sites, isLoading, onAdd, onEdit, onDel
                     </div>
                 );
             },
+        },
+        {
+            header: "Last Reading",
+            sortable: true,
+            sortValue: (p) => p.lastSeenAt ?? "",
+            render: (p) => <ReadState provider={p} />,
         },
         actionsColumn(renderActions),
     ];

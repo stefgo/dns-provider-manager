@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { Server, X } from "lucide-react";
+import { PlugZap, Server, X } from "lucide-react";
 import {
     PROVIDER_TYPES,
     PROVIDER_TYPE_LABELS,
     ProviderInputSchema,
     type Provider,
+    type ProviderTestResult,
     type ProviderType,
 } from "@dpm/shared";
 import {
@@ -12,6 +14,7 @@ import {
     Alert,
     Button,
     Card,
+    Checkbox,
     FieldLabel,
     Input,
     LoadingIndicator,
@@ -19,7 +22,8 @@ import {
     Switch,
     Textarea,
 } from "@stefgo/react-ui-components";
-import { useProviders, useSaveProvider } from "../../../queries/providers";
+import { testProvider, useProviders, useSaveProvider } from "../../../queries/providers";
+import { getErrorMessage, toggled } from "../../../utils";
 import { useSites } from "../../../queries/sites";
 import { QueryError } from "../../../components/QueryError";
 import { useEntityForm } from "../../../hooks/useEntityForm";
@@ -47,6 +51,62 @@ export const ProviderEditorRoute = () => {
     if (!provider && isPending) return <LoadingIndicator label="Loading provider…" />;
     if (!provider) throw new NotFoundError("provider");
     return <ProviderEditor key={provider.id} provider={provider} />;
+};
+
+/**
+ * The zones a Cloudflare provider's token sees, as its last reading found them. Under "All
+ * zones" they are listed with who uses each; under "Selected zones" each can be ticked -- a
+ * zone another provider merely sees is taken over that way, one another provider has ticked
+ * cannot be.
+ */
+const ZoneChoice = ({
+    provider,
+    draft,
+    onChange,
+}: {
+    provider: Provider | null;
+    draft: ProviderDraft;
+    onChange: (zoneIds: string[]) => void;
+}) => {
+    const { providers } = useProviders();
+    const zones = provider?.zones ?? [];
+    if (!provider) {
+        return <p className="text-sm text-text-muted">Save the provider, and the zones its token sees are read.</p>;
+    }
+    if (zones.length === 0) {
+        return (
+            <p className="text-sm text-text-muted">
+                {provider.lastError ? "The zones could not be read." : "No zone read yet."} They are listed once the provider
+                answers.
+            </p>
+        );
+    }
+    const ownerOf = (owner: string | null) => providers.find((p) => p.id === owner);
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {zones.map((zone) => {
+                const owner = zone.owner === provider.id ? null : ownerOf(zone.owner);
+                const takenExplicitly =
+                    owner?.type === "cloudflare" && owner.zoneMode === "selected" && owner.zoneIds.includes(zone.id);
+                const note = owner ? `used by ${owner.name}` : zone.owner === provider.id ? "used here" : "not used";
+                return draft.zoneMode === "selected" ? (
+                    <Checkbox
+                        key={zone.id}
+                        label={zone.name}
+                        hint={takenExplicitly ? `chosen for ${owner.name}` : owner ? `${note}; ticking it takes it over` : undefined}
+                        checked={draft.zoneIds.includes(zone.id)}
+                        disabled={takenExplicitly}
+                        onChange={(e) => onChange(toggled(draft.zoneIds, zone.id, e.target.checked))}
+                    />
+                ) : (
+                    <div key={zone.id} className="text-sm">
+                        <span className="text-text-primary">{zone.name}</span>{" "}
+                        <span className={owner ? "text-warning" : "text-text-muted"}>· {note}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
 };
 
 /** A switch with a label above it, laid out like the other fields of a row. */
@@ -94,6 +154,24 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
     });
     const { draft, set, errors, isSaving } = form;
     const { close, leave } = useUnsavedChangesGuard(form.isDirty, isNew ? "newProvider" : "provider");
+
+    const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
+    const [testError, setTestError] = useState<string | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
+
+    // Asks the provider as it stands in the form; the stored secret stands in for an empty field.
+    const handleTest = async () => {
+        setIsTesting(true);
+        setTestResult(null);
+        setTestError(null);
+        try {
+            setTestResult(await testProvider({ id: provider?.id, provider: providerInputFrom(draft) }));
+        } catch (err) {
+            setTestError(getErrorMessage(err));
+        } finally {
+            setIsTesting(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -160,8 +238,15 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                                 { value: "all", label: "All zones the token sees" },
                                 { value: "selected", label: "Selected zones" },
                             ]}
-                            hint="A zone another provider uses is never used here. The zones are listed once dpm reads Cloudflare."
+                            hint="A zone is used by one provider only. Ticking a zone here takes it over from one that merely sees it."
                         />
+                    </div>
+                )}
+
+                {draft.type === "cloudflare" && (
+                    <div>
+                        <FieldLabel as="div">Zones</FieldLabel>
+                        <ZoneChoice provider={provider} draft={draft} onChange={(zoneIds) => set("zoneIds", zoneIds)} />
                     </div>
                 )}
 
@@ -257,13 +342,34 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                     </p>
                 )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                    <Button type="button" variant="secondary" onClick={close}>
-                        Cancel
+                {testError && <Alert>{testError}</Alert>}
+                {testResult && (
+                    <Alert tone={testResult.ok ? "success" : "error"} title={testResult.message}>
+                        {testResult.zones.length > 0 && (
+                            <span className="text-xs">{testResult.zones.map((z) => z.name).join(", ")}</span>
+                        )}
+                    </Alert>
+                )}
+
+                <div className="flex justify-between gap-3 pt-4 border-t border-border">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        icon={PlugZap}
+                        onClick={handleTest}
+                        isLoading={isTesting}
+                        disabled={isTesting || isSaving || (isNew && !form.isValid)}
+                    >
+                        Test Connection
                     </Button>
-                    <Button type="submit" variant="primary" isLoading={isSaving} disabled={!form.canSave}>
-                        Save
-                    </Button>
+                    <div className="flex gap-3">
+                        <Button type="button" variant="secondary" onClick={close}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" variant="primary" isLoading={isSaving} disabled={!form.canSave}>
+                            Save
+                        </Button>
+                    </div>
                 </div>
             </form>
         </Card>

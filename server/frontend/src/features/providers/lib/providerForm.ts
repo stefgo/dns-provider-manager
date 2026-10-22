@@ -12,6 +12,8 @@ export interface ProviderDraft {
     /** Only ever a new secret: the server never sends the stored one back. Empty keeps it. */
     secret: string;
     zoneMode: "all" | "selected";
+    /** The zones ticked under "Selected zones", by id. */
+    zoneIds: string[];
     url: string;
     username: string;
     allowSelfSigned: boolean;
@@ -26,6 +28,7 @@ export function emptyProviderDraft(type: ProviderType = "cloudflare"): ProviderD
         autoCorrect: false,
         secret: "",
         zoneMode: "all",
+        zoneIds: [],
         url: "",
         username: "",
         allowSelfSigned: false,
@@ -37,7 +40,7 @@ export function providerDraftFrom(provider: Provider): ProviderDraft {
     const draft = { ...emptyProviderDraft(provider.type), name: provider.name, autoCorrect: provider.autoCorrect };
     switch (provider.type) {
         case "cloudflare":
-            return { ...draft, zoneMode: provider.zoneMode };
+            return { ...draft, zoneMode: provider.zoneMode, zoneIds: provider.zoneIds };
         case "adguard":
             return { ...draft, url: provider.url, username: provider.username, allowSelfSigned: provider.allowSelfSigned };
         case "samba-ad":
@@ -62,7 +65,7 @@ export function providerInputFrom(draft: ProviderDraft): ProviderInput {
     const common = { name: draft.name, autoCorrect: draft.autoCorrect, secret: draft.secret === "" ? undefined : draft.secret };
     switch (draft.type) {
         case "cloudflare":
-            return { type: "cloudflare", ...common, zoneMode: draft.zoneMode };
+            return { type: "cloudflare", ...common, zoneMode: draft.zoneMode, zoneIds: draft.zoneIds };
         case "adguard":
             return { type: "adguard", ...common, url: draft.url, username: draft.username, allowSelfSigned: draft.allowSelfSigned };
         case "samba-ad":
@@ -92,6 +95,7 @@ export const providerFieldOf: FieldOf<ProviderDraft> = (path) => {
         case "autoCorrect":
         case "secret":
         case "zoneMode":
+        case "zoneIds":
         case "url":
         case "username":
         case "allowSelfSigned":

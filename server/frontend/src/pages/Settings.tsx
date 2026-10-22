@@ -31,6 +31,7 @@ import {
 } from "../features/settings/sections";
 import {
     ActivitySection,
+    ProvidersSection,
 } from "../features/settings/components/SettingsSections";
 
 /** Escape leaves an editor; this page is no editor and has nowhere to close onto. */
@@ -132,6 +133,8 @@ export default function Settings() {
 
     const renderSection = (id: SectionId) => {
         switch (id) {
+            case "providers":
+                return <ProvidersSection values={draft} onChange={change} />;
             case "activity":
                 return <ActivitySection values={draft} onChange={change} />;
         }

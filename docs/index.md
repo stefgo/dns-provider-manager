@@ -13,8 +13,8 @@ its sites, notices when a provider's copy has been changed behind its back, and 
 what it does not manage.
 
 > **In development.** DPM is being built in milestones. Records, sites and providers can be
-> managed, and every change is in the activity history; writing to the DNS servers follows,
-> Cloudflare first.
+> managed; Cloudflare is read, and what it holds can be adopted. Writing to the DNS servers
+> follows.
 
 ## How the pieces fit together
 

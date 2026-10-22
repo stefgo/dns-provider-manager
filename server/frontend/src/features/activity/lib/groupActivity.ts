@@ -19,10 +19,10 @@ export interface ActivityGroup {
 
 /**
  * Which kinds stand for a whole operation and are therefore the head of their group, ahead
- * of the steps that were stored before them. None yet: without one, a group is headed by its
- * earliest member.
+ * of the steps that were stored before them: an adoption heads the records it took over.
+ * Without one, a group is headed by its earliest member.
  */
-const GROUP_HEADS = new Set<string>();
+const GROUP_HEADS = new Set<string>(["record.adoption"]);
 
 function maxLevel(events: ActivityRecord[]): ActivityLevel {
     let worst: ActivityLevel = ACTIVITY_LEVELS[0];

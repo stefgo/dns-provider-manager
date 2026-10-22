@@ -30,11 +30,17 @@ server/backend/src/
 │   └── migrations/
 │       ├── context.ts                # MigrationContext: the database Umzug hands a migration
 │       ├── 00_initial.ts             # users, activity, activity_seen, scheduler_state, webhooks
-│       └── 01_dns.ts                 # providers, sites, site_providers, records, record_sites
+│       ├── 01_dns.ts                 # providers, sites, site_providers, records, record_sites
+│       └── 02_provider_zones.ts      # provider_zones
+├── providers/                        # The clients that talk to the DNS servers
+│   ├── DnsProvider.ts                # What dpm asks of one: zones, records (read only for now)
+│   ├── clients.ts                    # The client for a provider's type, or null while it has none
+│   └── cloudflare/                   # CloudflareClient (API v4, paged) and cloudflareMapping (pure)
 ├── repositories/                     # Database access
 │   ├── ActivityRepository.ts         # insert (idempotent by id), seen state, retention
 │   ├── HealthRepository.ts           # SELECT 1 for the liveness probe
-│   ├── ProviderRepository.ts         # providers, without their secret on the way out
+│   ├── ProviderRepository.ts         # providers, without their secret on the way out, with their zones
+│   ├── ProviderZoneRepository.ts     # provider_zones: what each reading found, which are ticked
 │   ├── RecordRepository.ts           # records with their sites
 │   ├── SiteRepository.ts             # sites with their providers and record count
 │   ├── SchedulerStateRepository.ts   # scheduler_state: last run, planned run
@@ -47,7 +53,11 @@ server/backend/src/
 │   ├── AuthService.ts                # Local and OIDC sign-in, session validity
 │   ├── DashboardService.ts           # The open dashboard sockets, broadcast and per-user sends
 │   ├── NotificationCleanupService.ts # Retention of the activity history
-│   ├── ProviderService.ts            # Providers: names, fixed type, the secret encrypted
+│   ├── ProviderService.ts            # Providers: names, fixed type, the secret encrypted, ticked zones
+│   ├── ProviderReadService.ts        # Reading the providers: scheduler, readings in memory, test
+│   ├── UnmanagedService.ts           # What the providers hold and dpm does not; adopting it
+│   ├── unmanaged.ts                  # Which entries are unmanaged (pure)
+│   ├── zoneOwnership.ts              # Which provider uses a zone (pure)
 │   ├── RecordService.ts              # Records: sites exist, no conflict (recordConflict)
 │   ├── RequestError.ts               # A refusal with its HTTP status (400, 404, 409)
 │   ├── SiteService.ts                # Sites: names, providers exist, no record left without a site
@@ -81,6 +91,12 @@ server/backend/src/
   (`recordConflict` in `@dpm/shared`), a site that would leave a record without one. A refusal
   is a `RequestError`, answered by `serviceReply` with its status. Every change is an activity
   event with `source: "user"`; a `*.changed` event lists its `changes`.
+- **Reading the providers** is `ProviderReadService`: the `provider-read` scheduler, a reading
+  at startup and after a provider is saved, one provider or all on request. A reading fetches
+  the zones (`ProviderZoneRepository`), works out which the provider uses (`zoneOwnership`),
+  and keeps the A, AAAA and CNAME records of those in memory — a restart reads again. It
+  writes nothing to a provider. The moment a provider stops or starts answering is an
+  activity event; every reading is a `READINGS_UPDATE` on the dashboard socket.
 - **`DashboardService`** keeps every open dashboard socket with the user who opened it.
   `broadcastToDashboard` and `sendToUser` take a `DashboardMessage`, so a message that is not
   part of the union in `shared/src/dashboardMessages.ts` does not compile.
@@ -120,6 +136,7 @@ migration of its own.
 | `scheduler_state` | Per scheduler: the run in progress, the last finished run, the planned run |
 | `webhooks` | Targets, filters, body template, the result of the last delivery |
 | `providers` | Type, name, `settings` (JSON, what is particular to the type), `secret` (encrypted with `secretKey`), auto-correct, last contact |
+| `provider_zones` | The zones a provider's last reading found, and which are ticked under "Selected zones". Who uses a zone is derived, not stored |
 | `sites`, `site_providers` | Sites and which providers belong to them |
 | `records`, `record_sites` | Records — unique by name, type and value — and their sites. A site cannot be deleted under a record that has no other (RESTRICT) |
 

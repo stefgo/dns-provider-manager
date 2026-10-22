@@ -22,8 +22,16 @@ import {
     RecordInputSchema,
     SiteInputSchema,
     ProviderInputSchema,
+    AdoptRequestSchema,
+    ProviderTestRequestSchema,
 } from "./schemas.js";
 import {
+    AdoptResultSchema,
+    ProviderTestResultSchema,
+    ProviderZoneViewSchema,
+    ReadingViewSchema,
+    UnmanagedEntrySchema,
+    UnmanagedResponseSchema,
     ProviderViewSchema,
     RecordViewSchema,
     SiteViewSchema,
@@ -81,6 +89,7 @@ export type SchedulerRunStatus = (typeof SCHEDULER_RUN_STATUSES)[number];
 /** What each scheduler reports as the result of a run. */
 export interface SchedulerRunResults {
     "notification-cleanup": { removed: number };
+    "provider-read": { read: number; failed: number };
 }
 
 /** The last run a scheduler finished, as `scheduler_state` holds it. */
@@ -151,3 +160,11 @@ export type Site = z.infer<typeof SiteViewSchema>;
 export type ProviderInput = z.input<typeof ProviderInputSchema>;
 export type ProviderFields = z.output<typeof ProviderInputSchema>;
 export type Provider = z.infer<typeof ProviderViewSchema>;
+export type ProviderZone = z.infer<typeof ProviderZoneViewSchema>;
+export type ProviderTestRequest = z.input<typeof ProviderTestRequestSchema>;
+export type ProviderTestResult = z.infer<typeof ProviderTestResultSchema>;
+export type Reading = z.infer<typeof ReadingViewSchema>;
+export type UnmanagedEntry = z.infer<typeof UnmanagedEntrySchema>;
+export type UnmanagedResponse = z.infer<typeof UnmanagedResponseSchema>;
+export type AdoptRequest = z.input<typeof AdoptRequestSchema>;
+export type AdoptResult = z.infer<typeof AdoptResultSchema>;

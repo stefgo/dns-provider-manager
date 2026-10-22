@@ -1,11 +1,11 @@
-import { Activity, type LucideIcon } from "lucide-react";
+import { Activity, Server, type LucideIcon } from "lucide-react";
 import { CleanupSettingsSchema } from "@dpm/shared";
 
 import type { SettingsValues } from "../../queries/settings";
 
 export type { SettingsValues };
 
-export type SectionId = "activity";
+export type SectionId = "providers" | "activity";
 
 export interface SectionDef {
     id: SectionId;
@@ -19,6 +19,12 @@ export interface SectionDef {
 }
 
 export const SECTIONS: readonly SectionDef[] = [
+    {
+        id: "providers",
+        label: "Providers",
+        icon: Server,
+        keys: ["provider_read_interval_minutes"],
+    },
     {
         id: "activity",
         label: "Activity History",
@@ -40,6 +46,7 @@ export const DEFAULT_SETTINGS: SettingsValues = {
     notification_retention_count: "500",
     notification_cleanup_interval_hours: "24",
     activity_level_overrides: "",
+    provider_read_interval_minutes: "5",
 };
 
 /** Whether the draft differs from what the server holds in any of the section's keys. */

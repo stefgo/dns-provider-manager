@@ -8,6 +8,7 @@ import { isPushedOnConnect } from "../../../lib/queryKeys";
 import { appendActivity, applySchedulerUpdate, markActivitySeen } from "../../../lib/cacheUpdates";
 import { activityListOptions } from "../../../queries/activity";
 import { schedulerStatusOptions } from "../../../queries/scheduler";
+import { queryKeys } from "../../../lib/queryKeys";
 
 /**
  * How long the socket may be down before the page says so. A reconnect is scheduled 3 s
@@ -107,6 +108,11 @@ export const WebSocketProvider = ({ children }: WebSocketProviderProps) => {
                         );
                         break;
                     }
+                    // A provider was read: its state and what is unmanaged may have changed.
+                    case WS_EVENTS.READINGS_UPDATE:
+                        void queryClient.invalidateQueries({ queryKey: queryKeys.unmanaged.all });
+                        void queryClient.invalidateQueries({ queryKey: queryKeys.providers.all });
+                        break;
                     // One scheduler at a time. Only where the status has been read: an
                     // entry made here would hold one scheduler and pass for both.
                     case WS_EVENTS.SCHEDULER_STATUS_UPDATE: {

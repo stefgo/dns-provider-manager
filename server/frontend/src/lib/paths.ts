@@ -16,6 +16,7 @@ export const ROUTES = {
     records: "/records",
     recordNew: "/records/new",
     record: "/records/:recordId",
+    unmanaged: "/unmanaged",
 
     providers: "/providers",
     providerNew: "/providers/new",
