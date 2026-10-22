@@ -1,12 +1,12 @@
-import { Link, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
 import { Layers, X } from "lucide-react";
-import { PROVIDER_TYPE_LABELS, SiteInputSchema, type Site } from "@dpm/shared";
+import { SiteInputSchema, type Site } from "@dpm/shared";
 import {
     ActionButton,
     Alert,
     Button,
     Card,
-    Checkbox,
     FieldLabel,
     Input,
     LoadingIndicator,
@@ -19,11 +19,11 @@ import { QueryError } from "../../../components/QueryError";
 import { useEntityForm } from "../../../hooks/useEntityForm";
 import { useUnsavedChangesGuard } from "../../../hooks/useUnsavedChangesGuard";
 import { NotFoundError } from "../../../lib/notFound";
-import { ROUTES } from "../../../lib/paths";
 import { HeaderBreadcrumb } from "../../app/HeaderBreadcrumb";
-import { getErrorMessage, toggled } from "../../../utils";
+import { getErrorMessage } from "../../../utils";
 import { EMPTY_SITE_DRAFT, siteDraftFrom, siteInputFrom } from "../lib/siteForm";
 import { describeSiteSync } from "../lib/siteSync";
+import { SiteProviderSelect } from "./SiteProviderSelect";
 
 /** `/sites/new` and `/sites/:siteId`, read from the list like every editor. */
 export const SiteEditorRoute = () => {
@@ -53,7 +53,15 @@ const SiteEditor = ({ site }: { site: Site | null }) => {
         toInput: siteInputFrom,
     });
     const { draft, set, errors, isSaving } = form;
-    const { close, leave } = useUnsavedChangesGuard(form.isDirty, site ? "site" : "newSite");
+    // The list to pick providers from takes the field's place; Escape closes it before the page.
+    const [selectingProviders, setSelectingProviders] = useState(false);
+    const { close, leave } = useUnsavedChangesGuard(form.isDirty, site ? "site" : "newSite", {
+        onEscape: () => {
+            if (!selectingProviders) return false;
+            setSelectingProviders(false);
+            return true;
+        },
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -100,39 +108,25 @@ const SiteEditor = ({ site }: { site: Site | null }) => {
                     placeholder="The DNS servers of the home network"
                 />
 
-                <div>
-                    <FieldLabel as="div">Providers</FieldLabel>
-                    {providersError ? (
+                {providersError ? (
+                    <div>
+                        <FieldLabel as="div">Providers</FieldLabel>
                         <Alert title="Could not load the providers">{getErrorMessage(providersError)}</Alert>
-                    ) : providersPending ? (
+                    </div>
+                ) : providersPending ? (
+                    <div>
+                        <FieldLabel as="div">Providers</FieldLabel>
                         <LoadingIndicator label="Loading providers…" />
-                    ) : providers.length === 0 ? (
-                        <Alert tone="info">
-                            There is no provider yet. A site can be saved without one;{" "}
-                            <Link to={ROUTES.providerNew} className="text-primary hover:underline">
-                                add a provider
-                            </Link>{" "}
-                            and come back to give it this site.
-                        </Alert>
-                    ) : (
-                        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {providers.map((provider) => (
-                                <Checkbox
-                                    key={provider.id}
-                                    label={provider.name}
-                                    hint={PROVIDER_TYPE_LABELS[provider.type]}
-                                    checked={draft.providerIds.includes(provider.id)}
-                                    onChange={(e) =>
-                                        set("providerIds", toggled(draft.providerIds, provider.id, e.target.checked))
-                                    }
-                                />
-                            ))}
-                        </div>
-                    )}
-                    <p className="mt-1 text-xs text-text-muted">
-                        Every record of this site goes to each provider ticked here.
-                    </p>
-                </div>
+                    </div>
+                ) : (
+                    <SiteProviderSelect
+                        providers={providers}
+                        selectedIds={draft.providerIds}
+                        onChange={(ids) => set("providerIds", ids)}
+                        isSelecting={selectingProviders}
+                        onSetIsSelecting={setSelectingProviders}
+                    />
+                )}
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-border">
                     <Button type="button" variant="secondary" onClick={close}>

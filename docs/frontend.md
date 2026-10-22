@@ -26,7 +26,7 @@ src/
 │   ├── dashboard/                        # DashboardOverview, and the counts its cards show (lib/)
 │   ├── records/                          # RecordOverview, RecordList, RecordEditor, the form rules (lib/)
 │   ├── providers/                        # ProviderOverview, ProviderList, ProviderDetail, ProviderEditor, the form rules and details (lib/)
-│   ├── sites/                            # SiteOverview, SiteList, SiteEditor, form rules and siteDeletion (lib/)
+│   ├── sites/                            # SiteOverview, SiteList, SiteEditor, SiteProviderSelect, form rules and siteDeletion (lib/)
 │   ├── unmanaged/                        # UnmanagedOverview, AdoptDialog, the adoption rules (lib/)
 │   ├── activity/                         # ActivityView, grouping, problem toasts
 │   ├── users/                            # UserOverview, UserList, UserDialog
