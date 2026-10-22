@@ -71,6 +71,12 @@ export const shellRoutes: RouteObject[] = [
         element: <DashboardOverview />,
     },
     {
+        path: ROUTES.unmanaged,
+        handle: nav({ id: "unmanaged", groupId: "dns", label: "Unmanaged", icon: Inbox }),
+        errorElement: <RouteError />,
+        element: <UnmanagedOverview />,
+    },
+    {
         path: ROUTES.records,
         handle: nav({ id: "records", groupId: "dns", label: "Records", icon: Globe }),
         errorElement: <RouteError />,
@@ -80,12 +86,6 @@ export const shellRoutes: RouteObject[] = [
             // By its kind: a record's name alone does not say which of several it is.
             { path: ROUTES.record, handle: titled("Record"), element: <RecordEditorRoute /> },
         ],
-    },
-    {
-        path: ROUTES.unmanaged,
-        handle: nav({ id: "unmanaged", groupId: "dns", label: "Unmanaged", icon: Inbox }),
-        errorElement: <RouteError />,
-        element: <UnmanagedOverview />,
     },
     {
         path: ROUTES.providers,
