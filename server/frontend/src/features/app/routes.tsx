@@ -8,6 +8,7 @@ import { RouteError } from "./RouteError";
 import {
     ActivityView,
     DashboardOverview,
+    ProviderDetailRoute,
     ProviderEditorRoute,
     ProviderOverview,
     RecordEditorRoute,
@@ -77,7 +78,14 @@ export const shellRoutes: RouteObject[] = [
         children: [
             { index: true, element: <ProviderOverview /> },
             { path: ROUTES.providerNew, handle: titled("New Provider"), element: <ProviderEditorRoute /> },
-            { path: ROUTES.provider, handle: about("provider", "Provider"), element: <ProviderEditorRoute /> },
+            {
+                path: ROUTES.provider,
+                handle: about("provider", "Provider"),
+                children: [
+                    { index: true, element: <ProviderDetailRoute /> },
+                    { path: ROUTES.providerEdit, handle: titled("Edit"), element: <ProviderEditorRoute /> },
+                ],
+            },
         ],
     },
     {

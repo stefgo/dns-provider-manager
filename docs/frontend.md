@@ -25,7 +25,7 @@ src/
 │   ├── auth/                             # AuthContext and AuthProvider
 │   ├── dashboard/                        # DashboardOverview, and the counts its cards show (lib/)
 │   ├── records/                          # RecordOverview, RecordList, RecordEditor, the form rules (lib/)
-│   ├── providers/                        # ProviderOverview, ProviderList, ProviderEditor, the form rules (lib/)
+│   ├── providers/                        # ProviderOverview, ProviderList, ProviderDetail, ProviderEditor, the form rules and details (lib/)
 │   ├── sites/                            # SiteOverview, SiteList, SiteEditor, form rules and siteDeletion (lib/)
 │   ├── unmanaged/                        # UnmanagedOverview, AdoptDialog, the adoption rules (lib/)
 │   ├── activity/                         # ActivityView, grouping, problem toasts
@@ -57,7 +57,8 @@ unauthenticated users to `/login`, inside `AppLayout`.
 | `/records/new`, `/records/:recordId` | The `RecordEditor`.                                |
 | `/unmanaged`        | What the providers hold and dpm does not manage (`UnmanagedOverview`). |
 | `/providers`        | The providers (`ProviderOverview`).                                 |
-| `/providers/new`, `/providers/:providerId` | The `ProviderEditor`.                        |
+| `/providers/:providerId` | One provider (`ProviderDetail`): its header with what the list has no room for. |
+| `/providers/new`, `/providers/:providerId/edit` | The `ProviderEditor`.                   |
 | `/sites`            | The sites (`SiteOverview`).                                         |
 | `/sites/new`, `/sites/:siteId` | The `SiteEditor`.                                        |
 | `/activity`         | The activity list.                                                  |

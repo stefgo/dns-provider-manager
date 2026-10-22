@@ -21,6 +21,7 @@ export const ROUTES = {
     providers: "/providers",
     providerNew: "/providers/new",
     provider: "/providers/:providerId",
+    providerEdit: "/providers/:providerId/edit",
 
     sites: "/sites",
     siteNew: "/sites/new",
@@ -43,6 +44,7 @@ export const ROUTES = {
 export const paths = {
     record: (recordId: string) => generatePath(ROUTES.record, { recordId }),
     provider: (providerId: string) => generatePath(ROUTES.provider, { providerId }),
+    providerEdit: (providerId: string) => generatePath(ROUTES.providerEdit, { providerId }),
     site: (siteId: string) => generatePath(ROUTES.site, { siteId }),
     webhook: (webhookId: string) => generatePath(ROUTES.webhook, { webhookId }),
 };

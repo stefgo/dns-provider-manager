@@ -11,7 +11,7 @@ import { ProviderList } from "./ProviderList";
 import { useRecords } from "../../../queries/records";
 import { recordCounts } from "../lib/providerRecords";
 
-/** The page at `/providers`. Adding and editing happen on pages of their own. */
+/** The page at `/providers`. A provider's page, adding and editing are pages of their own. */
 export const ProviderOverview = () => {
     const navigate = useNavigate();
     const { search } = useLocation();
@@ -42,7 +42,8 @@ export const ProviderOverview = () => {
             counts={recordCounts(records)}
             isLoading={isPending}
             onAdd={() => open(ROUTES.providerNew)}
-            onEdit={(provider) => open(paths.provider(provider.id))}
+            onOpen={(provider) => open(paths.provider(provider.id))}
+            onEdit={(provider) => open(paths.providerEdit(provider.id))}
             onDelete={requestDelete}
             onRead={read}
         />

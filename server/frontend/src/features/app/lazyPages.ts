@@ -18,6 +18,9 @@ export const UnmanagedOverview = lazy(() =>
 export const ProviderOverview = lazy(() =>
     import("../providers/components/ProviderOverview").then((m) => ({ default: m.ProviderOverview })),
 );
+export const ProviderDetailRoute = lazy(() =>
+    import("../providers/components/ProviderDetail").then((m) => ({ default: m.ProviderDetailRoute })),
+);
 export const ProviderEditorRoute = lazy(() =>
     import("../providers/components/ProviderEditor").then((m) => ({ default: m.ProviderEditorRoute })),
 );

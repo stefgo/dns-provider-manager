@@ -26,8 +26,10 @@ or a CNAME next to another record of its name on the same DNS server — whether
 DNS Provider Manager's or only the server's.
 
 Providers — a Cloudflare API token, an AdGuard Home instance, a Samba AD domain — are set up
-with their credentials, which are stored encrypted and never shown again. Every change to a
-record, site or provider is in the activity history, with who made it.
+with their credentials, which are stored encrypted and never shown again. A click on a
+provider's row opens its page: where it is reached, how its last reading went, the zones it
+uses and how many records go to it. Every change to a record, site or provider is in the
+activity history, with who made it.
 
 ### Records are written to Cloudflare and AdGuard Home
 

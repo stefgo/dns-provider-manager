@@ -25,6 +25,9 @@ export const STORAGE_KEYS = {
     activityView: "dpm.activity.view",
     usersView: "dpm.users.view",
     webhooksView: "dpm.webhooks.view",
+
+    // Detail pages: whether the header's details are open.
+    providerDetails: "dpm.providers.details",
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

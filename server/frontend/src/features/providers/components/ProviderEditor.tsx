@@ -41,7 +41,7 @@ import {
     type ProviderDraft,
 } from "../lib/providerForm";
 
-/** `/providers/new` and `/providers/:providerId`, read from the list like every editor. */
+/** `/providers/new` and `/providers/:providerId/edit`, read from the list like every editor. */
 export const ProviderEditorRoute = () => {
     const { providerId } = useParams();
     const { providers, isPending, error } = useProviders();

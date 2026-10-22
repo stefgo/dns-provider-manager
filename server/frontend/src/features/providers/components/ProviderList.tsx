@@ -25,6 +25,8 @@ interface ProviderListProps {
     counts: Map<string, ProviderRecordCount>;
     isLoading: boolean;
     onAdd: () => void;
+    /** A click on the row: the provider's page. */
+    onOpen: (provider: Provider) => void;
     onEdit: (provider: Provider) => void;
     onDelete: (provider: Provider) => void;
     onRead: (provider: Provider) => void;
@@ -61,7 +63,7 @@ const ReadState = ({ provider }: { provider: Provider }) => {
 const sitesOf = (provider: Provider, sites: Site[]) => sites.filter((s) => provider.siteIds.includes(s.id));
 
 /** The providers: one access each to a DNS server dpm writes to. */
-export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onEdit, onDelete, onRead }: ProviderListProps) => {
+export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpen, onEdit, onDelete, onRead }: ProviderListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
 
     const matchesSearch = (provider: Provider, query: string) => {
@@ -160,6 +162,7 @@ export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onEdi
             columns={columns}
             listGroups={listGroups("flex-1 min-w-0")}
             keyField="id"
+            onRowClick={onOpen}
             isLoading={isLoading}
             loadingMessage="Loading providers…"
             searchable
