@@ -21,14 +21,23 @@ The development environment is configured via `compose.dev.yaml`:
 NPM_TOKEN=$(gh auth token) docker compose -f compose.dev.yaml up --build
 ```
 
-This starts the server:
+This starts the server and two DNS servers to write to:
 
-| Service        | Port   | Dockerfile                        | Description                                                                                     |
+| Service        | Port   | Dockerfile / image                | Description                                                                                     |
 | :------------- | :----- | :-------------------------------- | :---------------------------------------------------------------------------------------------- |
 | `server-dev`   | `3030` | `docker/Dockerfile.server.dev`    | Backend in watch mode (`npm run dev -w server/backend`), restarting on code changes. It serves the frontend from `server/dist/public` once that has been built; for hot reload run `npm run dev:frontend` on the host, whose Vite server proxies `/api` and `/ws` to port 3030. |
+| `adguard-1`    | `3031` | `adguard/adguardhome`             | AdGuard Home, web interface and API (`admin` / `Passw0rd-dev`). The server reaches it at `http://172.30.0.21:3000`. |
+| `adguard-2`    | `3032` | `adguard/adguardhome`             | A second instance, `http://172.30.0.22:3000` — put both into one site to see dpm keep them in step. |
 
-The DNS servers to test against — AdGuard Home instances, a Samba AD domain — join the file
-with the providers that use them.
+Both instances start from `docker/dev/adguard/AdGuardHome.yaml`, which holds one rewrite to
+adopt. It is copied into each instance's volume on its first start, because AdGuard Home
+writes its configuration back; `docker compose -f compose.dev.yaml down -v` starts them over.
+A change made in their web interface is how drift is tried out.
+
+The stack's network is `172.30.0.0/24`, so it runs beside the dev stacks of
+keepalived-status-monitor and samba-ad-manager, which use `172.28.0.0/24`. A Samba AD domain
+to test against is samba-ad-manager's dev image (`sadm-samba-dev`); dpm reads it, and writing
+to it comes with a later version.
 
 **Without Docker.** The server also runs straight from a checkout: `npm install`,
 `npm run build -w shared` (every other workspace needs its output), then `npm run dev:server`

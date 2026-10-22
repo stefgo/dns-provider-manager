@@ -2,8 +2,10 @@
 #
 #   docker compose -f compose.dev.yaml up --build
 #
-# Dashboard: http://localhost:3030 (admin/admin). The DNS servers to test against join this
-# file with the providers that use them.
+# Dashboard: http://localhost:3030 (admin/admin). Two AdGuard Home instances to write to:
+# http://localhost:3031 and http://localhost:3032 (admin / Passw0rd-dev). Add them as
+# providers with the URLs http://172.30.0.21:3000 and http://172.30.0.22:3000 -- the
+# addresses the server reaches them at -- and put both into one site.
 
 services:
     server-dev:
@@ -42,7 +44,7 @@ services:
 
         networks:
             dpm-dev:
-                ipv4_address: 172.28.0.10
+                ipv4_address: 172.30.0.10
 
         environment:
             - LOG_LEVEL=debug
@@ -59,11 +61,49 @@ services:
             start_period: 45s
             retries: 3
 
+    # Two instances that should give the same answers: a site of both is what dpm keeps in step.
+    # Each starts from docker/dev/adguard/AdGuardHome.yaml, copied in on its first start so that
+    # AdGuard Home can write its own configuration; `down -v` starts them over.
+    adguard-1:
+        image: adguard/adguardhome
+        container_name: dpm-adguard-1
+        entrypoint: ["/bin/sh", "-c"]
+        command:
+            - "[ -f /opt/adguardhome/conf/AdGuardHome.yaml ] || cp /seed/AdGuardHome.yaml /opt/adguardhome/conf/; exec /opt/adguardhome/AdGuardHome --no-check-update -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work"
+        volumes:
+            - ./docker/dev/adguard/AdGuardHome.yaml:/seed/AdGuardHome.yaml:ro
+            - adguard-1-conf:/opt/adguardhome/conf
+        ports:
+            - "3031:3000"
+        networks:
+            dpm-dev:
+                ipv4_address: 172.30.0.21
+
+    adguard-2:
+        image: adguard/adguardhome
+        container_name: dpm-adguard-2
+        entrypoint: ["/bin/sh", "-c"]
+        command:
+            - "[ -f /opt/adguardhome/conf/AdGuardHome.yaml ] || cp /seed/AdGuardHome.yaml /opt/adguardhome/conf/; exec /opt/adguardhome/AdGuardHome --no-check-update -c /opt/adguardhome/conf/AdGuardHome.yaml -w /opt/adguardhome/work"
+        volumes:
+            - ./docker/dev/adguard/AdGuardHome.yaml:/seed/AdGuardHome.yaml:ro
+            - adguard-2-conf:/opt/adguardhome/conf
+        ports:
+            - "3032:3000"
+        networks:
+            dpm-dev:
+                ipv4_address: 172.30.0.22
+
+volumes:
+    adguard-1-conf:
+    adguard-2-conf:
+
+# Not 172.28.0.0/24, which kasm's and sadm's dev stacks use: this one can run beside them.
 networks:
     dpm-dev:
         ipam:
             config:
-                - subnet: 172.28.0.0/24
+                - subnet: 172.30.0.0/24
 
 secrets:
     npm_token:

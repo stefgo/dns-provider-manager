@@ -49,7 +49,7 @@ dns-provider-manager/
 ├── docker/              # Dockerfiles
 ├── plans/               # Implementation plans (git-ignored)
 ├── compose.yaml         # Production Docker Compose
-└── compose.dev.yaml     # Dev stack: the server in watch mode
+└── compose.dev.yaml     # Dev stack: the server in watch mode, two AdGuard Home instances
 ```
 
 ## Development Commands
