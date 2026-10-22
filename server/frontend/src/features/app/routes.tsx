@@ -71,6 +71,16 @@ export const shellRoutes: RouteObject[] = [
         element: <DashboardOverview />,
     },
     {
+        path: ROUTES.providers,
+        handle: nav({ id: "providers", groupId: "dns", label: "Providers", icon: Server }),
+        errorElement: <RouteError />,
+        children: [
+            { index: true, element: <ProviderOverview /> },
+            { path: ROUTES.providerNew, handle: titled("New Provider"), element: <ProviderEditorRoute /> },
+            { path: ROUTES.provider, handle: about("provider", "Provider"), element: <ProviderEditorRoute /> },
+        ],
+    },
+    {
         path: ROUTES.unmanaged,
         handle: nav({ id: "unmanaged", groupId: "dns", label: "Unmanaged", icon: Inbox }),
         errorElement: <RouteError />,
@@ -85,16 +95,6 @@ export const shellRoutes: RouteObject[] = [
             { path: ROUTES.recordNew, handle: titled("New Record"), element: <RecordEditorRoute /> },
             // By its kind: a record's name alone does not say which of several it is.
             { path: ROUTES.record, handle: titled("Record"), element: <RecordEditorRoute /> },
-        ],
-    },
-    {
-        path: ROUTES.providers,
-        handle: nav({ id: "providers", groupId: "infrastructure", label: "Providers", icon: Server }),
-        errorElement: <RouteError />,
-        children: [
-            { index: true, element: <ProviderOverview /> },
-            { path: ROUTES.providerNew, handle: titled("New Provider"), element: <ProviderEditorRoute /> },
-            { path: ROUTES.provider, handle: about("provider", "Provider"), element: <ProviderEditorRoute /> },
         ],
     },
     {
