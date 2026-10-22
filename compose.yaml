@@ -1,0 +1,46 @@
+# The released image, as an operator runs it:
+#
+#   docker compose up -d
+#
+# The config file has to exist before the first start (`touch server-config.yaml`), or
+# Docker mounts a directory in its place. Pin a version tag instead of `latest` to make an
+# upgrade a decision (docs/operations.md).
+#
+# There is no agent: the server reaches every DNS provider over the network itself.
+
+services:
+    dpm-server:
+        container_name: dpm-server
+        image: ghcr.io/stefgo/dpm-server:latest
+        ports:
+            - "3030:3030"
+        volumes:
+            # Persist SQLite database and other data
+            - server-data:/app/server/backend/data
+            # Persist configuration (ensure this file exists or is created)
+            # The server runs as UID 1000; the entrypoint hands both paths to that user if it
+            # cannot write them, so the file may belong to UID 1000 on the host afterwards.
+            - ./server-config.yaml:/app/server/config.yaml
+        restart: unless-stopped
+        environment:
+            - NODE_ENV=production
+            # Behind a reverse proxy: its address, so X-Forwarded-For/-Proto are believed.
+            # Without it every request appears to come from the proxy. Comma separated; IPs,
+            # CIDRs or loopback / linklocal / uniquelocal. Overrides security.trusted_proxies.
+            # - DPM_TRUSTED_PROXIES=172.16.0.0/12
+        # Repeats the image's HEALTHCHECK so it is visible in the file operators edit.
+        # It asks the address the server writes to /tmp/dpm-health.json once it listens, so it
+        # follows a port set in config.yaml as well as DPM_SERVER_PORT. That takes an image
+        # which writes the file: an older tag reports unhealthy under this block.
+        # Docker does NOT restart an unhealthy container -- `restart:` reacts to the process
+        # exiting. The state shows in `docker ps` and works with
+        # `depends_on: condition: service_healthy`.
+        healthcheck:
+            test: ["CMD", "node", "-e", "Promise.resolve().then(() => fetch(JSON.parse(require('fs').readFileSync('/tmp/dpm-health.json', 'utf8')).url)).then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+            interval: 30s
+            timeout: 5s
+            start_period: 20s
+            retries: 3
+
+volumes:
+    server-data:

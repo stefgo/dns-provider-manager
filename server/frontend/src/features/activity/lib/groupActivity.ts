@@ -1,0 +1,93 @@
+import { ACTIVITY_LEVELS, ActivityLevel, ActivityRecord } from "@dpm/shared";
+
+/**
+ * One row of the list: an event, plus the events that share its correlationId.
+ *
+ * Grouping is a lookup, not a guess. Whoever caused a group put its id on every member --
+ * an operation of several steps stamps the same id on each of them. Nothing here matches
+ * names, and nothing depends on the order or the timing of what is stored: every event
+ * carries its own membership.
+ */
+export interface ActivityGroup {
+    head: ActivityRecord;
+    members: ActivityRecord[];
+    /** The most severe level in the group, so a failed step colours its head. */
+    level: ActivityLevel;
+    /** True while nobody in the group has been seen by the current user. */
+    unseen: boolean;
+}
+
+/**
+ * Which kinds stand for a whole operation and are therefore the head of their group, ahead
+ * of the steps that were stored before them. None yet: without one, a group is headed by its
+ * earliest member.
+ */
+const GROUP_HEADS = new Set<string>();
+
+function maxLevel(events: ActivityRecord[]): ActivityLevel {
+    let worst: ActivityLevel = ACTIVITY_LEVELS[0];
+    for (const event of events) {
+        if (ACTIVITY_LEVELS.indexOf(event.level) > ACTIVITY_LEVELS.indexOf(worst)) {
+            worst = event.level;
+        }
+    }
+    return worst;
+}
+
+/**
+ * Folds a flat, newest-first event list into rows.
+ *
+ * An event with no correlationId is a row of its own. Correlated events become one row
+ * headed by the summarising event of the group; if that one has not arrived -- an action
+ * whose request was cleared away, or a run still under way -- the earliest member stands in
+ * for it, so no event can go missing because its head is absent.
+ */
+export function groupActivity(events: ActivityRecord[]): ActivityGroup[] {
+    const byCorrelation = new Map<string, ActivityRecord[]>();
+    const groups: ActivityGroup[] = [];
+    // Placeholders keep the correlated rows in the position of their first-seen member, so
+    // a group does not jump to the top of the list every time it grows a step.
+    const order: Array<ActivityRecord | { correlationId: string }> = [];
+
+    for (const event of events) {
+        const key = event.correlationId;
+        if (!key) {
+            order.push(event);
+            continue;
+        }
+        const existing = byCorrelation.get(key);
+        if (existing) {
+            existing.push(event);
+        } else {
+            byCorrelation.set(key, [event]);
+            order.push({ correlationId: key });
+        }
+    }
+
+    for (const entry of order) {
+        if ("correlationId" in entry && !("id" in entry)) {
+            const members = byCorrelation.get(entry.correlationId) ?? [];
+            if (members.length === 0) continue;
+            // The list arrives newest first; a group reads oldest first, the way it ran.
+            const ordered = [...members].reverse();
+            const headIndex = ordered.findIndex((m) => GROUP_HEADS.has(m.kind));
+            const head = headIndex === -1 ? ordered[0] : ordered[headIndex];
+            groups.push({
+                head,
+                members: ordered.filter((m) => m.id !== head.id),
+                level: maxLevel(ordered),
+                unseen: ordered.some((m) => !m.seen),
+            });
+            continue;
+        }
+        const event = entry as ActivityRecord;
+        groups.push({
+            head: event,
+            members: [],
+            level: event.level,
+            unseen: !event.seen,
+        });
+    }
+
+    return groups;
+}
