@@ -46,7 +46,7 @@ export const RecordProviders = ({ record, input, isDirty, providers }: RecordPro
 
     return (
         <div>
-            <FieldLabel as="div">Providers</FieldLabel>
+            <FieldLabel as="div">{request === null ? "Providers" : "Changes to providers"}</FieldLabel>
             {record && !isDirty && (
                 <ul className="divide-y divide-border">
                     {record.links.length === 0 && record.skipped.length === 0 && (
@@ -86,7 +86,6 @@ export const RecordProviders = ({ record, input, isDirty, providers }: RecordPro
                 ) : (
                     <div className="space-y-2">
                         {preview.data.conflict && <Alert>{preview.data.conflict}</Alert>}
-                        <p className="text-sm text-text-muted">When saved:</p>
                         <ul className="divide-y divide-border">
                             {preview.data.steps.length === 0 && preview.data.skipped.length === 0 && (
                                 <li className="py-1.5 text-sm text-text-muted">Nothing is written: its sites write to no provider.</li>
