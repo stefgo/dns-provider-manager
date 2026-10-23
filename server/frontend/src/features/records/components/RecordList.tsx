@@ -155,17 +155,6 @@ export const RecordList = ({
             sortValue: (r) => (hasProblem(r) ? 0 : 1),
             render: (r) => <ProviderStatus record={r} providers={providers} />,
         },
-        {
-            header: "TTL",
-            sortable: true,
-            sortValue: (r) => r.ttl ?? 0,
-            render: (r) => (
-                <span className="whitespace-nowrap text-sm text-text-muted">
-                    {r.ttl === null ? "default" : `${r.ttl} s`}
-                    {r.proxied && " · proxied"}
-                </span>
-            ),
-        },
         actionsColumn(renderActions),
     ];
 
