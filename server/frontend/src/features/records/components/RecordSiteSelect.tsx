@@ -5,7 +5,7 @@ import { ROUTES } from "../../../lib/paths";
 import { plural } from "../../../utils";
 
 /** What a site's row opens to: the providers its records go to. */
-const SiteInfo = ({ site, providers }: { site: Site; providers: Provider[] }) => {
+export const SiteInfo = ({ site, providers }: { site: Site; providers: Provider[] }) => {
     const members = providers.filter((p) => site.providerIds.includes(p.id));
     return (
         <InfoGrid>
@@ -20,7 +20,7 @@ const SiteInfo = ({ site, providers }: { site: Site; providers: Provider[] }) =>
     );
 };
 
-const SiteName = ({ site }: { site: Site }) => (
+export const SiteName = ({ site }: { site: Site }) => (
     <div className="flex min-w-0 items-baseline gap-2">
         <span className="shrink-0 text-sm font-medium text-text-primary">{site.name}</span>
         {site.description && <span className="truncate text-xs text-text-muted">{site.description}</span>}

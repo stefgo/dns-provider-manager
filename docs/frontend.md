@@ -299,8 +299,10 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   server's preview says. What the actions at a provider ask and report is `useLinkActions`;
   a save that a provider did not take is a toast, the record is stored all the same. Deleted
   records a provider still holds are an `Alert` above the list. Picked records get or lose
-  sites together with "Change Sites" (`RecordSitesDialog`): each site's box starts ticked,
-  empty or half as all, none or some of them have it, only a changed box changes the records,
+  sites together with "Change Sites" (`RecordSitesDialog`), in the list the editor picks sites
+  from (`MultiSelectField`, with `partialIds` and `onToggle` for a third state): each site
+  starts ticked, empty or half as all, none or some of them have it, only a changed site
+  changes the records,
   and the dialog says which providers get or lose records and which are parked
   (`lib/bulkSites.ts`). The outcome is one toast with every refusal, as for an adoption.
 - **Providers** have one draft for every type, so switching the type of a new provider keeps

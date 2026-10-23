@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { DnsRecord, Provider, Site } from "@dpm/shared";
-import { Alert, Button, Checkbox, Modal, useToast } from "@stefgo/react-ui-components";
+import { Alert, Button, Modal, useToast } from "@stefgo/react-ui-components";
+import { MultiSelectField } from "../../../components/MultiSelectField";
+import { ROUTES } from "../../../lib/paths";
 import { useChangeRecordSites } from "../../../queries/records";
 import { getErrorMessage, nameList, plural } from "../../../utils";
 import { initialSiteStates, nextSiteState, siteChanges, sitesChangePreview, sitesOutcome } from "../lib/bulkSites";
+import { SiteInfo, SiteName } from "./RecordSiteSelect";
 
 interface RecordSitesDialogProps {
     records: DnsRecord[];
@@ -15,10 +19,11 @@ interface RecordSitesDialogProps {
 }
 
 /**
- * Gives several records sites and takes others from them. Each site's box starts as the
- * records are: ticked where all of them have it, empty where none does, half where some do.
- * Only a box that is changed changes the records; a half one left alone leaves each record
- * as it is. Below, what saving would do at the providers.
+ * Gives several records sites and takes others from them, in the list the record editor picks
+ * its sites from. Each site starts as the records are: ticked where all of them have it,
+ * empty where none does, half where some do. Only a site that is changed changes the records;
+ * a half one left alone leaves each record as it is. Below, what saving would do at the
+ * providers.
  */
 export const RecordSitesDialog = ({ records, sites, providers, onClose, onDone }: RecordSitesDialogProps) => {
     const [initial] = useState(() => initialSiteStates(records, sites));
@@ -50,8 +55,8 @@ export const RecordSitesDialog = ({ records, sites, providers, onClose, onDone }
         <Modal
             isOpen
             onClose={onClose}
+            size="lg"
             title={`Change sites of ${plural(records.length, "record")}`}
-            description="Tick a site to give it to every record, untick it to take it from every one. A half-ticked site is one only some of them have."
             footer={
                 <div className="flex justify-end gap-3">
                     <Button variant="secondary" onClick={onClose}>
@@ -65,22 +70,27 @@ export const RecordSitesDialog = ({ records, sites, providers, onClose, onDone }
         >
             <div className="space-y-4">
                 {error && <Alert>{error}</Alert>}
-                {sites.length === 0 ? (
-                    <Alert tone="info">There is no site yet.</Alert>
-                ) : (
-                    <div className="space-y-2">
-                        {sites.map((site) => (
-                            <Checkbox
-                                key={site.id}
-                                label={site.name}
-                                hint={site.description || undefined}
-                                checked={states[site.id] === "all"}
-                                indeterminate={states[site.id] === "some"}
-                                onChange={() => toggle(site.id)}
-                            />
-                        ))}
-                    </div>
-                )}
+                <MultiSelectField
+                    items={sites}
+                    selectedIds={sites.filter((site) => states[site.id] === "all").map((site) => site.id)}
+                    partialIds={sites.filter((site) => states[site.id] === "some").map((site) => site.id)}
+                    onToggle={(site) => toggle(site.id)}
+                    label="Sites"
+                    renderName={(site) => <SiteName site={site} />}
+                    renderInfo={(site) => <SiteInfo site={site} providers={providers} />}
+                    removeTooltip="Remove from Records"
+                    noneSelected="No site selected: the records are parked and written to no provider"
+                    emptyList={
+                        <>
+                            There is no site yet —{" "}
+                            <Link to={ROUTES.siteNew} className="text-primary hover:underline">
+                                add a site
+                            </Link>{" "}
+                            first.
+                        </>
+                    }
+                    hint="Ticked: every record gets the site. Empty: every record loses it. Half: only some of them have it, and each keeps what it has."
+                />
                 {asked && (
                     <Alert tone="info">
                         {preview.changed === 0

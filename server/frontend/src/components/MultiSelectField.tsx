@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent, type ReactNode } from "react";
-import { CheckCircle2, ChevronDown, ChevronRight, Circle, Trash2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronRight, Circle, CircleMinus, Trash2 } from "lucide-react";
 import { ActionButton, FOCUS_RING, FieldLabel, cn } from "@stefgo/react-ui-components";
 
 const LINK_BUTTON = cn("rounded-sm text-xs font-bold text-primary hover:underline", FOCUS_RING);
@@ -18,10 +18,18 @@ export const InfoRow = ({ label, children }: { label: string; children: ReactNod
     </>
 );
 
-interface MultiSelectFieldProps<T extends { id: string }> {
+/**
+ * How a click on an item changes the field: ticked or unticked (`onChange`, with the ids
+ * chosen then), or whatever the editor makes of it (`onToggle`) -- for rows with more than
+ * the two states, such as a site only some of several records have.
+ */
+type Picking<T> = { onChange: (ids: string[]) => void; onToggle?: never } | { onToggle: (item: T) => void; onChange?: never };
+
+type MultiSelectFieldProps<T extends { id: string }> = Picking<T> & {
     items: T[];
     selectedIds: string[];
-    onChange: (ids: string[]) => void;
+    /** Items neither chosen nor not, shown half ticked. Only where the list is open. */
+    partialIds?: readonly string[];
     /**
      * Whether the list to pick from is open. The editor holds it: Escape closes it first.
      * Without `onSetIsSelecting` the list is always open and there is no "Done".
@@ -41,7 +49,7 @@ interface MultiSelectFieldProps<T extends { id: string }> {
     emptyList: ReactNode;
     hint?: ReactNode;
     error?: string;
-}
+};
 
 /**
  * Several items picked for an editor, the way pbcm's job editor shows its repository: the
@@ -52,7 +60,9 @@ interface MultiSelectFieldProps<T extends { id: string }> {
 export const MultiSelectField = <T extends { id: string }>({
     items,
     selectedIds,
+    partialIds = [],
     onChange,
+    onToggle,
     isSelecting,
     onSetIsSelecting,
     label,
@@ -68,8 +78,11 @@ export const MultiSelectField = <T extends { id: string }>({
     const alwaysOpen = !onSetIsSelecting;
 
     const isSelected = (item: T) => selectedIds.includes(item.id);
+    const isPartial = (item: T) => !isSelected(item) && partialIds.includes(item.id);
     const toggle = (item: T) =>
-        onChange(isSelected(item) ? selectedIds.filter((id) => id !== item.id) : [...selectedIds, item.id]);
+        onToggle
+            ? onToggle(item)
+            : onChange(isSelected(item) ? selectedIds.filter((id) => id !== item.id) : [...selectedIds, item.id]);
 
     const expandButton = (item: T) => {
         const expanded = expandedId === item.id;
@@ -118,7 +131,7 @@ export const MultiSelectField = <T extends { id: string }>({
                         <div key={item.id} className="flex flex-col">
                             <div
                                 role="checkbox"
-                                aria-checked={isSelected(item)}
+                                aria-checked={isPartial(item) ? "mixed" : isSelected(item)}
                                 tabIndex={0}
                                 onClick={() => toggle(item)}
                                 onKeyDown={(e) => onRowKey(e, item)}
@@ -131,6 +144,8 @@ export const MultiSelectField = <T extends { id: string }>({
                                 <div className="flex min-w-0 items-center gap-2">
                                     {isSelected(item) ? (
                                         <CheckCircle2 size={18} className="shrink-0 animate-pulse-soft text-primary" />
+                                    ) : isPartial(item) ? (
+                                        <CircleMinus size={18} className="shrink-0 text-primary" />
                                     ) : (
                                         <Circle size={18} className="shrink-0 text-border" />
                                     )}
@@ -142,7 +157,7 @@ export const MultiSelectField = <T extends { id: string }>({
                     ))}
                     {items.length === 0 && <div className="p-8 text-center text-sm text-text-muted">{emptyList}</div>}
                 </div>
-                {alwaysOpen && items.length > 0 && selectedIds.length === 0 && (
+                {alwaysOpen && items.length > 0 && selectedIds.length === 0 && partialIds.length === 0 && (
                     <p className="ml-1 text-xs text-text-muted">{noneSelected}</p>
                 )}
                 {footer}
