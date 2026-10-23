@@ -89,33 +89,11 @@ export class SiteRepository {
         })();
     }
 
-    /**
-     * Takes the site away from the records that have another one, then deletes it. A record
-     * that has no other site keeps its row, and the database refuses the deletion (RESTRICT)
-     * -- the service asks `recordsOnlyIn` first, so that is a last line, not the message.
-     */
+    /** Takes the site away from its records, then deletes it. */
     static delete(id: string): { changes: number } {
         return db.transaction(() => {
-            db.prepare(`
-                DELETE FROM record_sites
-                WHERE site_id = ? AND (SELECT COUNT(*) FROM record_sites x WHERE x.record_id = record_sites.record_id) > 1
-            `).run(id);
+            db.prepare("DELETE FROM record_sites WHERE site_id = ?").run(id);
             return { changes: db.prepare("DELETE FROM sites WHERE id = ?").run(id).changes };
         })();
-    }
-
-    /**
-     * The names of the records that belong to this site and no other -- the ones a deletion
-     * would leave without a site. At most `limit` of them, and how many there are.
-     */
-    static recordsOnlyIn(id: string, limit = 3): { names: string[]; count: number } {
-        const only = `
-            FROM records r JOIN record_sites rs ON rs.record_id = r.id
-            WHERE rs.site_id = ? AND (SELECT COUNT(*) FROM record_sites x WHERE x.record_id = r.id) = 1`;
-        const { count } = db.prepare(`SELECT COUNT(*) AS count ${only}`).get(id) as { count: number };
-        const names = db
-            .prepare(`SELECT r.name ${only} ORDER BY r.name LIMIT ?`)
-            .all(id, limit) as { name: string }[];
-        return { names: names.map((n) => n.name), count };
     }
 }

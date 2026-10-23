@@ -250,6 +250,35 @@ describe("moving and deleting", () => {
         expect(SyncService.removals()).toEqual([]);
     });
 
+    it("removes a parked record from every provider and keeps it, and writes it again with a site", async () => {
+        const ag1 = adguard("AdGuard 1");
+        const ag2 = adguard("AdGuard 2");
+        const internal = site("internal", [ag1.id, ag2.id]);
+        await read(ag1.id);
+        await read(ag2.id);
+        const record = await RecordService.create(fields([internal.id]), USER);
+        world.calls.length = 0;
+        const parked = await RecordService.update(record.id, fields([]), USER);
+        expect(world.calls.sort()).toEqual(["AdGuard 1 delete 192.168.1.10", "AdGuard 2 delete 192.168.1.10"]);
+        expect(parked.links).toEqual([]);
+        expect(RecordRepository.findById(record.id)).toBeDefined();
+        expect(SyncService.removals()).toEqual([]);
+
+        await RecordService.update(record.id, fields([internal.id]), USER);
+        expect(values(ag1.id)).toEqual(["192.168.1.10"]);
+        expect(values(ag2.id)).toEqual(["192.168.1.10"]);
+    });
+
+    it("parks the records a deleted site alone had, and removes them from its providers", async () => {
+        const ag = adguard("AdGuard");
+        const internal = site("internal", [ag.id]);
+        await read(ag.id);
+        const record = await RecordService.create(fields([internal.id]), USER);
+        SiteService.delete(internal.id, USER);
+        await vi.waitFor(() => expect(values(ag.id)).toEqual([]));
+        expect(RecordRepository.findById(record.id)?.siteIds).toEqual([]);
+    });
+
     it("writes a site's records to a provider that joins it, and removes them from one that leaves", async () => {
         const ag1 = adguard("AdGuard 1");
         const ag2 = adguard("AdGuard 2");
@@ -309,9 +338,9 @@ describe("drift", () => {
         await read(ag1.id);
         world.calls.length = 0;
         const accepted = await RecordService.accept(record.id, ag1.id, USER);
-        expect(accepted?.value).toBe("192.168.1.99");
+        expect(accepted.value).toBe("192.168.1.99");
         expect(world.calls).toEqual(["AdGuard 2 update app.example.com 192.168.1.99"]);
-        expect(statuses(accepted!)).toEqual({ [ag1.id]: "in_sync", [ag2.id]: "in_sync" });
+        expect(statuses(accepted)).toEqual({ [ag1.id]: "in_sync", [ag2.id]: "in_sync" });
     });
 
     it("takes over a deletion by leaving the site, without touching the provider", async () => {
@@ -324,9 +353,22 @@ describe("drift", () => {
 
         world.calls.length = 0;
         const accepted = await RecordService.accept(record.id, ag1.id, USER);
-        expect(accepted?.siteIds).toEqual([lab.id]);
+        expect(accepted.siteIds).toEqual([lab.id]);
         expect(world.calls).toEqual([]);
-        expect(statuses(accepted!)).toEqual({ [ag2.id]: "in_sync" });
+        expect(statuses(accepted)).toEqual({ [ag2.id]: "in_sync" });
+    });
+
+    it("parks the record when taking over a deletion leaves it without a site", async () => {
+        const { ag1, record } = await written();
+        world.held.set(ag1.id, []);
+        await read(ag1.id);
+        world.calls.length = 0;
+        const accepted = await RecordService.accept(record.id, ag1.id, USER);
+        expect(accepted.siteIds).toEqual([]);
+        expect(RecordRepository.findById(record.id)).toBeDefined();
+        expect(world.calls).toEqual(["AdGuard 2 delete 192.168.1.10"]);
+        expect(accepted.links).toEqual([]);
+        expect(statuses(SyncService.view(record.id))).toEqual({});
     });
 
     it("is written over by itself where the provider says so", async () => {

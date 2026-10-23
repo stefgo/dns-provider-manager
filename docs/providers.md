@@ -22,7 +22,7 @@ provider shows where the record stands there:
 | green | The provider holds the record as DPM wrote it. |
 | grey | Not written yet: the provider is read only, or was not read yet. |
 | red | Writing failed. It is tried again after the provider's next reading. |
-| amber | Changed or deleted at the provider — **drift**. *Write again* puts DPM's value back; *Take over* makes the provider's value the record's (a changed value then goes to the record's other providers too; a deletion takes the record out of the sites it reached that provider through). |
+| amber | Changed or deleted at the provider — **drift**. *Write again* puts DPM's value back; *Take over* makes the provider's value the record's (a changed value then goes to the record's other providers too; a deletion takes the record out of the sites it reached that provider through, and parks it when none is left). |
 | blue | Being removed. |
 
 - **Only what DPM manages is touched.** DPM changes and deletes only entries it wrote or took
@@ -31,6 +31,9 @@ provider shows where the record stands there:
   lost the provider — is removed there only once every provider it still goes to holds it.
 - **A deleted record** is removed from every provider that holds it; one that cannot be
   reached keeps it until it can, and the list of records says so.
+- **A parked record** — one without a site — stays in DPM and is removed from every provider
+  that holds it. Given a site again, it is written again. Deleting a site parks the records
+  that belonged to it alone.
 - **Drift** is found by the readings. With **Correct Drift by Itself** on, a provider gets DPM's
   value written back without asking.
 - **Read Only** keeps DPM from writing to a provider at all — it is read and compared all the

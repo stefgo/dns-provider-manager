@@ -53,10 +53,13 @@ describe("the record editor's check", () => {
         expect(check({}).isValid).toBe(true);
     });
 
+    it("takes a draft without a site: the record is parked", () => {
+        expect(check({ siteIds: [] }).isValid).toBe(true);
+    });
+
     it("says at the field what the server would refuse", () => {
         expect(check({ value: "2001:db8::1" }).errors.value).toMatch(/IPv4/);
         expect(check({ name: "app..example.com" }).errors.name).toMatch(/empty part/);
-        expect(check({ siteIds: [] }).errors.siteIds).toBe("Choose at least one site");
         expect(check({ ttl: "10" }).errors.ttl).toBe("At least 60 seconds");
     });
 

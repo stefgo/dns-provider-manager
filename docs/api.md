@@ -359,7 +359,7 @@ How writing works is described under [Providers](providers.md#writing).
 | `value` | An IPv4 address (A), an IPv6 address (AAAA, stored in lower case) or a name (CNAME, never a wildcard, never the record's own name). |
 | `ttl` | 60–86400 seconds, or `null` for each provider's own default. |
 | `proxied` | Cloudflare's proxy. Every other provider ignores it. |
-| `siteIds` | At least one site. |
+| `siteIds` | Any number of sites. A record without one is parked: kept, and written to no provider. |
 | `note` | Free text, at most 500 characters. Written to no provider. |
 | `links` | Read only. Where the record stands at each provider it goes to, and at each it is still to be removed from. `status`: `in_sync`, `pending` (not written yet: read only, not read yet — `error` says why), `error` (the last attempt failed; tried again after the provider's next reading), `drift` (changed or switched off there — `observed` is what it holds), `missing` (deleted there), `removing`. |
 | `skipped` | Read only. Providers of its sites that do not get the record, with `reason` — a provider with zones none of which holds the name, or whose zones were not read yet. |
@@ -430,8 +430,8 @@ For a link in `drift` or `missing`:
 - `POST /api/v1/records/:recordId/links/:providerId/accept` takes over what the provider holds.
   A changed value becomes the record's and goes to its other providers too; a deletion (or a
   rewrite switched off in AdGuard Home) takes the record out of the sites it reached that
-  provider through, and deletes it when none is left — what the provider holds is not touched.
-  Answers `{ "record": … }`, `null` when the record was deleted.
+  provider through, and parks it when none is left — what the provider holds is not touched.
+  Answers `{ "record": … }`.
 
 **409** when the provider holds the record as dpm wrote it, or dpm does not write to it.
 
@@ -484,9 +484,8 @@ Changes nothing; a new site (no `id`) answers `[]`.
 
 ### Delete Site
 
-`DELETE /api/v1/sites/:siteId` answers `{ "success": true }`. The records that belong to
-another site as well leave this one. **409** while a record belongs to this site alone; the
-message names up to three of them.
+`DELETE /api/v1/sites/:siteId` answers `{ "success": true }`. Its records leave it and are
+removed from its providers; a record that belonged to this site alone is parked.
 
 ---
 

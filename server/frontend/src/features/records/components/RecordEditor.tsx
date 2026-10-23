@@ -91,7 +91,8 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
         if (record) {
             const preview = await fetchRecordPreview({ id: record.id, record: form.input }).catch(() => null);
             const removed = removedAt(preview, providers);
-            if (removed.length > 0 && !(await confirm(describeSaveRemoving(record.name, removed)))) return;
+            const parked = form.input.siteIds.length === 0;
+            if (removed.length > 0 && !(await confirm(describeSaveRemoving(record.name, removed, parked)))) return;
         }
         let saved = null as DnsRecord | null;
         const stored = await form.submit(async (input) => {

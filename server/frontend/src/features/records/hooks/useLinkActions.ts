@@ -19,8 +19,8 @@ export function useLinkActions() {
     const { sites } = useSites();
     const action = useRecordAction();
 
-    const report = (record: DnsRecord | null) => {
-        const outcome = record && saveOutcome(record, providers);
+    const report = (record: DnsRecord) => {
+        const outcome = saveOutcome(record, providers);
         if (outcome) show({ ...outcome, duration: 0 });
     };
 
@@ -28,7 +28,7 @@ export function useLinkActions() {
         try {
             const result = await action.mutateAsync({ id: record.id, action: "sync" });
             report(result);
-            if (result && !saveOutcome(result, providers)) show({ variant: "success", title: `${record.name} written to its providers` });
+            if (!saveOutcome(result, providers)) show({ variant: "success", title: `${record.name} written to its providers` });
         } catch (err) {
             await alert(describeFailure(`${record.name} was not written again`, err));
         }

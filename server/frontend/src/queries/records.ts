@@ -90,7 +90,7 @@ export const fetchRecordPreview = (request: RecordPreviewRequest) =>
 /**
  * The record's own actions at its providers: write it again everywhere (`sync`), write dpm's
  * value over what one provider holds (`rewrite`), or take that over (`accept`). Each answers
- * the record as it is now; taking over a deletion may have deleted it (`null`).
+ * the record as it is now.
  */
 export function useRecordAction() {
     const queryClient = useQueryClient();
@@ -99,7 +99,7 @@ export function useRecordAction() {
             if (action === "sync") return api.post(`/api/v1/records/${id}/sync`, {}, RecordViewSchema);
             if (action === "rewrite") return api.post(`/api/v1/records/${id}/links/${providerId}/rewrite`, {}, RecordViewSchema);
             return api
-                .post(`/api/v1/records/${id}/links/${providerId}/accept`, {}, z.object({ record: RecordViewSchema.nullable() }))
+                .post(`/api/v1/records/${id}/links/${providerId}/accept`, {}, z.object({ record: RecordViewSchema }))
                 .then((answer) => answer.record);
         },
         onSettled: () => invalidateDns(queryClient),

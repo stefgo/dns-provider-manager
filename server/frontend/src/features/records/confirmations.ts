@@ -7,8 +7,9 @@ export function describeDeleteRecord(
     record: Pick<DnsRecord, "name" | "type" | "value" | "siteIds">,
     removedAt: readonly string[],
 ): ConfirmOptions {
+    const count = record.siteIds.length;
     const sites =
-        record.siteIds.length > 1 ? `The record leaves all ${record.siteIds.length} sites it belongs to` : "The record leaves the site it belongs to";
+        count > 1 ? `The record leaves all ${count} sites it belongs to` : count === 1 ? "The record leaves the site it belongs to" : "The record is deleted";
     return {
         title: `Delete ${record.name} ${record.type} ${record.value}?`,
         description: removedAt.length > 0 ? `${sites}, and is removed from ${nameList(removedAt)}.` : `${sites}.`,
@@ -17,8 +18,19 @@ export function describeDeleteRecord(
     };
 }
 
-/** Saving removes the record from providers: it changed its sites, or its name moved. */
-export function describeSaveRemoving(name: string, removedAt: readonly string[]): ConfirmOptions {
+/**
+ * Saving removes the record from providers: it changed its sites, or its name moved. Without
+ * a site left it is parked, and nothing waits for another provider to take it first.
+ */
+export function describeSaveRemoving(name: string, removedAt: readonly string[], parked = false): ConfirmOptions {
+    if (parked) {
+        return {
+            title: `Park ${name}?`,
+            description: `The record has no site any more: it stays here and is removed from ${nameList(removedAt)}.`,
+            confirmLabel: "Save and park",
+            variant: "danger",
+        };
+    }
     return {
         title: `Remove ${name} from ${nameList(removedAt)}?`,
         description: `Saving removes the record there, once every provider it goes to holds it. Nothing is removed while one of them has not taken it.`,
@@ -39,12 +51,13 @@ export function describeRewrite(record: Pick<DnsRecord, "name" | "value">, provi
 
 /**
  * Taking over what a provider holds. A changed value goes to every other provider of the
- * record; a deletion takes the record out of the sites it reached that provider through.
+ * record; a deletion takes the record out of the sites it reached that provider through,
+ * and parks it when it has no other.
  */
 export function describeAccept(
     record: Pick<DnsRecord, "name" | "value">,
     provider: string,
-    change: { value: string } | { leaves: readonly string[]; deleted: boolean },
+    change: { value: string } | { leaves: readonly string[]; parked: boolean },
     otherProviders: readonly string[],
 ): ConfirmOptions {
     const others = otherProviders.length > 0 ? nameList(otherProviders) : null;
@@ -57,11 +70,13 @@ export function describeAccept(
         };
     }
     return {
-        title: change.deleted ? `Delete ${record.name}?` : `Take ${record.name} out of ${nameList(change.leaves)}?`,
+        title: change.parked ? `Park ${record.name}?` : `Take ${record.name} out of ${nameList(change.leaves)}?`,
         description: `${provider} does not hold it any more. ${
-            change.deleted ? "The record has no other site and is deleted" : `The record leaves ${nameList(change.leaves)}`
+            change.parked
+                ? "The record has no other site and is parked: it stays here and is written to no provider"
+                : `The record leaves ${nameList(change.leaves)}`
         }${others ? `, and is removed from ${others}` : ""}. What ${provider} holds is left as it is.`,
-        confirmLabel: change.deleted ? "Delete record" : "Take over",
+        confirmLabel: change.parked ? "Park record" : "Take over",
         variant: "danger",
     };
 }

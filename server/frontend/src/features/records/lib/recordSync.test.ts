@@ -80,12 +80,12 @@ describe("acceptEffect", () => {
 
     it("takes a deletion over by leaving the sites, and names who loses the record with them", () => {
         expect(acceptEffect({ siteIds: ["int"], links }, links[0], sites, providers)).toEqual({
-            change: { leaves: ["internal"], deleted: true },
+            change: { leaves: ["internal"], parked: true },
             others: ["AdGuard 2"],
         });
         // lab still reaches AdGuard 2.
         expect(acceptEffect({ siteIds: ["int", "lab"], links }, links[0], sites, providers)).toEqual({
-            change: { leaves: ["internal"], deleted: false },
+            change: { leaves: ["internal"], parked: false },
             others: [],
         });
     });

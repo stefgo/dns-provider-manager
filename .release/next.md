@@ -43,6 +43,11 @@ keeps its share until it can: the write is tried again after its next reading, a
 deleted meanwhile is listed until it is gone there too. Adding a provider to a site writes the
 site's records to it; taking one out removes them — the site's editor says how many first.
 
+A record can be parked: without a site it stays in DNS Provider Manager, marked *Parked* in the
+list, and is removed from every provider until it gets a site again. Deleting a site parks the
+records that belonged to it alone, and so does taking over a deletion that leaves a record
+without a site.
+
 DNS Provider Manager changes and deletes only what it wrote or adopted. A provider can be set to
 *read only*: it is read and compared, never written — a safe way to look at what would happen
 first.

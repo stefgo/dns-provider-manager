@@ -61,7 +61,7 @@ export class RecordController {
         return serviceReply(reply, () => RecordService.rewrite(recordId, providerId, request.user.username));
     }
 
-    /** Answers the record as it is now, or `null` when taking over the deletion deleted it. */
+    /** Answers the record as it is now -- parked, when taking over the deletion left it without a site. */
     static async accept(request: WithLink, reply: FastifyReply) {
         const { recordId, providerId } = request.params;
         return serviceReply(reply, async () => ({ record: await RecordService.accept(recordId, providerId, request.user.username) }));

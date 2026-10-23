@@ -390,7 +390,8 @@ export function normaliseRecordValue(type: RecordType, value: string): string {
  * robin, or the same name in two sites with two answers (split horizon).
  *
  * `ttl` null is the provider's own default. `proxied` is Cloudflare's orange cloud and is
- * ignored by every other provider.
+ * ignored by every other provider. A record without a site is parked: dpm keeps it and writes
+ * it to no provider.
  */
 export const RecordInputSchema = z
     .object({
@@ -405,7 +406,7 @@ export const RecordInputSchema = z
             .nullable()
             .default(null),
         proxied: z.boolean().default(false),
-        siteIds: z.array(z.string().min(1)).min(1, { error: "Choose at least one site" }).transform(unique),
+        siteIds: z.array(z.string().min(1)).transform(unique),
         note: z.string().trim().max(500).default(""),
     })
     .superRefine((record, ctx) => {

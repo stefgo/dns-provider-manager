@@ -22,7 +22,7 @@ function describe(record: Omit<RecordFields, "note"> & { note: string }): Record
         value: record.value,
         ttl: record.ttl === null ? "default" : `${record.ttl} s`,
         proxied: record.proxied ? "on" : "off",
-        sites: nameList(siteNames(record.siteIds)),
+        sites: record.siteIds.length > 0 ? nameList(siteNames(record.siteIds)) : "none",
         note: record.note || "–",
     };
 }
@@ -156,10 +156,10 @@ export class RecordService {
      * - Changed there: the record takes the provider's value -- and goes with it to all its
      *   other providers.
      * - Deleted or switched off there: the record leaves the sites it reached the provider
-     *   through, and with them their other providers; with no site left, it is deleted. What
+     *   through, and with them their other providers; with no site left, it is parked. What
      *   the provider holds is not touched.
      */
-    static async accept(id: string, providerId: string, user: string): Promise<DnsRecord | null> {
+    static async accept(id: string, providerId: string, user: string): Promise<DnsRecord> {
         const record = RecordRepository.findById(id);
         if (!record) throw new RequestError(404, "Record not found");
         const link = RecordLinkRepository.find(id, providerId);
@@ -208,10 +208,6 @@ export class RecordService {
         // dpm stops managing what is left there, rather than removing it.
         RecordLinkRepository.delete(id, providerId);
         const siteIds = record.siteIds.filter((s) => !through.includes(s));
-        if (siteIds.length === 0) {
-            await this.delete(id, user);
-            return null;
-        }
         return this.update(id, { ...fieldsOf(record), siteIds }, user);
     }
 }

@@ -98,7 +98,7 @@ export function saveOutcome(
 /**
  * What taking over a provider's state does, for the question before it. A changed value
  * goes to every other provider of the record. A deletion takes the record out of the sites
- * it reached the provider through -- deleting it when none is left -- and off the other
+ * it reached the provider through -- parking it when none is left -- and off the other
  * providers of those sites that no remaining site reaches.
  */
 export function acceptEffect(
@@ -106,7 +106,7 @@ export function acceptEffect(
     link: Pick<RecordLinkView, "providerId" | "status" | "observed">,
     sites: readonly Pick<Site, "id" | "name" | "providerIds">[],
     providers: readonly Pick<Provider, "id" | "name">[],
-): { change: { value: string } | { leaves: string[]; deleted: boolean }; others: string[] } {
+): { change: { value: string } | { leaves: string[]; parked: boolean }; others: string[] } {
     const others = record.links.filter((l) => l.providerId !== link.providerId && l.status !== "removing");
     const names = (links: readonly { providerId: string }[]) => links.map((l) => providerName(l.providerId, providers));
     if (link.status === "drift" && link.observed && !link.observed.disabled) {
@@ -117,7 +117,7 @@ export function acceptEffect(
     const remaining = own.filter((s) => !through.includes(s));
     const stillReached = new Set(remaining.flatMap((s) => s.providerIds));
     return {
-        change: { leaves: through.map((s) => s.name), deleted: remaining.length === 0 },
+        change: { leaves: through.map((s) => s.name), parked: remaining.length === 0 },
         others: names(others.filter((l) => !stillReached.has(l.providerId))),
     };
 }

@@ -46,7 +46,7 @@ export const RecordSiteSelect = ({ sites, providers, ...selection }: RecordSiteS
         renderName={(site) => <SiteName site={site} />}
         renderInfo={(site) => <SiteInfo site={site} providers={providers} />}
         removeTooltip="Remove from Record"
-        noneSelected="No site selected"
+        noneSelected="No site selected: the record is parked and written to no provider"
         emptyList={
             <>
                 There is no site yet. A record goes to the providers of its sites —{" "}

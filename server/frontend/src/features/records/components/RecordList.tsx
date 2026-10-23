@@ -11,6 +11,7 @@ import {
     listPagination,
     actionsColumn,
     listGroups,
+    Tooltip,
 } from "@stefgo/react-ui-components";
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
@@ -36,6 +37,9 @@ interface RecordListProps {
 /** The names of a record's sites, in the order of the site list. */
 const siteNamesOf = (record: DnsRecord, sites: Site[]) =>
     sites.filter((site) => record.siteIds.includes(site.id)).map((site) => site.name);
+
+/** A record without a site: dpm keeps it and writes it to no provider. */
+const isParked = (record: Pick<DnsRecord, "siteIds">) => record.siteIds.length === 0;
 
 /**
  * The records, ordered by name so that the records of one name stand together: several A
@@ -64,7 +68,8 @@ export const RecordList = ({
     // search without a hit from a list with nothing in it.
     const matchesSearch = (record: DnsRecord, query: string) => {
         const q = query.toLowerCase();
-        return [record.name, record.value, record.type, record.note, ...siteNamesOf(record, sites)].some((text) =>
+        const parked = isParked(record) ? ["parked"] : [];
+        return [record.name, record.value, record.type, record.note, ...siteNamesOf(record, sites), ...parked].some((text) =>
             text.toLowerCase().includes(q),
         );
     };
@@ -124,6 +129,13 @@ export const RecordList = ({
             header: "Sites",
             render: (r) => (
                 <div className="flex flex-wrap gap-1">
+                    {isParked(r) && (
+                        <Tooltip content="No site: written to no provider">
+                            <span tabIndex={0} className="inline-flex rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                <Badge variant="warning">Parked</Badge>
+                            </span>
+                        </Tooltip>
+                    )}
                     {siteNamesOf(r, sites).map((name) => (
                         <Badge key={name} variant="info">
                             {name}

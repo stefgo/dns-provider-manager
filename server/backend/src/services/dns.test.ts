@@ -106,20 +106,28 @@ describe("SiteService", () => {
         expect(ActivityRepository.count()).toBe(stored);
     });
 
-    it("refuses to delete the only site of a record, and takes itself out of the others' sites", async () => {
+    it("takes itself out of its records' sites, and parks a record that had no other", async () => {
         const internal = site("internal");
         const external = site("external");
-        const alone = await record([internal.id]);
-        expect(await refusal(() => SiteService.delete(internal.id, USER))).toBe(409);
-
-        await RecordService.update(alone.id, RecordInputSchema.parse({ ...alone, siteIds: [internal.id, external.id] }), USER);
+        const both = await record([internal.id, external.id]);
+        const alone = await record([internal.id], { value: "192.168.1.11" });
         SiteService.delete(internal.id, USER);
         expect(SiteRepository.findById(internal.id)).toBeUndefined();
-        expect(RecordRepository.findById(alone.id)?.siteIds).toEqual([external.id]);
+        expect(RecordRepository.findById(both.id)?.siteIds).toEqual([external.id]);
+        expect(RecordRepository.findById(alone.id)?.siteIds).toEqual([]);
     });
 });
 
 describe("RecordService", () => {
+    it("keeps a record without a site, and says so in the activity", async () => {
+        const internal = site("internal");
+        const parked = await record([]);
+        expect(parked).toMatchObject({ siteIds: [], links: [], skipped: [] });
+        await RecordService.update(parked.id, RecordInputSchema.parse({ ...parked, siteIds: [internal.id] }), USER);
+        await RecordService.update(parked.id, RecordInputSchema.parse({ ...parked, siteIds: [] }), USER);
+        expect(events("record.changed")[0].data).toMatchObject({ changes: [{ field: "sites", from: "internal", to: "none" }] });
+    });
+
     it("stores a record with its sites and who made it", async () => {
         const internal = site("internal");
         const created = await record([internal.id]);

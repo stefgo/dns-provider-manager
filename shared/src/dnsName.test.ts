@@ -69,8 +69,8 @@ describe("RecordInputSchema", () => {
         expect(RecordInputSchema.parse({ ...base, type: "CNAME", value: "Web.Example.com." }).value).toBe("web.example.com");
     });
 
-    it("needs a site and a TTL in range", () => {
-        expect(RecordInputSchema.safeParse({ ...base, siteIds: [] }).error?.issues[0].message).toBe("Choose at least one site");
+    it("takes a record without a site and needs a TTL in range", () => {
+        expect(RecordInputSchema.safeParse({ ...base, siteIds: [] }).success).toBe(true);
         expect(RecordInputSchema.safeParse({ ...base, ttl: 30 }).error?.issues[0].message).toBe("At least 60 seconds");
         expect(RecordInputSchema.safeParse({ ...base, ttl: 300 }).success).toBe(true);
     });

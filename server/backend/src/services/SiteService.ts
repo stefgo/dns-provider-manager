@@ -76,21 +76,12 @@ export class SiteService {
     }
 
     /**
-     * Refused while a record belongs to this site alone: it would be left with nowhere to
-     * go, and deleting it along with the site is a decision nobody made.
+     * Its records lose the site and leave its providers. One that belonged to this site alone
+     * is parked: dpm keeps it, and writes it nowhere until it gets a site again.
      */
     static delete(id: string, user: string): void {
         const site = SiteRepository.findById(id);
         if (!site) throw new RequestError(404, "Site not found");
-        const { names, count } = SiteRepository.recordsOnlyIn(id);
-        if (count > 0) {
-            const more = count > names.length ? ` and ${count - names.length} more` : "";
-            throw new RequestError(
-                409,
-                `${count === 1 ? "A record belongs" : `${count} records belong`} to this site alone (${names.join(", ")}${more}). Give ${count === 1 ? "it" : "them"} another site or delete ${count === 1 ? "it" : "them"} first.`,
-            );
-        }
-        // The records that are in another site as well lose this one with it.
         const records = recordsOf(id);
         SiteRepository.delete(id);
         SyncService.syncSoon(records);

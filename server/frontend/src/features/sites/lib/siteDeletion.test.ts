@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { siteDeletion } from "./siteDeletion";
-import { describeDeleteSite, describeSiteInUse } from "../confirmations";
+import { describeDeleteSite } from "../confirmations";
 
 const records = [
     { name: "nas.example.com", siteIds: ["int"] },
@@ -27,16 +27,16 @@ describe("siteDeletion", () => {
 
 describe("the texts", () => {
     it("say what a deletion keeps", () => {
-        expect(describeDeleteSite({ name: "lab" }, 0).description).toBe("No record belongs to it. Its providers stay as they are.");
-        expect(describeDeleteSite({ name: "int" }, 2).description).toMatch(/^Its 2 records keep their other sites/);
+        expect(describeDeleteSite({ name: "lab" }, { alone: [], shared: 0 }).description).toBe("No record belongs to it. Its providers stay as they are.");
+        expect(describeDeleteSite({ name: "int" }, { alone: [], shared: 2 }).description).toMatch(/^Its 2 records keep their other sites/);
     });
 
-    it("name at most three records that block it", () => {
-        expect(describeSiteInUse({ name: "int" }, ["a", "b", "c", "d"]).description).toBe(
-            "4 records belong to it alone (a, b, c and 1 more). Give them another site or delete them first.",
+    it("name at most three records it parks", () => {
+        expect(describeDeleteSite({ name: "int" }, { alone: ["a", "b", "c", "d"], shared: 1 }).description).toBe(
+            "4 records belong to it alone (a, b, c and 1 more) and are parked: kept here without a site, and removed from its providers. The other record keeps its other sites and leaves this one. Its providers stay as they are.",
         );
-        expect(describeSiteInUse({ name: "int" }, ["a"]).description).toBe(
-            "1 record belongs to it alone (a). Give it another site or delete it first.",
+        expect(describeDeleteSite({ name: "int" }, { alone: ["a"], shared: 0 }).description).toBe(
+            "1 record belongs to it alone (a) and is parked: kept here without a site, and removed from its providers. Its providers stay as they are.",
         );
     });
 });

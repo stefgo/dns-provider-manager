@@ -2,7 +2,7 @@ import type { DnsRecord } from "@dpm/shared";
 
 /**
  * What deleting a site would do to its records: the names of those that belong to it alone,
- * which block the deletion, and how many keep another site.
+ * which are parked, and how many keep another site.
  */
 export function siteDeletion(
     siteId: string,
