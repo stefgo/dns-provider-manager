@@ -40,11 +40,28 @@ export const isProblem = (link: Pick<RecordLinkView, "status" | "error">) =>
 
 export const hasProblem = (record: Pick<DnsRecord, "links">) => record.links.some(isProblem);
 
+/** A record's state at one provider as the list sums it up: a removal that failed is a state of its own. */
+export type RecordState = LinkStatus | "removal_failed";
+
+const STATE_LABEL: Record<RecordState, string> = { ...LINK_LABEL, removal_failed: "Removal failed" };
+
+const STATE_TONE: Record<RecordState, LinkTone> = { ...LINK_TONE, removal_failed: "error" };
+
+const stateOf = (link: Pick<RecordLinkView, "status" | "error">): RecordState =>
+    link.status === "removing" && link.error !== null ? "removal_failed" : link.status;
+
 /** How urgent a state is, lowest first: what failed, then what changed at the provider, then what is under way. */
 const urgency = (link: Pick<RecordLinkView, "status" | "error">) => {
     if (link.status === "error" || (link.status === "removing" && link.error !== null)) return 0;
     return { missing: 1, drift: 2, pending: 3, removing: 4, in_sync: 5, error: 0 }[link.status];
 };
+
+const mostUrgent = <L extends Pick<RecordLinkView, "status" | "error">>(links: readonly L[]) =>
+    links.reduce((a, b) => (urgency(b) < urgency(a) ? b : a));
+
+/** The most urgent of a record's states, the one its badge shows. Null for a record that goes to no provider. */
+export const worstState = (links: readonly Pick<RecordLinkView, "status" | "error">[]): RecordState | null =>
+    links.length === 0 ? null : stateOf(mostUrgent(links));
 
 /**
  * A record's state at all its providers in one: the most urgent one, and at how many of
@@ -52,12 +69,12 @@ const urgency = (link: Pick<RecordLinkView, "status" | "error">) => {
  */
 export function overallState(links: readonly Pick<RecordLinkView, "status" | "error">[]): { tone: LinkTone; label: string } | null {
     if (links.length === 0) return null;
-    const worst = links.reduce((a, b) => (urgency(b) < urgency(a) ? b : a));
+    const worst = mostUrgent(links);
     const count = links.filter((l) => urgency(l) === urgency(worst)).length;
-    const failedRemoval = worst.status === "removing" && worst.error !== null;
-    const label = failedRemoval ? "Removal failed" : LINK_LABEL[worst.status];
+    const state = stateOf(worst);
+    const label = STATE_LABEL[state];
     return {
-        tone: failedRemoval ? "error" : LINK_TONE[worst.status],
+        tone: STATE_TONE[state],
         label: count === links.length ? label : `${label} (${count} of ${links.length})`,
     };
 }

@@ -11,10 +11,21 @@ import {
     listPagination,
     actionsColumn,
     listGroups,
+    Select,
     Tooltip,
 } from "@stefgo/react-ui-components";
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
+import { RECORD_FILTER_PARAM } from "../../../lib/paths";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
+import {
+    isParked,
+    matchesSite,
+    matchesStatus,
+    parseSiteFilter,
+    parseStatusFilter,
+    siteFilterOptions,
+    statusFilterOptions,
+} from "../lib/recordFilters";
 import { hasProblem, holdsEntry, providerName } from "../lib/recordSync";
 import { ProviderStatus } from "./ProviderStatus";
 
@@ -23,9 +34,6 @@ interface RecordListProps {
     sites: Site[];
     providers: Provider[];
     isLoading: boolean;
-    /** Show only the records that failed or drifted somewhere. */
-    problemsOnly: boolean;
-    onProblemsOnly: (on: boolean) => void;
     onAdd: () => void;
     onEdit: (record: DnsRecord) => void;
     onDelete: (record: DnsRecord) => void;
@@ -39,9 +47,6 @@ interface RecordListProps {
 const siteNamesOf = (record: DnsRecord, sites: Site[]) =>
     sites.filter((site) => record.siteIds.includes(site.id)).map((site) => site.name);
 
-/** A record without a site: dpm keeps it and writes it to no provider. */
-const isParked = (record: Pick<DnsRecord, "siteIds">) => record.siteIds.length === 0;
-
 /**
  * The records, ordered by name so that the records of one name stand together: several A
  * records of round robin, and the same name in two sites with two answers.
@@ -51,8 +56,6 @@ export const RecordList = ({
     sites,
     providers,
     isLoading,
-    problemsOnly,
-    onProblemsOnly,
     onAdd,
     onEdit,
     onDelete,
@@ -62,9 +65,38 @@ export const RecordList = ({
     onAccept,
 }: RecordListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
+    // Kept in the address like the search, so they come back with it when the editor closes.
+    const [siteParam, setSiteParam] = useSearchQueryParam(RECORD_FILTER_PARAM.site);
+    const [statusParam, setStatusParam] = useSearchQueryParam(RECORD_FILTER_PARAM.status);
+    const siteFilter = parseSiteFilter(siteParam, sites);
+    const statusFilter = parseStatusFilter(statusParam);
+    // "all" is no parameter, so a list without a filter leaves the address clean.
+    const setSiteFilter = (value: string) => setSiteParam(value === "all" ? "" : value);
+    const setStatusFilter = (value: string) => setStatusParam(value === "all" ? "" : value);
     const problems = records.filter(hasProblem).length;
-    // A filter of its own, not the search: with it on, an empty list says that nothing failed.
-    const shown = problemsOnly ? records.filter(hasProblem) : records;
+    const problemsOnly = statusFilter === "problems";
+    // Filters of their own, not the search: with one on, an empty list says that nothing is in that state.
+    const shown = records.filter((r) => matchesSite(r, siteFilter) && matchesStatus(r, statusFilter));
+    const filtered = siteFilter !== "all" || statusFilter !== "all";
+
+    const filterSelects = (
+        <div className="flex flex-wrap items-center gap-2">
+            <Select
+                aria-label="Filter by site"
+                fullWidth={false}
+                value={siteFilter}
+                onChange={(e) => setSiteFilter(e.target.value)}
+                options={siteFilterOptions(sites)}
+            />
+            <Select
+                aria-label="Filter by provider status"
+                fullWidth={false}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                options={statusFilterOptions()}
+            />
+        </div>
+    );
 
     // Handed to the view instead of applied in front of it: only then can the view tell a
     // search without a hit from a list with nothing in it.
@@ -172,7 +204,7 @@ export const RecordList = ({
                             size="sm"
                             variant={problemsOnly ? "primary" : "secondary"}
                             icon={AlertTriangle}
-                            onClick={() => onProblemsOnly(!problemsOnly)}
+                            onClick={() => setStatusFilter(problemsOnly ? "all" : "problems")}
                             aria-pressed={problemsOnly}
                         >
                             Problems ({problems})
@@ -195,10 +227,13 @@ export const RecordList = ({
             searchPlaceholder="Search records…"
             search={{ value: searchQuery, onChange: setSearchQuery }}
             searchFilter={matchesSearch}
+            searchActions={filterSelects}
             noResultsMessage={`No records match “${searchQuery}”.`}
             emptyMessage={
-                problemsOnly ? (
+                records.length > 0 && problemsOnly && siteFilter === "all" ? (
                     <EmptyState icon={Globe} title="No problems" description="Every record is where dpm wrote it." />
+                ) : records.length > 0 && filtered ? (
+                    "No records match these filters."
                 ) : (
                     <EmptyState
                         icon={Globe}

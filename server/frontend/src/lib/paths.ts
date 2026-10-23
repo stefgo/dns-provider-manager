@@ -52,6 +52,9 @@ export const paths = {
 /** The query parameter a list keeps its search in -- see `useSearchQueryParam`. */
 export const SEARCH_PARAM = "search";
 
+/** The query parameters the list of records keeps its filters in, next to its search. */
+export const RECORD_FILTER_PARAM = { site: "site", status: "status" } as const;
+
 /**
  * The activity list with a search set, as a page about one thing opens it. The search is the
  * page's query and not a pattern of its own -- but a link that sets it must not spell it

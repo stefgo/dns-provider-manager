@@ -287,8 +287,11 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   the server's to find (`recordConflict` in `@dpm/shared`) and is shown above the form.
 - **Where a record stands** is one `Badge` in the list, the most urgent state at any of
   its providers (`ProviderStatus`, `overallState`, tone and words in `lib/recordSync.ts`); its
-  tooltip lists each provider. "Problems" is a filter of its
-  own — not the search, so an empty list says that nothing failed. In the editor,
+  tooltip lists each provider. The list filters by site (a site, or *Parked*) and by that
+  state (*In sync*, *Problems*, *Work in Progress*) — `lib/recordFilters.ts`, pure and tested.
+  They are filters of their own, not the search, so an empty list says that nothing is in that
+  state; like the search they are kept in the address (`RECORD_FILTER_PARAM`) and come back
+  when the editor closes. The "Problems" button is a shortcut for that state. In the editor,
   `RecordProviders` lists the same with *Write again* and *Take over* for drift, and while the
   draft differs from what is stored, the server's preview of what saving does — asked once
   typing pauses (`useDebouncedValue`, by the request's text). A save that removes the record

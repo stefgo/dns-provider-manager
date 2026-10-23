@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { DnsRecord } from "@dpm/shared";
 import { Alert, useConfirm } from "@stefgo/react-ui-components";
@@ -26,7 +25,6 @@ export const RecordOverview = () => {
     const deleteRecord = useDeleteRecord();
     const releaseRecord = useReleaseRecord();
     const actions = useLinkActions();
-    const [problemsOnly, setProblemsOnly] = useState(false);
 
     // The editor closes onto this list, and takes the list's search along to bring it back.
     const open = (pathname: string) => navigate({ pathname, search });
@@ -69,8 +67,6 @@ export const RecordOverview = () => {
                 sites={sites}
                 providers={providers}
                 isLoading={isPending}
-                problemsOnly={problemsOnly}
-                onProblemsOnly={setProblemsOnly}
                 onAdd={() => open(ROUTES.recordNew)}
                 onEdit={(record) => open(paths.record(record.id))}
                 onDelete={requestDelete}
