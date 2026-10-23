@@ -3,7 +3,6 @@ import { RecordInputSchema, type DnsRecord } from "@dpm/shared";
 import { checkDraft } from "../../../lib/entityForm";
 import {
     EMPTY_RECORD_DRAFT,
-    reachesCloudflare,
     recordDraftFrom,
     recordInputFrom,
     recordRules,
@@ -63,22 +62,5 @@ describe("the record editor's check", () => {
 
     it("names a TTL that is no number in its own words", () => {
         expect(check({ ttl: "5m" }).errors.ttl).toBe("Whole seconds, or empty for the provider's default");
-    });
-});
-
-describe("reachesCloudflare", () => {
-    const sites = [
-        { id: "int", providerIds: ["ag"] },
-        { id: "ext", providerIds: ["cf"] },
-    ];
-    const providers = [
-        { id: "ag", type: "adguard" as const },
-        { id: "cf", type: "cloudflare" as const },
-    ];
-
-    it("is true when one of the sites writes to Cloudflare", () => {
-        expect(reachesCloudflare(["int"], sites, providers)).toBe(false);
-        expect(reachesCloudflare(["int", "ext"], sites, providers)).toBe(true);
-        expect(reachesCloudflare([], sites, providers)).toBe(false);
     });
 });

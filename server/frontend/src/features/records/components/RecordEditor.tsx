@@ -11,7 +11,6 @@ import {
     Input,
     LoadingIndicator,
     Select,
-    Switch,
     Textarea,
     useConfirm,
     useToast,
@@ -28,7 +27,6 @@ import { getErrorMessage } from "../../../utils";
 import {
     EMPTY_RECORD_DRAFT,
     VALUE_PLACEHOLDER,
-    reachesCloudflare,
     recordDraftFrom,
     recordInputFrom,
     recordRules,
@@ -59,7 +57,8 @@ export const RecordEditorRoute = () => {
 /**
  * Adds or edits one record. The draft is checked against `RecordInputSchema`, the schema
  * the request is parsed with; what clashes with another record -- the same record twice, a
- * CNAME beside another record of its name -- the server says on save.
+ * CNAME beside another record of its name -- the server says on save. TTL and Cloudflare's
+ * proxy have no field: the draft carries them over from the record unchanged.
  */
 const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
     const { mutateAsync: saveRecord } = useSaveRecord();
@@ -105,9 +104,6 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
         leave();
     };
 
-    // Only where a site of the record writes to Cloudflare -- or where it is on already, so
-    // a record that left Cloudflare's sites does not hide a switch that is still set.
-    const showProxied = reachesCloudflare(draft.siteIds, sites, providers) || draft.proxied;
     const error = form.saveError ?? form.formError;
     const heading = record ? `Edit ${record.name}` : "Add Record";
 
@@ -170,26 +166,6 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
                         error={errors.siteIds}
                     />
                 )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Input
-                        label="TTL (Seconds)"
-                        inputMode="numeric"
-                        value={draft.ttl}
-                        onChange={(e) => set("ttl", e.target.value)}
-                        placeholder="default"
-                        error={errors.ttl}
-                        hint="60–86400. Empty leaves it to each provider; AdGuard Home has no TTL per record."
-                    />
-                    {showProxied && (
-                        <div>
-                            <FieldLabel htmlFor="record-proxied">Proxied by Cloudflare</FieldLabel>
-                            <div className="flex h-[42px] items-center">
-                                <Switch id="record-proxied" value={draft.proxied} onChange={(on) => set("proxied", on)} />
-                            </div>
-                        </div>
-                    )}
-                </div>
 
                 <RecordProviders record={record} input={form.input} isDirty={form.isDirty} providers={providers} />
 

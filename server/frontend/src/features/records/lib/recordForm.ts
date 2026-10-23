@@ -1,4 +1,4 @@
-import type { DnsRecord, Provider, RecordInput, RecordType, Site } from "@dpm/shared";
+import type { DnsRecord, RecordInput, RecordType } from "@dpm/shared";
 import type { FieldErrors } from "../../../lib/entityForm";
 
 /** The editor's fields, as typed. The TTL is text until it is sent; empty is the default. */
@@ -60,16 +60,3 @@ export const VALUE_PLACEHOLDER: Record<RecordType, string> = {
     AAAA: "2001:db8::10",
     CNAME: "host.example.com",
 };
-
-/**
- * Whether Cloudflare's proxy matters for a record in these sites: whether one of them
- * writes to Cloudflare. Elsewhere the switch would change nothing, and is not shown.
- */
-export function reachesCloudflare(
-    siteIds: readonly string[],
-    sites: readonly Pick<Site, "id" | "providerIds">[],
-    providers: readonly Pick<Provider, "id" | "type">[],
-): boolean {
-    const cloudflare = new Set(providers.filter((p) => p.type === "cloudflare").map((p) => p.id));
-    return sites.some((site) => siteIds.includes(site.id) && site.providerIds.some((id) => cloudflare.has(id)));
-}
