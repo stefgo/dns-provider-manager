@@ -6,7 +6,6 @@ import { EMPTY_VALUE } from "../../../utils";
 export interface ProviderDetailLine {
     label: string;
     value: string;
-    mono?: boolean;
 }
 
 /** The dot in front of a provider's name: how its last reading went. */
@@ -25,13 +24,12 @@ export function connectionDetails(provider: Provider): ProviderDetailLine[] {
         case "cloudflare":
             return [{ label: "Zone Mode", value: provider.zoneMode === "all" ? "All zones the token sees" : "Selected zones" }];
         case "adguard":
-            return [{ label: "URL", value: provider.url || EMPTY_VALUE, mono: true }];
+            return [{ label: "URL", value: provider.url || EMPTY_VALUE }];
         case "samba-ad":
             return [
                 {
                     label: provider.servers.length === 1 ? "Server" : "Servers",
                     value: provider.servers.join(", ") || EMPTY_VALUE,
-                    mono: true,
                 },
             ];
     }
@@ -44,7 +42,7 @@ export function connectionDetails(provider: Provider): ProviderDetailLine[] {
 export function accessDetails(provider: Provider): ProviderDetailLine[] {
     if (provider.type === "cloudflare") return [];
     return [
-        { label: "Username", value: provider.username || EMPTY_VALUE, mono: true },
+        { label: "Username", value: provider.username || EMPTY_VALUE },
         { label: "Self-Signed Certificate", value: provider.allowSelfSigned ? "Accepted" : "Refused" },
     ];
 }

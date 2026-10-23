@@ -144,7 +144,7 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
             : []),
         { label: "Created", value: formatDate(provider.createdAt) },
         { label: "Updated", value: formatDate(provider.updatedAt) },
-        { label: "ID", value: provider.id, mono: true, copyable: provider.id },
+        { label: "ID", value: provider.id, copyable: provider.id },
     ];
 
     return (

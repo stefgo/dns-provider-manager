@@ -285,7 +285,6 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                             placeholder={"dc1.ad.example.com\ndc2.ad.example.com"}
                             error={errors.servers}
                             hint="One per line, asked in this order over LDAPS; port 636 unless one is named."
-                            classNames={{ textarea: "font-mono text-sm" }}
                         />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Input

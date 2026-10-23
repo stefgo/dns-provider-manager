@@ -59,12 +59,12 @@ describe("connectionDetails", () => {
     });
 
     it("names the URL of an AdGuard Home instance", () => {
-        expect(connectionDetails(adguard)).toEqual([{ label: "URL", value: "http://adguard.lan", mono: true }]);
+        expect(connectionDetails(adguard)).toEqual([{ label: "URL", value: "http://adguard.lan" }]);
     });
 
     it("lists the servers of a Samba AD domain, in the singular for one", () => {
         expect(connectionDetails(samba)).toEqual([
-            { label: "Servers", value: "dc1.ad.example.com, dc2.ad.example.com", mono: true },
+            { label: "Servers", value: "dc1.ad.example.com, dc2.ad.example.com" },
         ]);
         expect(connectionDetails({ ...samba, servers: ["dc1.ad.example.com"] })[0].label).toBe("Server");
     });
@@ -81,7 +81,7 @@ describe("accessDetails", () => {
 
     it("names the user and whether a self-signed certificate is accepted", () => {
         expect(accessDetails(adguard)).toEqual([
-            { label: "Username", value: "admin", mono: true },
+            { label: "Username", value: "admin" },
             { label: "Self-Signed Certificate", value: "Refused" },
         ]);
         expect(accessDetails(samba)[1].value).toBe("Accepted");
