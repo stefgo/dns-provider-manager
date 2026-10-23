@@ -193,17 +193,27 @@ jobs:
 
             # There is no tag to pull yet, so the images are addressed by digest --
             # more precise anyway: nothing is left for docker to choose.
-            - name: Download the digests for this architecture
+            #
+            # By name, not by pattern: an artifact downloaded by name is unpacked
+            # straight into `path`. A pattern gets a subdirectory per artifact only
+            # when it matches more than one, so with a single image the layout
+            # would depend on how many images there are.
+            - name: Download the server digest for this architecture
               uses: actions/download-artifact@v8
               with:
                   path: /tmp/digests
-                  pattern: digests-*-${{ matrix.arch }}
+                  name: digests-server-${{ matrix.arch }}
 
-            - name: Resolve the digests
-              env:
-                  ARCH: ${{ matrix.arch }}
+            - name: Resolve the digest
               run: |
-                  server=$(basename /tmp/digests/digests-server-"$ARCH"/*)
+                  shopt -s nullglob
+                  digests=(/tmp/digests/*)
+                  if [ "${#digests[@]}" -ne 1 ]; then
+                      echo "::error::expected one digest in /tmp/digests, found ${#digests[@]}"
+                      ls -la /tmp/digests
+                      exit 1
+                  fi
+                  server=$(basename "${digests[0]}")
                   echo "SERVER_REF=$SERVER_IMAGE@sha256:$server" >> "$GITHUB_ENV"
 
             # A fresh server without config.yaml generates its secret and starts.
