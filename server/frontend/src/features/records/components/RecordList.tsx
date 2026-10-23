@@ -1,4 +1,4 @@
-import { AlertTriangle, Download, Edit2, Globe, Plus, RefreshCw, Trash2, Unlink, Upload } from "lucide-react";
+import { AlertTriangle, Download, Edit2, Globe, Layers, Plus, RefreshCw, Trash2, Unlink, Upload } from "lucide-react";
 import type { DnsRecord, Provider, RecordLinkView, Site } from "@dpm/shared";
 import {
     Badge,
@@ -41,6 +41,10 @@ interface RecordListProps {
     onSync: (record: DnsRecord) => void;
     onRewrite: (record: DnsRecord, link: RecordLinkView) => void;
     onAccept: (record: DnsRecord, link: RecordLinkView) => void;
+    /** The picked records, by id. */
+    selected: ReadonlySet<string | number>;
+    onSelectionChange: (selected: ReadonlySet<string | number>) => void;
+    onChangeSites: (records: DnsRecord[]) => void;
 }
 
 /** The names of a record's sites, in the order of the site list. */
@@ -63,6 +67,9 @@ export const RecordList = ({
     onSync,
     onRewrite,
     onAccept,
+    selected,
+    onSelectionChange,
+    onChangeSites,
 }: RecordListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
     // Kept in the address like the search, so they come back with it when the editor closes.
@@ -197,24 +204,37 @@ export const RecordList = ({
                     <Globe size={18} className="text-text-muted" /> Records
                 </>
             }
-            extraActions={
-                <>
-                    {(problems > 0 || problemsOnly) && (
+            extraActions={(picked) => {
+                // A record picked and then deleted elsewhere is no longer there to change.
+                const target = records.filter((r) => picked.has(r.id));
+                return (
+                    <>
                         <Button
                             size="sm"
-                            variant={problemsOnly ? "primary" : "secondary"}
-                            icon={AlertTriangle}
-                            onClick={() => setStatusFilter(problemsOnly ? "all" : "problems")}
-                            aria-pressed={problemsOnly}
+                            variant="secondary"
+                            icon={Layers}
+                            disabled={target.length === 0 || sites.length === 0}
+                            onClick={() => onChangeSites(target)}
                         >
-                            Problems ({problems})
+                            Change Sites
                         </Button>
-                    )}
-                    <Button size="sm" icon={Plus} onClick={onAdd}>
-                        Add Record
-                    </Button>
-                </>
-            }
+                        {(problems > 0 || problemsOnly) && (
+                            <Button
+                                size="sm"
+                                variant={problemsOnly ? "primary" : "secondary"}
+                                icon={AlertTriangle}
+                                onClick={() => setStatusFilter(problemsOnly ? "all" : "problems")}
+                                aria-pressed={problemsOnly}
+                            >
+                                Problems ({problems})
+                            </Button>
+                        )}
+                        <Button size="sm" icon={Plus} onClick={onAdd}>
+                            Add Record
+                        </Button>
+                    </>
+                );
+            }}
             sort={{ defaultValue: [{ colIndex: 0, direction: "asc" }] }}
             viewMode={{ persist: { key: STORAGE_KEYS.recordsView, scope: "local" } }}
             data={shown}
@@ -223,6 +243,11 @@ export const RecordList = ({
             keyField="id"
             isLoading={isLoading}
             loadingMessage="Loading records…"
+            selection={{
+                value: selected,
+                onChange: onSelectionChange,
+                rowLabel: (r) => `Select ${r.name} ${r.type} ${r.value}`,
+            }}
             searchable
             searchPlaceholder="Search records…"
             search={{ value: searchQuery, onChange: setSearchQuery }}

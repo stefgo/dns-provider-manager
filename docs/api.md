@@ -25,6 +25,7 @@
     - [List Records](#list-records)
     - [Create Record](#create-record)
     - [Update Record](#update-record)
+    - [Change The Sites Of Several Records](#change-the-sites-of-several-records)
     - [Delete Record](#delete-record)
     - [Release Record](#release-record)
     - [Preview A Record](#preview-a-record)
@@ -387,6 +388,27 @@ then written to its providers; the answer (**201**) comes once that is done and 
 Answers the stored record once it is written; **404** for an unknown id, **400** and **409** as
 above. An update that changes nothing records no event and writes nothing. A provider the record
 no longer goes to has it removed — once every provider it still goes to holds it.
+
+### Change The Sites Of Several Records
+
+`POST /api/v1/records/sites` with `{ "recordIds": ["…"], "add": ["…"], "remove": ["…"] }`
+(at most 1000 records) gives each record the sites in `add` and takes those in `remove`; its
+other sites stay as they are. A site cannot be in both, and at least one of the two has to name
+one. Each record is checked as an [update](#update-record) would check it, against the records
+as the ones before it left them; what is refused comes back with its reason, and the rest goes
+ahead. A record that has its sites as asked already is counted in `unchanged`, records no event
+and writes nothing. The answer comes once the records are stored; they are written to their
+providers in the background.
+
+```json
+{
+    "changed": [{ "name": "nas.example.com", "type": "A", "value": "192.168.1.20" }],
+    "unchanged": 1,
+    "refused": [{ "name": "app.example.com", "type": "CNAME", "value": "web.example.com", "reason": "…" }]
+}
+```
+
+**400** for a site that does not exist, or a body that does not match the above.
 
 ### Delete Record
 
@@ -796,6 +818,7 @@ what the server did by itself.
 | `provider.changed` | `info` | `providerId` | `user`, `name`, `providerType`, `changes` |
 | `record.adopted` | `info` | `recordId`, `providerId` | `user`, `name`, `type`, `value`, `sites`, `provider`, `merged` |
 | `record.adoption` | `info` | `siteId` | `user`, `count`, `site`, `providers` — heads the `record.adopted` of one adoption of more than one record; they share its `correlationId` |
+| `record.sites_change` | `info` | — | `user`, `count`, `added`, `removed` (site names) — heads the `record.changed` of one [change of the sites of several records](#change-the-sites-of-several-records) that changed more than one; they share its `correlationId` |
 | `record.written` | `trace`, `info` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `action` (`created`, `updated`, `deleted`) — one write at a provider; `info` when it worked after a failure. Shares the `correlationId` of the change that caused it |
 | `record.write_failed` | `error` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `action`, `error` — when a write that worked fails, or fails for another reason |
 | `record.drift` | `warning` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `change` (`changed`, `missing`, `disabled`), `observed` (what the provider holds, as text) — found by a reading |

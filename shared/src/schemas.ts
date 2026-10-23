@@ -541,6 +541,21 @@ export const RecordPreviewRequestSchema = z.union([
     z.object({ id: z.string().min(1), delete: z.literal(true) }),
 ]);
 
+/**
+ * `POST /api/v1/records/sites`: sites to give several records, and sites to take from them.
+ * What a record already has, or does not have, stays as it is. A site cannot be in both.
+ */
+export const RecordSitesRequestSchema = z
+    .object({
+        recordIds: z.array(z.string().min(1)).min(1, { error: "Choose at least one record" }).max(1000).transform(unique),
+        add: z.array(z.string().min(1)).default([]).transform(unique),
+        remove: z.array(z.string().min(1)).default([]).transform(unique),
+    })
+    .refine((request) => request.add.length > 0 || request.remove.length > 0, { error: "Choose a site to add or remove" })
+    .refine((request) => !request.add.some((id) => request.remove.includes(id)), {
+        error: "A site cannot be added and removed at once",
+    });
+
 /** `POST /api/v1/sites/preview`: what saving a site as the editor holds it would do to its records. */
 export const SitePreviewRequestSchema = z.object({
     id: z.string().min(1).optional(),

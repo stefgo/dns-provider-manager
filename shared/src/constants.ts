@@ -64,6 +64,7 @@ export const ACTIVITY_KINDS = [
     "record.deleted",
     "record.adopted",
     "record.adoption",
+    "record.sites_change",
     "record.written",
     "record.write_failed",
     "record.drift",

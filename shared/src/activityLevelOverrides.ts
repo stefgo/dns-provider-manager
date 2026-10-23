@@ -28,6 +28,7 @@ export const ACTIVITY_DEFAULT_LEVELS: Record<ActivityKind, readonly ActivityLeve
     "record.deleted": ["info"],
     "record.adopted": ["info"],
     "record.adoption": ["info"],
+    "record.sites_change": ["info"],
     "record.written": ["trace", "info"],
     "record.write_failed": ["error"],
     "record.drift": ["warning"],

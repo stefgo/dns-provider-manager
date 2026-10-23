@@ -372,6 +372,16 @@ export const UnmanagedResponseSchema = z.object({
     entries: z.array(UnmanagedEntrySchema),
 });
 
+/**
+ * `POST /api/v1/records/sites`: the records whose sites changed, how many had them as asked
+ * already, and what was refused and why.
+ */
+export const RecordSitesResultSchema = z.object({
+    changed: z.array(z.object({ name: z.string(), type: z.string(), value: z.string() })),
+    unchanged: z.number().int(),
+    refused: z.array(z.object({ name: z.string(), type: z.string(), value: z.string(), reason: z.string() })),
+});
+
 /** `POST /api/v1/unmanaged/adopt`: what was taken over, and what was refused and why. */
 export const AdoptResultSchema = z.object({
     adopted: z.array(

@@ -90,6 +90,7 @@ export default async function apiRoutes(fastify: FastifyInstance) {
                 protectedRoutes.get("/records", RecordController.list);
                 protectedRoutes.post("/records", RecordController.create);
                 protectedRoutes.post("/records/preview", RecordController.preview);
+                protectedRoutes.post("/records/sites", RecordController.changeSites);
                 protectedRoutes.get("/records/removals", RecordController.removals);
                 protectedRoutes.post("/records/:recordId/sync", RecordController.sync);
                 protectedRoutes.post("/records/:recordId/links/:providerId/rewrite", RecordController.rewrite);

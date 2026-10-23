@@ -1,5 +1,13 @@
 import { randomUUID } from "crypto";
-import { RecordInputSchema, firstIssue, recordConflict, type DnsRecord, type RecordFields, type RecordSetting } from "@dpm/shared";
+import {
+    RecordInputSchema,
+    firstIssue,
+    recordConflict,
+    type DnsRecord,
+    type RecordFields,
+    type RecordSetting,
+    type RecordSitesResult,
+} from "@dpm/shared";
 import { CAPABILITIES } from "../providers/DnsProvider.js";
 import { RecordLinkRepository } from "../repositories/RecordLinkRepository.js";
 import { RecordRepository, type StoredRecord } from "../repositories/RecordRepository.js";
@@ -119,6 +127,77 @@ export class RecordService {
         });
         await SyncService.syncRecord(id, { correlationId });
         return SyncService.view(id)!;
+    }
+
+    /**
+     * Gives several records the sites `add` and takes `remove` from them; the other sites of
+     * each stay as they are. Each record is checked as saving it would be, against the
+     * records as the ones before it left them: one that is refused comes back with its reason
+     * and the rest goes ahead -- like an adoption, this is not all or nothing. A record that
+     * has its sites as asked already is counted, not changed.
+     *
+     * The answer comes once the records are stored; writing them to their providers goes on
+     * in the background, and the list follows through `RECORDS_UPDATE`.
+     */
+    static changeSites(recordIds: readonly string[], add: readonly string[], remove: readonly string[], user: string): RecordSitesResult {
+        const sites = SiteRepository.findAll();
+        const unknown = [...add, ...remove].find((id) => !sites.some((s) => s.id === id));
+        if (unknown) throw new RequestError(400, `There is no site with the id ${unknown}`);
+        const correlationId = randomUUID();
+        const result: RecordSitesResult = { changed: [], unchanged: 0, refused: [] };
+        const changedIds: string[] = [];
+
+        for (const id of recordIds) {
+            const before = RecordRepository.findById(id);
+            if (!before) {
+                result.refused.push({ name: id, type: "", value: "", reason: "Not found; it may have been deleted meanwhile" });
+                continue;
+            }
+            const siteIds = sites
+                .filter((s) => (before.siteIds.includes(s.id) || add.includes(s.id)) && !remove.includes(s.id))
+                .map((s) => s.id);
+            const same = siteIds.length === before.siteIds.length && siteIds.every((s) => before.siteIds.includes(s));
+            if (same) {
+                result.unchanged++;
+                continue;
+            }
+            const fields = { ...fieldsOf(before), siteIds };
+            try {
+                check(fields, id);
+            } catch (err) {
+                if (!(err instanceof RequestError)) throw err;
+                result.refused.push({ name: before.name, type: before.type, value: before.value, reason: err.message });
+                continue;
+            }
+            const changes = fieldChanges(
+                { sites: before.siteIds.length > 0 ? nameList(siteNames(before.siteIds)) : "none" },
+                { sites: siteIds.length > 0 ? nameList(siteNames(siteIds)) : "none" },
+            );
+            RecordRepository.update(id, fields, user);
+            changedIds.push(id);
+            ActivityService.record({
+                kind: "record.changed",
+                level: "info",
+                source: "user",
+                correlationId,
+                subject: { recordId: id },
+                data: { ...facts(fields, user), changes },
+            });
+            result.changed.push({ name: before.name, type: before.type, value: before.value });
+        }
+        SyncService.syncSoon(changedIds, { correlationId });
+        // The records are the steps of one operation; with more than one, it gets a line of
+        // its own that heads them in the activity.
+        if (changedIds.length > 1) {
+            ActivityService.record({
+                kind: "record.sites_change",
+                level: "info",
+                source: "user",
+                correlationId,
+                data: { user, count: changedIds.length, added: siteNames(add), removed: siteNames(remove) },
+            });
+        }
+        return result;
     }
 
     /**

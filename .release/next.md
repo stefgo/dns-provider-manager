@@ -38,7 +38,9 @@ Saving a record writes it to every provider of its sites — Cloudflare and AdGu
 the list of records shows with one badge where it stands — the most urgent state at any of
 its providers, each of them named in the badge's tooltip. The list can be narrowed to one
 site or the parked records, and to the records that are in sync, have a problem somewhere, or
-are still being written or removed. Before saving, the
+are still being written or removed. Several records can be picked in the list and given or
+taken sites together; the dialog shows which sites all, some or none of them have, and says
+which providers get or lose records and which records would be parked. Before saving, the
 editor shows what will happen at which provider, and it asks before a record is removed from
 one. A record that moves to another site, say from Cloudflare to the AdGuard Home instances, is
 removed from the old provider only once the new ones hold it. A provider that cannot be reached

@@ -28,10 +28,12 @@ import {
     AdoptRequestSchema,
     ProviderTestRequestSchema,
     RecordPreviewRequestSchema,
+    RecordSitesRequestSchema,
     SitePreviewRequestSchema,
 } from "./schemas.js";
 import {
     AdoptResultSchema,
+    RecordSitesResultSchema,
     ObservedEntrySchema,
     PendingRemovalSchema,
     RecordLinkViewSchema,
@@ -181,6 +183,8 @@ export type UnmanagedEntry = z.infer<typeof UnmanagedEntrySchema>;
 export type UnmanagedResponse = z.infer<typeof UnmanagedResponseSchema>;
 export type AdoptRequest = z.input<typeof AdoptRequestSchema>;
 export type AdoptResult = z.infer<typeof AdoptResultSchema>;
+export type RecordSitesRequest = z.input<typeof RecordSitesRequestSchema>;
+export type RecordSitesResult = z.infer<typeof RecordSitesResultSchema>;
 export type LinkStatus = (typeof LINK_STATUSES)[number];
 export type SyncAction = (typeof SYNC_ACTIONS)[number];
 export type ObservedEntry = z.infer<typeof ObservedEntrySchema>;

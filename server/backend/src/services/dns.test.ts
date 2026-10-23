@@ -184,6 +184,69 @@ describe("RecordService", () => {
     });
 });
 
+describe("RecordService.changeSites", () => {
+    it("adds and removes sites, keeps the others, and heads the records in the activity", async () => {
+        const internal = site("internal");
+        const external = site("external");
+        const lab = site("lab");
+        const one = await record([internal.id, lab.id]);
+        const two = await record([lab.id], { value: "192.168.1.11" });
+        const result = RecordService.changeSites([one.id, two.id], [external.id], [internal.id], USER);
+        expect(result).toEqual({
+            changed: [
+                { name: "app.example.com", type: "A", value: "192.168.1.10" },
+                { name: "app.example.com", type: "A", value: "192.168.1.11" },
+            ],
+            unchanged: 0,
+            refused: [],
+        });
+        const sitesOf = (id: string) => [...(RecordRepository.findById(id)?.siteIds ?? [])].sort();
+        expect(sitesOf(one.id)).toEqual([external.id, lab.id].sort());
+        expect(sitesOf(two.id)).toEqual([external.id, lab.id].sort());
+        const [head] = events("record.sites_change");
+        expect(head).toMatchObject({ source: "user", data: { user: USER, count: 2, added: ["external"], removed: ["internal"] } });
+        const steps = events("record.changed");
+        expect(steps).toHaveLength(2);
+        expect(steps.every((e) => e.correlationId === head.correlationId)).toBe(true);
+        expect(steps.find((e) => e.subject?.recordId === one.id)?.data).toMatchObject({
+            changes: [{ field: "sites", from: "internal, lab", to: "external, lab" }],
+        });
+    });
+
+    it("counts a record that has its sites as asked, and parks one that loses its last", async () => {
+        const internal = site("internal");
+        const external = site("external");
+        const has = await record([external.id]);
+        const loses = await record([internal.id], { value: "192.168.1.11" });
+        const result = RecordService.changeSites([has.id, loses.id], [], [internal.id], USER);
+        expect(result).toMatchObject({ unchanged: 1, refused: [] });
+        expect(result.changed).toHaveLength(1);
+        expect(RecordRepository.findById(loses.id)?.siteIds).toEqual([]);
+        // One record changed: no head line above it.
+        expect(events("record.sites_change")).toHaveLength(0);
+    });
+
+    it("refuses a record that would clash, and goes on with the rest", async () => {
+        const internal = site("internal");
+        const external = site("external");
+        await record([internal.id]);
+        const cname = await record([external.id], { name: "app.example.com", type: "CNAME", value: "web.example.com" });
+        const other = await record([external.id], { name: "nas.example.com", value: "192.168.1.20" });
+        const result = RecordService.changeSites([cname.id, other.id, "gone"], [internal.id], [], USER);
+        expect(result.changed).toEqual([{ name: "nas.example.com", type: "A", value: "192.168.1.20" }]);
+        expect(result.refused.map((r) => r.name)).toEqual(["app.example.com", "gone"]);
+        expect(RecordRepository.findById(cname.id)?.siteIds).toEqual([external.id]);
+        expect([...(RecordRepository.findById(other.id)?.siteIds ?? [])].sort()).toEqual([internal.id, external.id].sort());
+    });
+
+    it("refuses a site that does not exist, and changes nothing", async () => {
+        const internal = site("internal");
+        const created = await record([internal.id]);
+        expect(await refusal(() => RecordService.changeSites([created.id], ["nope"], [], USER))).toBe(400);
+        expect(RecordRepository.findById(created.id)?.siteIds).toEqual([internal.id]);
+    });
+});
+
 describe("ProviderService", () => {
     it("reads back what each type was created with", async () => {
         const cf = ProviderService.create(ProviderInputSchema.parse({ type: "cloudflare", name: "CF", secret: "t", zoneMode: "selected" }), USER);

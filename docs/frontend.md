@@ -24,7 +24,7 @@ src/
 │   │   └── lib/dashboardMessages.ts      # Parses a socket message against the contract; assertNever
 │   ├── auth/                             # AuthContext and AuthProvider
 │   ├── dashboard/                        # DashboardOverview, and the counts its cards show (lib/)
-│   ├── records/                          # RecordOverview, RecordList, RecordEditor, RecordSiteSelect, the form rules (lib/)
+│   ├── records/                          # RecordOverview, RecordList, RecordEditor, RecordSiteSelect, RecordSitesDialog, the rules (lib/)
 │   ├── providers/                        # ProviderOverview, ProviderList, ProviderDetail, ProviderEditor, the form rules and details (lib/)
 │   ├── sites/                            # SiteOverview, SiteList, SiteEditor, SiteProviderSelect, form rules and siteDeletion (lib/)
 │   ├── unmanaged/                        # UnmanagedOverview, AdoptDialog, the adoption rules (lib/)
@@ -298,7 +298,11 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   from a provider, a deletion, and a site whose providers change ask first, with what the
   server's preview says. What the actions at a provider ask and report is `useLinkActions`;
   a save that a provider did not take is a toast, the record is stored all the same. Deleted
-  records a provider still holds are an `Alert` above the list.
+  records a provider still holds are an `Alert` above the list. Picked records get or lose
+  sites together with "Change Sites" (`RecordSitesDialog`): each site's box starts ticked,
+  empty or half as all, none or some of them have it, only a changed box changes the records,
+  and the dialog says which providers get or lose records and which are parked
+  (`lib/bulkSites.ts`). The outcome is one toast with every refusal, as for an adoption.
 - **Providers** have one draft for every type, so switching the type of a new provider keeps
   what was typed in the fields they share; `providerInputFrom` sends only the type's own. The
   secret field is empty, never filled with the stored value, and saves nothing until something

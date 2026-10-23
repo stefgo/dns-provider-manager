@@ -80,6 +80,11 @@ export function activityMessage(event: ActivityRecord): string {
             const records = typeof count === "number" ? (count === 1 ? "1 record" : `${count} records`) : "Records";
             return `${records} adopted into ${str(event, "site") ?? "a site"}${by(event)}`;
         }
+        case "record.sites_change": {
+            const count = event.data?.count;
+            const records = typeof count === "number" ? (count === 1 ? "1 record" : `${count} records`) : "several records";
+            return `Sites of ${records} changed${by(event)}`;
+        }
         case "record.adopted":
             return `Record ${recordLabel(event)} adopted from ${str(event, "provider") ?? "a provider"}${by(event)}`;
         case "record.written": {
@@ -129,6 +134,14 @@ export function activityDetail(event: ActivityRecord): string | null {
 
     const changed = changes(event);
     if (changed.length > 0) return changed.map((c) => `${c.field}: ${c.from} → ${c.to}`).join(" · ");
+
+    // The sites a change of several records gave and took, rather than the sites one has.
+    if (event.kind === "record.sites_change") {
+        const added = strings(event.data?.added);
+        const removed = strings(event.data?.removed);
+        const parts = [added.length > 0 && `Added: ${added.join(", ")}`, removed.length > 0 && `Removed: ${removed.join(", ")}`];
+        return parts.filter(Boolean).join(" · ") || null;
+    }
 
     // What a released record left behind, rather than the sites it had.
     const kept = event.kind === "record.released" ? strings(event.data?.providers) : [];

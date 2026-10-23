@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { RecordInputSchema, RecordPreviewRequestSchema, firstIssue } from "@dpm/shared";
+import { RecordInputSchema, RecordPreviewRequestSchema, RecordSitesRequestSchema, firstIssue } from "@dpm/shared";
 import { RecordRepository } from "../repositories/RecordRepository.js";
 import { RecordService } from "../services/RecordService.js";
 import { RequestError } from "../services/RequestError.js";
@@ -27,6 +27,14 @@ export class RecordController {
         return serviceReply(reply, () =>
             RecordService.update(request.params.recordId, parsed.data, request.user.username),
         );
+    }
+
+    /** Gives several records sites and takes others from them, in one go. */
+    static async changeSites(request: FastifyRequest, reply: FastifyReply) {
+        const parsed = RecordSitesRequestSchema.safeParse(request.body);
+        if (!parsed.success) return reply.code(400).send({ error: firstIssue(parsed.error) });
+        const { recordIds, add, remove } = parsed.data;
+        return serviceReply(reply, () => RecordService.changeSites(recordIds, add, remove, request.user.username));
     }
 
     static async delete(request: WithId, reply: FastifyReply) {

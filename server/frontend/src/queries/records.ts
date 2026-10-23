@@ -4,11 +4,13 @@ import {
     PendingRemovalListSchema,
     RecordListSchema,
     RecordPreviewSchema,
+    RecordSitesResultSchema,
     RecordViewSchema,
     type DnsRecord,
     type PendingRemoval,
     type RecordInput,
     type RecordPreviewRequest,
+    type RecordSitesRequest,
 } from "@dpm/shared";
 import { api } from "../lib/api";
 import { queryKeys } from "../lib/queryKeys";
@@ -43,6 +45,18 @@ export function useSaveRecord() {
             id
                 ? api.put(`/api/v1/records/${id}`, input, RecordViewSchema)
                 : api.post("/api/v1/records", input, RecordViewSchema),
+        onSettled: () => invalidateDns(queryClient),
+    });
+}
+
+/**
+ * Gives several records sites and takes others from them. Answers which changed and which
+ * were refused; the providers are written to after the answer, and the list follows.
+ */
+export function useChangeRecordSites() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (request: RecordSitesRequest) => api.post("/api/v1/records/sites", request, RecordSitesResultSchema),
         onSettled: () => invalidateDns(queryClient),
     });
 }

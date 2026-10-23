@@ -59,6 +59,12 @@ describe("groupActivity", () => {
         expect(rows(newestFirst(step, head))).toEqual([["h", "s"]]);
     });
 
+    it("heads a change of the sites of several records with its summary", () => {
+        const step = event("s", "record.changed", { correlationId: "c1" });
+        const head = event("h", "record.sites_change", { correlationId: "c1" });
+        expect(rows(newestFirst(head, step))).toEqual([["h", "s"]]);
+    });
+
     it("heads a group with its earliest member", () => {
         const updated = event("u", "sync.step", { correlationId: "i1" });
         const resolved = event("r", "sync.finished", { correlationId: "i1" });

@@ -49,6 +49,14 @@ describe("activityMessage: changes made by a user", () => {
         );
     });
 
+    it("sums up a change of the sites of several records, which are its steps", () => {
+        const data = { user: "admin", count: 3, added: ["external"], removed: ["internal", "lab"] };
+        expect(activityMessage(event("record.sites_change", { data }))).toBe("Sites of 3 records changed by admin");
+        expect(activityDetail(event("record.sites_change", { data }))).toBe("Added: external · Removed: internal, lab");
+        expect(activityDetail(event("record.sites_change", { data: { ...data, removed: [] } }))).toBe("Added: external");
+        expect(activityDetail(event("record.sites_change", { data: { count: 2 } }))).toBeNull();
+    });
+
     it("says what was written to a provider, and what went wrong there", () => {
         const facts = { name: "nas.lan", type: "A", value: "192.168.1.20", provider: "AdGuard 1" };
         expect(activityMessage(event("record.written", { data: { ...facts, action: "created" } }))).toBe(

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { DnsRecord } from "@dpm/shared";
 import { Alert, useConfirm } from "@stefgo/react-ui-components";
@@ -11,6 +12,7 @@ import { plural } from "../../../utils";
 import { useLinkActions } from "../hooks/useLinkActions";
 import { holdsEntry, providerName, removedAt } from "../lib/recordSync";
 import { RecordList } from "./RecordList";
+import { RecordSitesDialog } from "./RecordSitesDialog";
 
 /** The page at `/records`. Adding and editing happen on pages of their own. */
 export const RecordOverview = () => {
@@ -25,6 +27,8 @@ export const RecordOverview = () => {
     const deleteRecord = useDeleteRecord();
     const releaseRecord = useReleaseRecord();
     const actions = useLinkActions();
+    const [selected, setSelected] = useState<ReadonlySet<string | number>>(new Set());
+    const [changingSites, setChangingSites] = useState<DnsRecord[] | null>(null);
 
     // The editor closes onto this list, and takes the list's search along to bring it back.
     const open = (pathname: string) => navigate({ pathname, search });
@@ -74,7 +78,22 @@ export const RecordOverview = () => {
                 onSync={actions.sync}
                 onRewrite={actions.rewrite}
                 onAccept={actions.accept}
+                selected={selected}
+                onSelectionChange={setSelected}
+                onChangeSites={setChangingSites}
             />
+            {changingSites && (
+                <RecordSitesDialog
+                    records={changingSites}
+                    sites={sites}
+                    providers={providers}
+                    onClose={() => setChangingSites(null)}
+                    onDone={() => {
+                        setChangingSites(null);
+                        setSelected(new Set());
+                    }}
+                />
+            )}
         </div>
     );
 };
