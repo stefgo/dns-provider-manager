@@ -31,6 +31,9 @@ interface ProviderListProps {
     onEdit: (provider: Provider) => void;
     onDelete: (provider: Provider) => void;
     onRead: (provider: Provider) => void;
+    /** "Read Now" in the header: every provider at once. */
+    onReadAll: () => void;
+    readingAll: boolean;
 }
 
 /**
@@ -57,7 +60,7 @@ const ReadState = ({ provider }: { provider: Provider }) => (
 const sitesOf = (provider: Provider, sites: Site[]) => sites.filter((s) => provider.siteIds.includes(s.id));
 
 /** The providers: one access each to a DNS server dpm writes to. */
-export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpen, onEdit, onDelete, onRead }: ProviderListProps) => {
+export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpen, onEdit, onDelete, onRead, onReadAll, readingAll }: ProviderListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
 
     const matchesSearch = (provider: Provider, query: string) => {
@@ -152,9 +155,20 @@ export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpe
                 </>
             }
             extraActions={
-                <Button size="sm" icon={Plus} onClick={onAdd}>
-                    Add Provider
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                        size="sm"
+                        icon={RefreshCw}
+                        onClick={onReadAll}
+                        isLoading={readingAll}
+                        disabled={!providers.some((p) => p.readable)}
+                    >
+                        Read Now
+                    </Button>
+                    <Button size="sm" icon={Plus} onClick={onAdd}>
+                        Add Provider
+                    </Button>
+                </div>
             }
             sort={{ defaultValue: [{ colIndex: 0, direction: "asc" }] }}
             viewMode={{ persist: { key: STORAGE_KEYS.providersView, scope: "local" } }}

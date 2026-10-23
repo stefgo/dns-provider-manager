@@ -71,7 +71,8 @@ correct drift by itself.
 Every provider is read every few minutes (adjustable under *Settings → Providers*): the zones
 of a Cloudflare token and the A, AAAA and CNAME records in them, the DNS rewrites of an AdGuard
 Home instance, and the zones of a Samba AD domain — without the records its domain controllers
-register for themselves. What the providers hold and DNS Provider Manager does not manage yet is
+register for themselves. *Read Now*, on the list of providers and under *Unmanaged*, reads
+them all at once instead of waiting. What the providers hold and DNS Provider Manager does not manage yet is
 listed under *Unmanaged* and can be adopted into a site — one at a time, or several picked
 together. The entries stay as they are; the site's other providers get the records written.
 *Release* is the way back: DNS Provider Manager lets go of a record and leaves every provider

@@ -14,15 +14,14 @@ import {
     listPagination,
     actionsColumn,
     listGroups,
-    useToast,
 } from "@stefgo/react-ui-components";
 import { QueryError } from "../../../components/QueryError";
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import { useUnmanaged } from "../../../queries/unmanaged";
-import { readAllProviders, useProviders } from "../../../queries/providers";
+import { useProviders } from "../../../queries/providers";
 import { useSites } from "../../../queries/sites";
-import { describeFailure, plural } from "../../../utils";
+import { useReadAllProviders } from "../../../hooks/useReadAllProviders";
 import { entriesOf, entryKey } from "../lib/adopt";
 import { AdoptDialog } from "./AdoptDialog";
 
@@ -41,8 +40,7 @@ export const UnmanagedOverview = () => {
     const [providerFilter, setProviderFilter] = useState(ALL);
     const [selected, setSelected] = useState<ReadonlySet<string | number>>(new Set());
     const [adopting, setAdopting] = useState<UnmanagedEntry[] | null>(null);
-    const [reading, setReading] = useState(false);
-    const { show } = useToast();
+    const { readAll, reading } = useReadAllProviders();
 
     const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? id;
 
@@ -56,20 +54,6 @@ export const UnmanagedOverview = () => {
     // The provider filter is no search: applied in front, and the empty message says so.
     const filtered = providerFilter === ALL ? entries : entries.filter((e) => e.providerId === providerFilter);
     const shown = searchQuery ? filtered.filter((e) => matchesSearch(e, searchQuery)) : filtered;
-
-    const readAll = async () => {
-        setReading(true);
-        try {
-            const result = await readAllProviders();
-            if (result.failed) {
-                show({ variant: "warning", title: `${plural(result.failed, "provider")} could not be read`, duration: 0 });
-            }
-        } catch (err) {
-            show({ variant: "error", ...describeFailure("Could not read the providers", err), duration: 0 });
-        } finally {
-            setReading(false);
-        }
-    };
 
     if (error) return <QueryError title="Could not load the unmanaged records" error={error} />;
 

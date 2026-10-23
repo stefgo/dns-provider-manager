@@ -3,6 +3,7 @@ import type { Provider } from "@dpm/shared";
 import { useConfirm, useToast } from "@stefgo/react-ui-components";
 import { describeDeleteProvider } from "../confirmations";
 import { QueryError } from "../../../components/QueryError";
+import { useReadAllProviders } from "../../../hooks/useReadAllProviders";
 import { ROUTES, paths } from "../../../lib/paths";
 import { readProvider, useDeleteProvider, useProviders } from "../../../queries/providers";
 import { describeFailure } from "../../../utils";
@@ -21,6 +22,7 @@ export const ProviderOverview = () => {
     const { records } = useRecords();
     const deleteProvider = useDeleteProvider();
     const { show } = useToast();
+    const { readAll, reading } = useReadAllProviders();
 
     // What the reading found arrives through the socket. Only a request that failed is said.
     const read = (provider: Provider) =>
@@ -46,6 +48,8 @@ export const ProviderOverview = () => {
             onEdit={(provider) => open(paths.providerEdit(provider.id))}
             onDelete={requestDelete}
             onRead={read}
+            onReadAll={readAll}
+            readingAll={reading}
         />
     );
 };
