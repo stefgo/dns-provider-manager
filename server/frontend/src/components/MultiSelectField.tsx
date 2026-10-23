@@ -84,7 +84,7 @@ export const MultiSelectField = <T extends { id: string }>({
     const footer = (
         <>
             {error && <p className="text-xs text-error">{error}</p>}
-            {hint && <p className="text-xs text-text-muted">{hint}</p>}
+            {hint && <p className="ml-1 text-xs leading-relaxed text-text-muted">{hint}</p>}
         </>
     );
 
@@ -98,7 +98,7 @@ export const MultiSelectField = <T extends { id: string }>({
         return (
             <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                    <FieldLabel as="div" className="mb-0 ml-0">
+                    <FieldLabel as="div" className="mb-0">
                         Select {label}
                     </FieldLabel>
                     <button type="button" onClick={() => onSetIsSelecting(false)} className={LINK_BUTTON}>
@@ -145,7 +145,7 @@ export const MultiSelectField = <T extends { id: string }>({
     return (
         <div className="space-y-1">
             <div className="flex items-center justify-between">
-                <FieldLabel as="div" className="mb-0 ml-0">
+                <FieldLabel as="div" className="mb-0">
                     {label}
                 </FieldLabel>
                 <button type="button" onClick={() => onSetIsSelecting(true)} className={LINK_BUTTON}>
