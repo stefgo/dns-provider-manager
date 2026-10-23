@@ -1,4 +1,4 @@
-import type { DnsRecord, LinkStatus, Provider, RecordLinkView, RecordPreview, Site, SyncAction } from "@dpm/shared";
+import type { DnsRecord, LinkStatus, Provider, RecordLinkView, RecordPreview, Site, SkippedProvider, SyncAction } from "@dpm/shared";
 import type { StatusDotTone } from "@stefgo/react-ui-components";
 
 /** The tones a record's state takes: those a `StatusDot` and a `Badge` both know. */
@@ -89,7 +89,7 @@ export const ACTION_LABEL: Record<SyncAction, string> = {
     conflict: "Refused",
 };
 
-export const ACTION_TONE: Record<SyncAction, StatusDotTone> = {
+export const ACTION_TONE: Record<SyncAction, LinkTone> = {
     create: "info",
     update: "info",
     delete: "warning",
@@ -98,6 +98,60 @@ export const ACTION_TONE: Record<SyncAction, StatusDotTone> = {
     blocked: "neutral",
     conflict: "error",
 };
+
+/** One badge of the editor's provider table, with what it says below. */
+export interface ProviderCell {
+    tone: LinkTone;
+    text: string;
+    detail: string | null;
+}
+
+/** One provider in the editor: where the stored record stands there, and what saving the draft does there. */
+export interface ProviderRow {
+    providerId: string;
+    /** Null where the stored record does not go, or while it is being added. */
+    state: ProviderCell | null;
+    /** Null while there is no preview. */
+    change: ProviderCell | null;
+    /** The stored record's state there, for what can be done about it. */
+    link: RecordLinkView | null;
+    /** Whether TTL and proxy are offered: not where the record is removed or does not go. */
+    settable: boolean;
+}
+
+const skippedCell = (s: SkippedProvider): ProviderCell => ({ tone: "neutral", text: "Does not get it", detail: s.reason });
+
+/**
+ * The rows of the editor's provider table: every provider the stored record or the preview
+ * names, once, in the order of the provider list. With a preview, what is offered follows
+ * what saving does; without one, where the record stands.
+ */
+export function providerRows(
+    record: Pick<DnsRecord, "links" | "skipped"> | null,
+    preview: Pick<RecordPreview, "steps" | "skipped"> | null,
+    providers: readonly Pick<Provider, "id">[],
+): ProviderRow[] {
+    const rows = new Map<string, ProviderRow>();
+    const rowFor = (providerId: string) => {
+        const row = rows.get(providerId) ?? { providerId, state: null, change: null, link: null, settable: false };
+        rows.set(providerId, row);
+        return row;
+    };
+    for (const link of record?.links ?? []) {
+        const row = rowFor(link.providerId);
+        row.state = { tone: LINK_TONE[link.status], text: LINK_LABEL[link.status], detail: linkDetail(link) };
+        row.link = link;
+        row.settable = !preview && link.status !== "removing";
+    }
+    for (const s of record?.skipped ?? []) rowFor(s.providerId).state = skippedCell(s);
+    for (const step of preview?.steps ?? []) {
+        const row = rowFor(step.providerId);
+        row.change = { tone: ACTION_TONE[step.action], text: ACTION_LABEL[step.action], detail: step.reason };
+        row.settable = step.action !== "delete";
+    }
+    for (const s of preview?.skipped ?? []) rowFor(s.providerId).change = skippedCell(s);
+    return linksInOrder([...rows.values()], providers);
+}
 
 /** The providers a save or a deletion would remove the record from, by name. */
 export const removedAt = (preview: Pick<RecordPreview, "steps"> | null | undefined, providers: readonly Pick<Provider, "id" | "name">[]) =>

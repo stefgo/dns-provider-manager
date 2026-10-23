@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecordLinkView } from "@dpm/shared";
-import { acceptEffect, hasProblem, holdsEntry, linkDetail, linksInOrder, overallState, removedAt, saveOutcome } from "./recordSync";
+import { acceptEffect, hasProblem, holdsEntry, linkDetail, linksInOrder, overallState, providerRows, removedAt, saveOutcome } from "./recordSync";
 
 const link = (over: Partial<RecordLinkView>): RecordLinkView => ({
     providerId: "a",
@@ -116,5 +116,41 @@ describe("acceptEffect", () => {
             change: { leaves: ["internal"], parked: false },
             others: [],
         });
+    });
+});
+
+describe("providerRows", () => {
+    const three = [...providers, { id: "c", name: "Cloudflare" }];
+
+    it("show where the stored record stands, without a preview", () => {
+        const rows = providerRows({ links: [link({ providerId: "b", status: "drift" }), link({})], skipped: [{ providerId: "c", reason: "Read only" }] }, null, three);
+        expect(rows.map((r) => [r.providerId, r.state?.text, r.change, r.settable])).toEqual([
+            ["a", "In sync", null, true],
+            ["b", "Changed at the provider", null, true],
+            ["c", "Does not get it", null, false],
+        ]);
+        expect(rows[1].link?.status).toBe("drift");
+    });
+
+    it("put what saving does next to it, once per provider", () => {
+        const rows = providerRows(
+            { links: [link({}), link({ providerId: "b" })], skipped: [] },
+            { steps: [{ providerId: "a", action: "update", reason: null }, { providerId: "b", action: "delete", reason: null }], skipped: [{ providerId: "c", reason: "Not in its zones" }] },
+            three,
+        );
+        expect(rows.map((r) => [r.providerId, r.state?.text ?? null, r.change?.text, r.settable])).toEqual([
+            ["a", "In sync", "Changes it", true],
+            ["b", "In sync", "Removes it", false],
+            ["c", null, "Does not get it", false],
+        ]);
+    });
+
+    it("offer no settings where a record being removed stays without a preview", () => {
+        expect(providerRows({ links: [link({ status: "removing" })], skipped: [] }, null, three)[0].settable).toBe(false);
+    });
+
+    it("have only what saving does for a record being added", () => {
+        const rows = providerRows(null, { steps: [{ providerId: "c", action: "create", reason: null }], skipped: [] }, three);
+        expect(rows).toEqual([{ providerId: "c", state: null, change: { tone: "info", text: "Writes it", detail: null }, link: null, settable: true }]);
     });
 });
