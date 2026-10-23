@@ -27,7 +27,7 @@ import { ProviderReadService } from "./ProviderReadService.js";
 import { decryptSecret } from "./SecretCrypto.js";
 import { queueFor } from "./providerQueue.js";
 import { recordTargets, type RecordTargets } from "./recordTargets.js";
-import { claimKey, planRecord, type PlanContext, type Step } from "./syncPlan.js";
+import { claimKey, dataFor, planRecord, type DesiredRecord, type PlanContext, type Step } from "./syncPlan.js";
 
 /** What a run needs, read once: who the providers and sites are. */
 interface World {
@@ -48,12 +48,11 @@ export interface SyncOptions {
     user?: string | null;
 }
 
-const dataOf = (record: Pick<StoredRecord, "name" | "type" | "value" | "ttl" | "proxied">): RecordData => ({
+const desiredOf = (record: Pick<StoredRecord, "name" | "type" | "value" | "settings">): DesiredRecord => ({
     name: record.name,
     type: record.type,
     value: record.value,
-    ttl: record.ttl,
-    proxied: record.proxied,
+    settings: record.settings,
 });
 
 const message = (err: unknown) => (err instanceof Error ? err.message : String(err));
@@ -123,7 +122,7 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
     const links = allLinks.filter((l) => l.recordId === recordId);
     if (!record && links.length === 0) return false;
 
-    const desired = record ? dataOf(record) : null;
+    const desired = record ? desiredOf(record) : null;
     const targets = record ? targetsOf(record, world).targets : [];
     const steps = planRecord(desired, targets, links, planContext(world, recordId, allLinks), options.correct);
     const providers = new Map(world.providers.map((p) => [p.id, p]));
@@ -156,6 +155,8 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
         const { providerId } = step;
         const link = linkOf(providerId) ?? blank(recordId, providerId);
         const now = new Date().toISOString();
+        // A step to a provider exists only for a record that is there.
+        const data = dataFor(desired!, providerId);
         switch (step.kind) {
             case "keep": {
                 const status = step.status;
@@ -173,7 +174,7 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
                     ...link,
                     zoneId: step.entry.zoneId,
                     externalId: step.entry.externalId,
-                    written: desired,
+                    written: data,
                     status: "in_sync",
                     error: null,
                     observed: null,
@@ -185,7 +186,7 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
                 save({ ...link, status: "pending", error: step.reason });
                 return "pending";
             case "conflict":
-                failed(link, providerId, step.reason, desired, "created");
+                failed(link, providerId, step.reason, data, "created");
                 save({ ...link, status: "error", error: step.reason, lastAttemptAt: now });
                 return "error";
             case "create":
@@ -194,11 +195,11 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
                 if (!allowed(providerId)) return link.status === "error" ? "error" : "pending";
                 const provider = providers.get(providerId)!;
                 try {
-                    const entry = await queueFor(providerId, () => write(provider, step, desired!));
+                    const entry = await queueFor(providerId, () => write(provider, step, data));
                     if (step.kind !== "replace" && step.correcting) {
-                        event("record.corrected", "info", providerId, desired, options.auto ? { auto: true } : {});
+                        event("record.corrected", "info", providerId, data, options.auto ? { auto: true } : {});
                     } else {
-                        event("record.written", link.status === "error" ? "info" : "trace", providerId, desired, {
+                        event("record.written", link.status === "error" ? "info" : "trace", providerId, data, {
                             action: step.kind === "create" ? "created" : "updated",
                         });
                     }
@@ -206,7 +207,7 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
                         ...link,
                         zoneId: entry.zoneId,
                         externalId: entry.externalId,
-                        written: desired,
+                        written: data,
                         status: "in_sync",
                         error: null,
                         observed: null,
@@ -217,8 +218,8 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
                     return "in_sync";
                 } catch (err) {
                     const error = message(err);
-                    logger.warn({ provider: provider.name, record: desired?.name, error }, "Writing a record failed");
-                    failed(link, providerId, error, desired, step.kind === "create" ? "created" : "updated");
+                    logger.warn({ provider: provider.name, record: data.name, error }, "Writing a record failed");
+                    failed(link, providerId, error, data, step.kind === "create" ? "created" : "updated");
                     save({ ...link, status: "error", error, attempts: link.attempts + 1, lastAttemptAt: now });
                     return "error";
                 }
@@ -409,12 +410,12 @@ export class SyncService {
      * What saving `fields` as the record `id` (or a new one) would do at each provider, or
      * what deleting `id` would do (`fields` null). Writes nothing.
      */
-    static preview(fields: Pick<RecordFields, "name" | "type" | "value" | "ttl" | "proxied" | "siteIds"> | null, id?: string): RecordPreview {
+    static preview(fields: Pick<RecordFields, "name" | "type" | "value" | "settings" | "siteIds"> | null, id?: string): RecordPreview {
         const world = loadWorld();
         const allLinks = RecordLinkRepository.findAll();
         const links = id ? allLinks.filter((l) => l.recordId === id) : [];
         const routed = fields ? targetsOf(fields, world) : { targets: [], skipped: [], refusal: null };
-        const steps = planRecord(fields && dataOf(fields), routed.targets, links, planContext(world, id, allLinks));
+        const steps = planRecord(fields && desiredOf(fields), routed.targets, links, planContext(world, id, allLinks));
         const conflict = routed.refusal ?? steps.find((s): s is Extract<Step, { kind: "conflict" }> => s.kind === "conflict")?.reason ?? null;
         return {
             conflict,
@@ -444,7 +445,7 @@ export class SyncService {
         };
         for (const record of RecordRepository.findAll().filter((r) => r.siteIds.includes(id))) {
             const links = allLinks.filter((l) => l.recordId === record.id);
-            const steps = planRecord(dataOf(record), targetsOf(record, changedWorld).targets, links, planContext(world, record.id, allLinks));
+            const steps = planRecord(desiredOf(record), targetsOf(record, changedWorld).targets, links, planContext(world, record.id, allLinks));
             for (const step of steps) {
                 if (step.kind === "create" || (step.kind === "blocked" && !step.removing && writable.has(step.providerId))) {
                     count(step.providerId, "create");

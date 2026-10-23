@@ -32,7 +32,8 @@ server/backend/src/
 │       ├── 00_initial.ts             # users, activity, activity_seen, scheduler_state, webhooks
 │       ├── 01_dns.ts                 # providers, sites, site_providers, records, record_sites
 │       ├── 02_provider_zones.ts      # provider_zones
-│       └── 03_record_links.ts        # record_links, providers.read_only
+│       ├── 03_record_links.ts        # record_links, providers.read_only
+│       └── 04_record_settings.ts     # record_settings: TTL and proxy per record and provider
 ├── providers/                        # The clients that talk to the DNS servers
 │   ├── DnsProvider.ts                # What dpm asks of one: zones, records, writes; what each type knows
 │   ├── clients.ts                    # The client for a provider's type
@@ -46,7 +47,7 @@ server/backend/src/
 │   ├── ProviderRepository.ts         # providers, without their secret on the way out, with their zones
 │   ├── ProviderZoneRepository.ts     # provider_zones: what each reading found, which are ticked
 │   ├── RecordLinkRepository.ts       # record_links: each record at each provider
-│   ├── RecordRepository.ts           # records with their sites
+│   ├── RecordRepository.ts           # records with their sites and settings per provider
 │   ├── SiteRepository.ts             # sites with their providers and record count
 │   ├── SchedulerStateRepository.ts   # scheduler_state: last run, planned run
 │   ├── UserRepository.ts
@@ -164,6 +165,7 @@ migration of its own.
 | `provider_zones` | The zones a provider's last reading found, and which are ticked under "Selected zones". Who uses a zone is derived, not stored |
 | `sites`, `site_providers` | Sites and which providers belong to them |
 | `records`, `record_sites` | Records — unique by name, type and value — and their sites. A site cannot be deleted under a record that has no other (RESTRICT) |
+| `record_settings` | TTL and proxy of a record at one provider; no row is the provider's defaults. Goes with the record and with the provider |
 
 ## 🔐 Authentication Flow
 

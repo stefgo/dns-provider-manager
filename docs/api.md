@@ -337,8 +337,7 @@ How writing works is described under [Providers](providers.md#writing).
     "name": "app.example.com",
     "type": "A",
     "value": "192.168.1.10",
-    "ttl": null,
-    "proxied": false,
+    "settings": [{ "providerId": "95a0…", "ttl": 300, "proxied": true }],
     "note": "",
     "siteIds": ["9a1e…"],
     "createdAt": "2026-10-22T14:45:01.501Z",
@@ -358,8 +357,7 @@ How writing works is described under [Providers](providers.md#writing).
 | `name` | The full name, stored in lower case without the trailing dot. Labels of letters, digits and hyphens, at most 253 characters; `*` as the first label for a wildcard. |
 | `type` | `A`, `AAAA` or `CNAME`. |
 | `value` | An IPv4 address (A), an IPv6 address (AAAA, stored in lower case) or a name (CNAME, never a wildcard, never the record's own name). |
-| `ttl` | 60–86400 seconds, or `null` for each provider's own default. |
-| `proxied` | Cloudflare's proxy. Every other provider ignores it. |
+| `settings` | How the record is written to each provider: `{ "providerId", "ttl", "proxied" }`, one per provider. `ttl` is 60–86400 seconds, or `null` for the provider's own default; `proxied` is Cloudflare's proxy. A provider without a setting gets the defaults, a field the provider does not know (AdGuard Home has no TTL; only Cloudflare proxies) is ignored there, and a setting that says only the defaults is not stored. Settings for a provider outside the record's sites are kept for when it comes back. |
 | `siteIds` | Any number of sites. A record without one is parked: kept, and written to no provider. |
 | `note` | Free text, at most 500 characters. Written to no provider. |
 | `links` | Read only. Where the record stands at each provider it goes to, and at each it is still to be removed from. `status`: `in_sync`, `pending` (not written yet: read only, not read yet — `error` says why), `error` (the last attempt failed; tried again after the provider's next reading), `drift` (changed or switched off there — `observed` is what it holds), `missing` (deleted there), `removing`. |
@@ -435,7 +433,8 @@ For a link in `drift` or `missing`:
 - `POST /api/v1/records/:recordId/links/:providerId/rewrite` writes dpm's value to that provider
   again. Answers the record.
 - `POST /api/v1/records/:recordId/links/:providerId/accept` takes over what the provider holds.
-  A changed value becomes the record's and goes to its other providers too; a deletion (or a
+  A changed value becomes the record's and goes to its other providers too; a changed TTL or
+  proxy becomes the record's setting for that provider only. A deletion (or a
   rewrite switched off in AdGuard Home) takes the record out of the sites it reached that
   provider through, and parks it when none is left — what the provider holds is not touched.
   Answers `{ "record": … }`.
@@ -642,9 +641,9 @@ provider. Everything else is unmanaged, except a rewrite switched off in AdGuard
 `POST /api/v1/unmanaged/adopt` with `{ "siteId": "…", "entries": [{ "providerId": "…", "externalId": "…" }] }`
 (at most 1000) takes the entries over into the site. The entries stay as they are; the site's
 other providers get the records written, in the background. The site has to write to each
-entry's provider. Each entry becomes a record with its TTL and proxy
-setting, or gives the existing record the site; what cannot be taken over is refused with its
-reason, and the rest goes ahead.
+entry's provider. Each entry becomes a record, or gives the existing record the site; either
+way its TTL and proxy become the record's setting for that provider. What cannot be taken over
+is refused with its reason, and the rest goes ahead.
 
 ```json
 {

@@ -148,6 +148,24 @@ export const PROVIDER_TYPE_LABELS: Record<(typeof PROVIDER_TYPES)[number], strin
  */
 export const ZONE_MODES = ["all", "selected"] as const;
 
+/**
+ * What a type of provider knows besides name, type and value. A field it does not know is
+ * neither written nor compared, and the editor offers no setting for it: AdGuard Home has no
+ * TTL, and only Cloudflare proxies.
+ */
+export interface ProviderCapabilities {
+    /** Records live in zones, and a record goes to the provider whose zone holds its name. */
+    zoned: boolean;
+    ttl: boolean;
+    proxied: boolean;
+}
+
+export const PROVIDER_CAPABILITIES: Record<(typeof PROVIDER_TYPES)[number], ProviderCapabilities> = {
+    cloudflare: { zoned: true, ttl: true, proxied: true },
+    adguard: { zoned: false, ttl: false, proxied: false },
+    "samba-ad": { zoned: true, ttl: true, proxied: false },
+};
+
 /** The TTL range dpm accepts, in seconds. No TTL means the provider's own default. */
 export const TTL_MIN = 60;
 export const TTL_MAX = 86400;

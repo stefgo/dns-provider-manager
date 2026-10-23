@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { RecordInputSchema, firstIssue, recordConflict, type DnsRecord, type RecordFields } from "@dpm/shared";
+import { RecordInputSchema, firstIssue, recordConflict, type DnsRecord, type RecordFields, type RecordSetting } from "@dpm/shared";
 import { CAPABILITIES } from "../providers/DnsProvider.js";
 import { RecordLinkRepository } from "../repositories/RecordLinkRepository.js";
 import { RecordRepository, type StoredRecord } from "../repositories/RecordRepository.js";
@@ -15,13 +15,28 @@ function siteNames(ids: readonly string[]): string[] {
     return ids.map((id) => sites.find((s) => s.id === id)?.name ?? id);
 }
 
-function describe(record: Omit<RecordFields, "note"> & { note: string }): Record<string, string> {
+/**
+ * The TTL and proxy at each of these providers, as far as it knows them -- named per provider,
+ * so a change reads "ttl at Cloudflare: default → 300 s". Both sides of a change are described
+ * for the same providers, or a setting taken back to the default would not show.
+ */
+function describeSettings(settings: readonly RecordSetting[], providerIds: ReadonlySet<string>): Record<string, string> {
+    const described: Record<string, string> = {};
+    for (const provider of ProviderRepository.findAll().filter((p) => providerIds.has(p.id))) {
+        const setting = settings.find((s) => s.providerId === provider.id);
+        const caps = CAPABILITIES[provider.type];
+        if (caps.ttl) described[`ttl at ${provider.name}`] = setting?.ttl ? `${setting.ttl} s` : "default";
+        if (caps.proxied) described[`proxied at ${provider.name}`] = setting?.proxied ? "on" : "off";
+    }
+    return described;
+}
+
+function describe(record: Omit<RecordFields, "note"> & { note: string }, providerIds: ReadonlySet<string>): Record<string, string> {
     return {
         name: record.name,
         type: record.type,
         value: record.value,
-        ttl: record.ttl === null ? "default" : `${record.ttl} s`,
-        proxied: record.proxied ? "on" : "off",
+        ...describeSettings(record.settings, providerIds),
         sites: record.siteIds.length > 0 ? nameList(siteNames(record.siteIds)) : "none",
         note: record.note || "–",
     };
@@ -56,8 +71,7 @@ const fieldsOf = (record: StoredRecord): RecordFields => ({
     name: record.name,
     type: record.type,
     value: record.value,
-    ttl: record.ttl,
-    proxied: record.proxied,
+    settings: record.settings,
     siteIds: record.siteIds,
     note: record.note,
 });
@@ -89,7 +103,8 @@ export class RecordService {
         const before = RecordRepository.findById(id);
         if (!before) throw new RequestError(404, "Record not found");
         check(fields, id);
-        const changes = fieldChanges(describe(before), describe(fields));
+        const providerIds = new Set([...before.settings, ...fields.settings].map((s) => s.providerId));
+        const changes = fieldChanges(describe(before, providerIds), describe(fields, providerIds));
         // Nothing changed, nothing to stamp: the record keeps who changed it last.
         if (changes.length === 0) return SyncService.view(id)!;
         const correlationId = randomUUID();
@@ -176,7 +191,8 @@ export class RecordService {
      * Takes over what the provider holds instead of dpm's value.
      *
      * - Changed there: the record takes the provider's value -- and goes with it to all its
-     *   other providers.
+     *   other providers. Its TTL and proxy there become the record's setting for that provider
+     *   alone.
      * - Deleted or switched off there: the record leaves the sites it reached the provider
      *   through, and with them their other providers; with no site left, it is parked. What
      *   the provider holds is not touched.
@@ -201,12 +217,17 @@ export class RecordService {
         const observed = link.observed;
         if (link.status === "drift" && observed && !observed.disabled) {
             const caps = CAPABILITIES[provider.type];
+            const current = record.settings.find((s) => s.providerId === providerId);
+            const setting = {
+                providerId,
+                ttl: caps.ttl ? observed.ttl : (current?.ttl ?? null),
+                proxied: caps.proxied ? observed.proxied : (current?.proxied ?? false),
+            };
             const parsed = RecordInputSchema.safeParse({
                 ...fieldsOf(record),
                 name: observed.name,
                 value: observed.value,
-                ttl: caps.ttl ? observed.ttl : record.ttl,
-                proxied: caps.proxied ? observed.proxied : record.proxied,
+                settings: [...record.settings.filter((s) => s.providerId !== providerId), setting],
             });
             if (!parsed.success) throw new RequestError(409, `dpm cannot take over ${observed.value}: ${firstIssue(parsed.error)}`);
             check(parsed.data, id);
@@ -215,7 +236,7 @@ export class RecordService {
             RecordLinkRepository.save({
                 ...link,
                 externalId: observed.externalId,
-                written: { name: parsed.data.name, type: parsed.data.type, value: parsed.data.value, ttl: parsed.data.ttl, proxied: parsed.data.proxied },
+                written: { name: parsed.data.name, type: parsed.data.type, value: parsed.data.value, ttl: setting.ttl, proxied: setting.proxied },
                 status: "in_sync",
                 error: null,
                 observed: null,

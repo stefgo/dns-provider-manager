@@ -57,7 +57,7 @@ export class UnmanagedService {
     /**
      * Takes the entries over into one site, one after another. An entry whose record dpm
      * has in other sites gives that record this site; every other one becomes a record of
-     * its own, with the entry's TTL and proxy setting. What cannot be taken over is refused
+     * its own. Either way the entry's TTL and proxy become the record's setting for its provider. What cannot be taken over is refused
      * with its reason, and the rest goes ahead -- a bulk adoption is not all or nothing.
      *
      * The site has to be one of the entry's provider: taking an entry over means dpm will
@@ -91,10 +91,15 @@ export class UnmanagedService {
             const records = RecordRepository.findAll();
             const sites = SiteRepository.findAll();
             const existing = records.find((r) => r.name === entry.name && r.type === entry.type && r.value === entry.value);
+            const setting = { providerId: entry.providerId, ttl: entry.ttl, proxied: entry.proxied };
             const parsed = RecordInputSchema.safeParse(
                 existing
-                    ? { ...existing, siteIds: [...existing.siteIds, siteId] }
-                    : { name: entry.name, type: entry.type, value: entry.value, ttl: entry.ttl, proxied: entry.proxied, siteIds: [siteId] },
+                    ? {
+                          ...existing,
+                          settings: [...existing.settings.filter((s) => s.providerId !== entry.providerId), setting],
+                          siteIds: [...existing.siteIds, siteId],
+                      }
+                    : { name: entry.name, type: entry.type, value: entry.value, settings: [setting], siteIds: [siteId] },
             );
             if (!parsed.success) {
                 refuse(firstIssue(parsed.error));

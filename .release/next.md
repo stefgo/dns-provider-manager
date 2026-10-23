@@ -44,6 +44,11 @@ keeps its share until it can: the write is tried again after its next reading, a
 deleted meanwhile is listed until it is gone there too. Adding a provider to a site writes the
 site's records to it; taking one out removes them — the site's editor says how many first.
 
+TTL and Cloudflare's proxy are set per provider, in the record's editor next to each provider
+it goes to: a record can be proxied at one Cloudflare account and not at another, with a TTL
+of its own at each. AdGuard Home has no TTL per record and shows no setting. Adopting
+an entry and taking over a changed TTL or proxy set it for that provider alone.
+
 A record can be parked: without a site it stays in DNS Provider Manager, marked *Parked* in the
 list, and is removed from every provider until it gets a site again. Deleting a site parks the
 records that belonged to it alone, and so does taking over a deletion that leaves a record

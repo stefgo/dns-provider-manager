@@ -22,6 +22,7 @@ import {
     WebhookInputSchema,
     WebhookSchema,
     RecordInputSchema,
+    RecordSettingSchema,
     SiteInputSchema,
     ProviderInputSchema,
     AdoptRequestSchema,
@@ -162,6 +163,7 @@ export type ProviderType = (typeof PROVIDER_TYPES)[number];
 /** What the record editor sends, and what the server stores after parsing it. */
 export type RecordInput = z.input<typeof RecordInputSchema>;
 export type RecordFields = z.output<typeof RecordInputSchema>;
+export type RecordSetting = z.output<typeof RecordSettingSchema>;
 export type DnsRecord = z.infer<typeof RecordViewSchema>;
 
 export type SiteInput = z.input<typeof SiteInputSchema>;

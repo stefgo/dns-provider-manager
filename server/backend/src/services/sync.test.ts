@@ -159,7 +159,7 @@ describe("writing a record", () => {
         await read(ag.id);
         const record = await RecordService.create(fields([internal.id]), USER);
         world.calls.length = 0;
-        await RecordService.update(record.id, fields([internal.id], { ttl: 600 }), USER);
+        await RecordService.update(record.id, fields([internal.id], { settings: [{ providerId: ag.id, ttl: 600 }] }), USER);
         expect(world.calls).toEqual([]);
         await RecordService.update(record.id, fields([internal.id], { value: "192.168.1.11" }), USER);
         expect(world.calls).toEqual(["AdGuard update app.example.com 192.168.1.11"]);

@@ -1,4 +1,4 @@
-import { PROVIDER_TYPE_LABELS, type ProviderType } from "@dpm/shared";
+import { PROVIDER_TYPE_LABELS, type ProviderType, type RecordSetting } from "@dpm/shared";
 import {
     CAPABILITIES,
     type EntryRef,
@@ -25,6 +25,20 @@ export interface PlanContext {
     readings: ReadonlyMap<string, readonly ProviderEntry[]>;
     /** `claimKey`s of the entries other records hold, or have drifted to. */
     claimed: ReadonlySet<string>;
+}
+
+/** A record as dpm holds it: name, type and value, and how it is written to each provider. */
+export interface DesiredRecord {
+    name: string;
+    type: RecordData["type"];
+    value: string;
+    settings: readonly RecordSetting[];
+}
+
+/** What is written to one provider: the record with that provider's TTL and proxy, or the defaults. */
+export function dataFor(desired: DesiredRecord, providerId: string): RecordData {
+    const setting = desired.settings.find((s) => s.providerId === providerId);
+    return { name: desired.name, type: desired.type, value: desired.value, ttl: setting?.ttl ?? null, proxied: setting?.proxied ?? false };
 }
 
 /** What one step does at one provider. */
@@ -152,7 +166,8 @@ function conflictAt(
  * at what dpm holds, the last readings and the links, and says what to do -- `SyncService`
  * does it.
  *
- * - `desired` is the record as dpm holds it, or null for a record that was deleted.
+ * - `desired` is the record as dpm holds it, or null for a record that was deleted. Each
+ *   provider is compared with, and written, the record with its own TTL and proxy.
  * - A record changed in dpm (other than what the link says was written) is written again;
  *   one changed at the provider is `drift` and left alone, unless the provider is in
  *   `correct` -- then dpm's value is written over it.
@@ -164,7 +179,7 @@ function conflictAt(
  *   dropped instead: deleting it would delete the record there.
  */
 export function planRecord(
-    desired: RecordData | null,
+    desired: DesiredRecord | null,
     targets: readonly Target[],
     links: readonly RecordLink[],
     context: PlanContext,
@@ -176,7 +191,7 @@ export function planRecord(
     for (const target of desired ? targets : []) {
         const provider = context.providers.get(target.providerId);
         if (!provider) continue;
-        steps.push(planTarget(desired!, target, provider, links.find((l) => l.providerId === provider.id), context, correct));
+        steps.push(planTarget(dataFor(desired!, provider.id), target, provider, links.find((l) => l.providerId === provider.id), context, correct));
     }
 
     const targetSteps = [...steps];

@@ -30,6 +30,8 @@ import {
     recordDraftFrom,
     recordInputFrom,
     recordRules,
+    settingErrors,
+    withSetting,
 } from "../lib/recordForm";
 import { removedAt, saveOutcome } from "../lib/recordSync";
 import { describeSaveRemoving } from "../confirmations";
@@ -58,7 +60,7 @@ export const RecordEditorRoute = () => {
  * Adds or edits one record. The draft is checked against `RecordInputSchema`, the schema
  * the request is parsed with; what clashes with another record -- the same record twice, a
  * CNAME beside another record of its name -- the server says on save. TTL and Cloudflare's
- * proxy have no field: the draft carries them over from the record unchanged.
+ * proxy are set per provider, in the lines of the providers the record goes to.
  */
 const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
     const { mutateAsync: saveRecord } = useSaveRecord();
@@ -168,7 +170,15 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
                     />
                 )}
 
-                <RecordProviders record={record} input={form.input} isDirty={form.isDirty} providers={providers} />
+                <RecordProviders
+                    record={record}
+                    input={form.input}
+                    isDirty={form.isDirty}
+                    providers={providers}
+                    settings={draft.settings}
+                    settingErrors={settingErrors(draft)}
+                    onSetting={(providerId, change) => set("settings", withSetting(draft.settings, providerId, change))}
+                />
 
                 <Textarea
                     label="Note"

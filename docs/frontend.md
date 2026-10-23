@@ -279,8 +279,11 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
 `lib/providerForm.ts`, `lib/siteForm.ts`) and tested.
 
 - **Records** are ordered by name, so the records of one name stand together — round robin,
-  and split horizon across sites. The editor offers Cloudflare's proxy switch only while a
-  chosen site writes to Cloudflare (`reachesCloudflare`). A conflict with another record is
+  and split horizon across sites. TTL and Cloudflare's proxy are set per provider, in the
+  provider's line of `RecordProviders`, as far as its type knows them (`PROVIDER_CAPABILITIES`
+  in `@dpm/shared`); the draft keeps only settings that differ from the defaults
+  (`withSetting`). The lines stay one list while the preview catches up, so a field being typed
+  into is not replaced. A conflict with another record is
   the server's to find (`recordConflict` in `@dpm/shared`) and is shown above the form.
 - **Where a record stands** is one `Badge` in the list, the most urgent state at any of
   its providers (`ProviderStatus`, `overallState`, tone and words in `lib/recordSync.ts`); its

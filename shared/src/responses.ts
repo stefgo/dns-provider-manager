@@ -202,8 +202,8 @@ export const RecordViewSchema = z.object({
     name: z.string(),
     type: z.enum(RECORD_TYPES),
     value: z.string(),
-    ttl: z.number().nullable(),
-    proxied: z.boolean(),
+    /** TTL and proxy per provider; a provider not named here gets the defaults. */
+    settings: z.array(z.object({ providerId: z.string(), ttl: z.number().nullable(), proxied: z.boolean() })),
     note: z.string(),
     siteIds: z.array(z.string()),
     createdAt: z.string(),

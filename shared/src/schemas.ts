@@ -385,27 +385,42 @@ export function normaliseRecordValue(type: RecordType, value: string): string {
 }
 
 /**
+ * How a record is written to one provider: its TTL (null is the provider's own default) and
+ * Cloudflare's orange cloud. A provider without a setting gets the defaults; a field the
+ * provider does not know is ignored there.
+ */
+export const RecordSettingSchema = z.object({
+    providerId: z.string().min(1),
+    ttl: z
+        .number()
+        .int({ error: "Whole seconds" })
+        .min(TTL_MIN, { error: `At least ${TTL_MIN} seconds` })
+        .max(TTL_MAX, { error: `At most ${TTL_MAX} seconds` })
+        .nullable()
+        .default(null),
+    proxied: z.boolean().default(false),
+});
+
+/**
  * `POST /api/v1/records` and `PUT /api/v1/records/:recordId`. A record is one name, type and
  * value; the same name with another value is another record -- several A records for round
  * robin, or the same name in two sites with two answers (split horizon).
  *
- * `ttl` null is the provider's own default. `proxied` is Cloudflare's orange cloud and is
- * ignored by every other provider. A record without a site is parked: dpm keeps it and writes
- * it to no provider.
+ * `settings` hold TTL and proxy per provider, one each; one that only says the defaults is
+ * dropped. A record without a site is parked: dpm keeps it and writes it to no provider.
  */
 export const RecordInputSchema = z
     .object({
         name: dnsName(true),
         type: z.enum(RECORD_TYPES),
         value: z.string().trim(),
-        ttl: z
-            .number()
-            .int({ error: "Whole seconds" })
-            .min(TTL_MIN, { error: `At least ${TTL_MIN} seconds` })
-            .max(TTL_MAX, { error: `At most ${TTL_MAX} seconds` })
-            .nullable()
-            .default(null),
-        proxied: z.boolean().default(false),
+        settings: z
+            .array(RecordSettingSchema)
+            .default([])
+            .refine((settings) => new Set(settings.map((s) => s.providerId)).size === settings.length, {
+                error: "One setting per provider",
+            })
+            .transform((settings) => settings.filter((s) => s.ttl !== null || s.proxied)),
         siteIds: z.array(z.string().min(1)).transform(unique),
         note: z.string().trim().max(500).default(""),
     })

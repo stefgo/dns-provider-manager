@@ -1,4 +1,4 @@
-import type { ProviderType, RecordType } from "@dpm/shared";
+import { PROVIDER_CAPABILITIES, type ProviderCapabilities, type RecordType } from "@dpm/shared";
 
 /** A zone as a provider names it: its own id, and the domain. */
 export interface ProviderZoneInfo {
@@ -37,22 +37,10 @@ export interface RecordData {
 /** Which entry a change or a deletion is meant for. */
 export type EntryRef = Pick<ProviderEntry, "externalId" | "zoneId" | "zone">;
 
-/**
- * What a type of provider knows besides name, type and value. A field it does not know is
- * neither written nor compared: AdGuard Home has no TTL, and only Cloudflare proxies.
- */
-export interface ProviderCapabilities {
-    /** Records live in zones, and a record goes to the provider whose zone holds its name. */
-    zoned: boolean;
-    ttl: boolean;
-    proxied: boolean;
-}
+export type { ProviderCapabilities };
 
-export const CAPABILITIES: Record<ProviderType, ProviderCapabilities> = {
-    cloudflare: { zoned: true, ttl: true, proxied: true },
-    adguard: { zoned: false, ttl: false, proxied: false },
-    "samba-ad": { zoned: true, ttl: true, proxied: false },
-};
+/** What each type of provider knows besides name, type and value; in `@dpm/shared`, for the editor. */
+export const CAPABILITIES = PROVIDER_CAPABILITIES;
 
 /**
  * What dpm asks of a DNS server. Each method throws an `Error` whose message says in a

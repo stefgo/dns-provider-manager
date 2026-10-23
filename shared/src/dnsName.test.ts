@@ -49,8 +49,7 @@ describe("RecordInputSchema", () => {
             name: "app.example.com",
             type: "A",
             value: "192.168.1.10",
-            ttl: null,
-            proxied: false,
+            settings: [],
             siteIds: ["s1"],
             note: "",
         });
@@ -71,8 +70,18 @@ describe("RecordInputSchema", () => {
 
     it("takes a record without a site and needs a TTL in range", () => {
         expect(RecordInputSchema.safeParse({ ...base, siteIds: [] }).success).toBe(true);
-        expect(RecordInputSchema.safeParse({ ...base, ttl: 30 }).error?.issues[0].message).toBe("At least 60 seconds");
-        expect(RecordInputSchema.safeParse({ ...base, ttl: 300 }).success).toBe(true);
+        expect(RecordInputSchema.safeParse({ ...base, settings: [{ providerId: "cf", ttl: 30 }] }).error?.issues[0].message).toBe(
+            "At least 60 seconds",
+        );
+        expect(RecordInputSchema.safeParse({ ...base, settings: [{ providerId: "cf", ttl: 300 }] }).success).toBe(true);
+    });
+
+    it("keeps one setting per provider, and none that only says the defaults", () => {
+        const settings = (list: object[]) => RecordInputSchema.safeParse({ ...base, settings: list });
+        expect(settings([{ providerId: "cf" }, { providerId: "cf", proxied: true }]).error?.issues[0].message).toBe("One setting per provider");
+        expect(settings([{ providerId: "a" }, { providerId: "cf", proxied: true }]).data?.settings).toEqual([
+            { providerId: "cf", ttl: null, proxied: true },
+        ]);
     });
 });
 

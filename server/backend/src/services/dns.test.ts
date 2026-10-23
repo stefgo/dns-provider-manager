@@ -133,7 +133,7 @@ describe("RecordService", () => {
         const created = await record([internal.id]);
         expect(RecordListSchema.safeParse(SyncService.views(RecordRepository.findAll())).success).toBe(true);
         expect(SiteListSchema.safeParse(SiteRepository.findAll()).success).toBe(true);
-        expect(created).toMatchObject({ name: "app.example.com", siteIds: [internal.id], createdBy: USER, ttl: null });
+        expect(created).toMatchObject({ name: "app.example.com", siteIds: [internal.id], createdBy: USER, settings: [] });
         expect(SiteRepository.findById(internal.id)?.recordCount).toBe(1);
         expect(events("record.created")[0]).toMatchObject({
             data: { name: "app.example.com", type: "A", value: "192.168.1.10", sites: ["internal"] },
@@ -158,17 +158,23 @@ describe("RecordService", () => {
 
     it("lists the changes and leaves an unchanged record alone", async () => {
         const internal = site("internal");
+        const cf = ProviderService.create(ProviderInputSchema.parse({ type: "cloudflare", name: "Cloudflare", secret: "t" }), USER);
         const created = await record([internal.id]);
-        await RecordService.update(created.id, RecordInputSchema.parse({ ...created, value: "192.168.1.11", ttl: 300 }), "bob");
-        expect(RecordRepository.findById(created.id)).toMatchObject({ value: "192.168.1.11", updatedBy: "bob" });
+        const changed = { ...created, value: "192.168.1.11", settings: [{ providerId: cf.id, ttl: 300 }] };
+        await RecordService.update(created.id, RecordInputSchema.parse(changed), "bob");
+        expect(RecordRepository.findById(created.id)).toMatchObject({
+            value: "192.168.1.11",
+            settings: [{ providerId: cf.id, ttl: 300, proxied: false }],
+            updatedBy: "bob",
+        });
         expect(events("record.changed")[0].data).toMatchObject({
             changes: [
                 { field: "value", from: "192.168.1.10", to: "192.168.1.11" },
-                { field: "ttl", from: "default", to: "300 s" },
+                { field: "ttl at Cloudflare", from: "default", to: "300 s" },
             ],
         });
         const stored = ActivityRepository.count();
-        await RecordService.update(created.id, RecordInputSchema.parse({ ...created, value: "192.168.1.11", ttl: 300 }), USER);
+        await RecordService.update(created.id, RecordInputSchema.parse(changed), USER);
         expect(ActivityRepository.count()).toBe(stored);
         expect(RecordRepository.findById(created.id)?.updatedBy).toBe("bob");
     });
@@ -269,8 +275,7 @@ describe("UnmanagedService", () => {
         expect(result.refused).toEqual([]);
         expect(result.adopted.map((a) => a.name)).toEqual(["app.example.com", "www.example.com"]);
         expect(RecordRepository.findAll().find((r) => r.name === "app.example.com")).toMatchObject({
-            ttl: 300,
-            proxied: true,
+            settings: [{ providerId: cf.id, ttl: 300, proxied: true }],
             siteIds: [external.id],
         });
         expect(UnmanagedService.list().entries).toEqual([]);

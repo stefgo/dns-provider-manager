@@ -58,9 +58,10 @@ the zones and who uses each.
 A record goes to the provider whose zone holds its name — with nested zones the closest one.
 A site whose providers all have zones, none of which holds the name, refuses the record.
 
-Cloudflare's *Auto* TTL is read and written as the provider's default; the proxy setting (the
-orange cloud) is kept with the record. While a record is proxied, Cloudflare sets its TTL to
-*Auto*, and DPM does not count that as drift. A comment or tags set at Cloudflare stay as they
+Cloudflare's *Auto* TTL is read and written as the provider's default. TTL and proxy (the orange
+cloud) are set per provider, in the record's editor: a record can be proxied at one Cloudflare
+account and not at another. While a record is proxied, Cloudflare sets its TTL to *Auto*, and
+DPM does not count that as drift. A comment or tags set at Cloudflare stay as they
 are.
 
 ## AdGuard Home
