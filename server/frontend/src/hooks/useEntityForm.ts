@@ -126,7 +126,9 @@ export function useEntityForm<D extends object, S extends z.ZodType>({
         errors: isDirty ? check.errors : {},
         formError: isDirty ? check.formError : null,
         isValid: check.isValid,
-        input: check.input,
+        // Not what `checkDraft` built of an invalid draft: whatever asks the server with it,
+        // such as a preview, would only be refused.
+        input: check.isValid ? check.input : null,
         isDirty,
         canSave,
         isSaving,
