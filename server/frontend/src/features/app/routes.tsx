@@ -89,6 +89,16 @@ export const shellRoutes: RouteObject[] = [
         ],
     },
     {
+        path: ROUTES.sites,
+        handle: nav({ id: "sites", groupId: "dns", label: "Sites", icon: Layers }),
+        errorElement: <RouteError />,
+        children: [
+            { index: true, element: <SiteOverview /> },
+            { path: ROUTES.siteNew, handle: titled("New Site"), element: <SiteEditorRoute /> },
+            { path: ROUTES.site, handle: about("site", "Site"), element: <SiteEditorRoute /> },
+        ],
+    },
+    {
         path: ROUTES.unmanaged,
         handle: nav({ id: "unmanaged", groupId: "dns", label: "Unmanaged", icon: Inbox }),
         errorElement: <RouteError />,
@@ -103,16 +113,6 @@ export const shellRoutes: RouteObject[] = [
             { path: ROUTES.recordNew, handle: titled("New Record"), element: <RecordEditorRoute /> },
             // By its kind: a record's name alone does not say which of several it is.
             { path: ROUTES.record, handle: titled("Record"), element: <RecordEditorRoute /> },
-        ],
-    },
-    {
-        path: ROUTES.sites,
-        handle: nav({ id: "sites", groupId: "infrastructure", label: "Sites", icon: Layers }),
-        errorElement: <RouteError />,
-        children: [
-            { index: true, element: <SiteOverview /> },
-            { path: ROUTES.siteNew, handle: titled("New Site"), element: <SiteEditorRoute /> },
-            { path: ROUTES.site, handle: about("site", "Site"), element: <SiteEditorRoute /> },
         ],
     },
     {

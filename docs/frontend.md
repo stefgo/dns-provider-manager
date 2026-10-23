@@ -80,8 +80,8 @@ top-level route with its pages below it, and these are read off it:
 - **The sidebar** is the areas that carry `handle.nav` (label, icon, group), in the tree's
   order. `AppLayout` adds what only the running application knows — the dot for unseen
   activity — and marks the entry of the innermost matched area, so an editor keeps its area
-  marked without its path being listed anywhere. The groups are `overview`, `dns` (Providers, Unmanaged,
-  Records), `infrastructure` (Sites) and `system`.
+  marked without its path being listed anywhere. The groups are `overview`, `dns` (Providers, Sites,
+  Unmanaged, Records) and `system`.
 - **The browser tab** names the open page (`lib/pageTitle.ts`): the handles along the open
   route, most specific first — `AdGuard 1 · Providers · DPM`. A route says `title` (a form, a
   record) or `subject` (a provider or a site, called by its name from the cached list, which
