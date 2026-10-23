@@ -5,8 +5,8 @@ import { Alert, Button, Modal, useToast } from "@stefgo/react-ui-components";
 import { MultiSelectField } from "../../../components/MultiSelectField";
 import { ROUTES } from "../../../lib/paths";
 import { useChangeRecordSites } from "../../../queries/records";
-import { getErrorMessage, nameList, plural } from "../../../utils";
-import { initialSiteStates, nextSiteState, siteChanges, sitesChangePreview, sitesOutcome } from "../lib/bulkSites";
+import { getErrorMessage, plural } from "../../../utils";
+import { describeSitesChange, initialSiteStates, nextSiteState, siteChanges, sitesChangePreview, sitesOutcome } from "../lib/bulkSites";
 import { SiteInfo, SiteName } from "./RecordSiteSelect";
 
 interface RecordSitesDialogProps {
@@ -22,19 +22,24 @@ interface RecordSitesDialogProps {
  * Gives several records sites and takes others from them, in the list the record editor picks
  * its sites from. Each site starts as the records are: ticked where all of them have it,
  * empty where none does, half where some do. Only a site that is changed changes the records;
- * a half one left alone leaves each record as it is. Below, what saving would do at the
- * providers.
+ * a half one left alone leaves each record as it is.
+ *
+ * "Save" asks first, with what the change does at the providers. The question is a second
+ * view of this dialog rather than a confirm on top of it: a dialog closes on a click outside
+ * itself, and a second one is outside it.
  */
 export const RecordSitesDialog = ({ records, sites, providers, onClose, onDone }: RecordSitesDialogProps) => {
     const [initial] = useState(() => initialSiteStates(records, sites));
     const [states, setStates] = useState(initial);
+    const [confirming, setConfirming] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const { mutateAsync: changeSites, isPending } = useChangeRecordSites();
     const { show } = useToast();
 
     const { add, remove } = siteChanges(states, initial);
     const preview = sitesChangePreview(records, sites, providers, add, remove);
-    const asked = add.length > 0 || remove.length > 0;
+    const siteNames = (ids: readonly string[]) => sites.filter((s) => ids.includes(s.id)).map((s) => s.name);
+    const confirmation = describeSitesChange(preview, siteNames(add), siteNames(remove));
 
     const toggle = (id: string) => setStates((current) => ({ ...current, [id]: nextSiteState(current[id], initial[id]) }));
 
@@ -51,6 +56,43 @@ export const RecordSitesDialog = ({ records, sites, providers, onClose, onDone }
         }
     };
 
+    if (confirming) {
+        return (
+            <Modal
+                isOpen
+                onClose={onClose}
+                size="lg"
+                title={confirmation.title}
+                footer={
+                    <div className="flex justify-end gap-3">
+                        <Button
+                            variant="secondary"
+                            onClick={() => {
+                                setError(null);
+                                setConfirming(false);
+                            }}
+                            disabled={isPending}
+                        >
+                            Back
+                        </Button>
+                        <Button variant={confirmation.variant} onClick={submit} isLoading={isPending} disabled={isPending}>
+                            {confirmation.confirmLabel}
+                        </Button>
+                    </div>
+                }
+            >
+                <div className="space-y-4">
+                    {error && <Alert>{error}</Alert>}
+                    {confirmation.notes.map((note) => (
+                        <Alert key={note.text} tone={note.tone}>
+                            {note.text}
+                        </Alert>
+                    ))}
+                </div>
+            </Modal>
+        );
+    }
+
     return (
         <Modal
             isOpen
@@ -62,53 +104,33 @@ export const RecordSitesDialog = ({ records, sites, providers, onClose, onDone }
                     <Button variant="secondary" onClick={onClose}>
                         Cancel
                     </Button>
-                    <Button variant="primary" onClick={submit} isLoading={isPending} disabled={!asked || preview.changed === 0 || isPending}>
+                    <Button variant="primary" onClick={() => setConfirming(true)} disabled={preview.changed === 0}>
                         Save
                     </Button>
                 </div>
             }
         >
-            <div className="space-y-4">
-                {error && <Alert>{error}</Alert>}
-                <MultiSelectField
-                    items={sites}
-                    selectedIds={sites.filter((site) => states[site.id] === "all").map((site) => site.id)}
-                    partialIds={sites.filter((site) => states[site.id] === "some").map((site) => site.id)}
-                    onToggle={(site) => toggle(site.id)}
-                    label="Sites"
-                    renderName={(site) => <SiteName site={site} />}
-                    renderInfo={(site) => <SiteInfo site={site} providers={providers} />}
-                    removeTooltip="Remove from Records"
-                    noneSelected="No site selected: the records are parked and written to no provider"
-                    emptyList={
-                        <>
-                            There is no site yet —{" "}
-                            <Link to={ROUTES.siteNew} className="text-primary hover:underline">
-                                add a site
-                            </Link>{" "}
-                            first.
-                        </>
-                    }
-                    hint="Ticked: every record gets the site. Empty: every record loses it. Half: only some of them have it, and each keeps what it has."
-                />
-                {asked && (
-                    <Alert tone="info">
-                        {preview.changed === 0
-                            ? "Every record has its sites like this already."
-                            : `${plural(preview.changed, "record")} will change${preview.unchanged > 0 ? `, ${preview.unchanged} ${preview.unchanged === 1 ? "has its" : "have their"} sites like this already` : ""}.`}
-                        {preview.writtenTo.length > 0 && ` Written to ${nameList(preview.writtenTo)}.`}
-                    </Alert>
-                )}
-                {preview.removedFrom.length > 0 && (
-                    <Alert tone="warning">Removed from {nameList(preview.removedFrom)} once the other providers of each record hold it.</Alert>
-                )}
-                {preview.parked > 0 && (
-                    <Alert tone="warning">
-                        {preview.parked === 1 ? "1 record is" : `${preview.parked} records are`} left without a site: parked, and written to no
-                        provider.
-                    </Alert>
-                )}
-            </div>
+            <MultiSelectField
+                items={sites}
+                selectedIds={sites.filter((site) => states[site.id] === "all").map((site) => site.id)}
+                partialIds={sites.filter((site) => states[site.id] === "some").map((site) => site.id)}
+                onToggle={(site) => toggle(site.id)}
+                label="Sites"
+                renderName={(site) => <SiteName site={site} />}
+                renderInfo={(site) => <SiteInfo site={site} providers={providers} />}
+                removeTooltip="Remove from Records"
+                noneSelected="No site selected"
+                emptyList={
+                    <>
+                        There is no site yet —{" "}
+                        <Link to={ROUTES.siteNew} className="text-primary hover:underline">
+                            add a site
+                        </Link>{" "}
+                        first.
+                    </>
+                }
+                hint="Ticked: every record gets the site. Empty: every record loses it. Half: only some of them have it, and each keeps what it has."
+            />
         </Modal>
     );
 };

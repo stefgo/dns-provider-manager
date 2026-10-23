@@ -302,9 +302,10 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   sites together with "Change Sites" (`RecordSitesDialog`), in the list the editor picks sites
   from (`MultiSelectField`, with `partialIds` and `onToggle` for a third state): each site
   starts ticked, empty or half as all, none or some of them have it, only a changed site
-  changes the records,
-  and the dialog says which providers get or lose records and which are parked
-  (`lib/bulkSites.ts`). The outcome is one toast with every refusal, as for an adoption.
+  changes the records. "Save" asks first, in a second view of the same dialog (a confirm on
+  top would count as a click outside it): which providers get or lose records and which are
+  parked, with "Save and remove" or "Save and park" as the editor asks (`lib/bulkSites.ts`).
+  The outcome is one toast with every refusal, as for an adoption.
 - **Providers** have one draft for every type, so switching the type of a new provider keeps
   what was typed in the fields they share; `providerInputFrom` sends only the type's own. The
   secret field is empty, never filled with the stored value, and saves nothing until something

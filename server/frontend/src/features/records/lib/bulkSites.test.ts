@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { initialSiteStates, nextSiteState, siteChanges, sitesAfter, sitesChangePreview, sitesOutcome } from "./bulkSites";
+import {
+    describeSitesChange,
+    initialSiteStates,
+    nextSiteState,
+    siteChanges,
+    sitesAfter,
+    sitesChangePreview,
+    sitesOutcome,
+} from "./bulkSites";
 
 const sites = [
     { id: "ext", providerIds: ["cf"] },
@@ -72,6 +80,40 @@ describe("sitesChangePreview", () => {
     it("counts the records left without a site", () => {
         const records = [{ siteIds: ["int"] }, { siteIds: ["int", "ext"] }];
         expect(sitesChangePreview(records, sites, providers, [], ["int"])).toMatchObject({ changed: 2, parked: 1 });
+    });
+});
+
+describe("describeSitesChange", () => {
+    const preview = { changed: 2, unchanged: 1, writtenTo: ["Cloudflare"], removedFrom: [], parked: 0 };
+
+    it("names the sites the records get and lose, and the providers they are written to", () => {
+        expect(describeSitesChange(preview, ["external"], ["internal", "lab"])).toEqual({
+            title: "Change the sites of 2 records?",
+            notes: [
+                { tone: "info", text: "2 records get external and lose internal and lab. 1 has its sites like this already." },
+                { tone: "info", text: "Written to Cloudflare." },
+            ],
+            confirmLabel: "Save",
+            variant: "primary",
+        });
+        expect(describeSitesChange({ ...preview, changed: 1, unchanged: 0 }, ["external"], []).notes[0].text).toBe("1 record gets external.");
+    });
+
+    it("asks with a warning before records leave a provider, and before they are parked", () => {
+        const removing = describeSitesChange({ ...preview, writtenTo: [], removedFrom: ["AdGuard 1"] }, [], ["internal"]);
+        expect(removing).toMatchObject({ confirmLabel: "Save and remove", variant: "danger" });
+        expect(removing.notes).toContainEqual({ tone: "warning", text: "Removed from AdGuard 1 once the other providers of each record hold it." });
+        const parking = describeSitesChange({ ...preview, writtenTo: [], removedFrom: ["AdGuard 1"], parked: 1 }, [], ["internal"]);
+        expect(parking).toMatchObject({ confirmLabel: "Save and park", variant: "danger" });
+        expect(parking.notes).toContainEqual({ tone: "warning", text: "1 record is left without a site: parked, and written to no provider." });
+    });
+
+    it("says so when no provider is touched", () => {
+        const { notes } = describeSitesChange({ ...preview, writtenTo: [] }, ["lab"], []);
+        expect(notes[notes.length - 1]).toEqual({
+            tone: "info",
+            text: "No provider gets or loses a record.",
+        });
     });
 });
 

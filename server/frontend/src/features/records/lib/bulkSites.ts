@@ -1,5 +1,5 @@
 import type { DnsRecord, Provider, RecordSitesResult, Site } from "@dpm/shared";
-import { plural } from "../../../utils";
+import { nameList, plural } from "../../../utils";
 
 /** How many of the picked records have a site: every one, some of them, or none. */
 export type SiteState = "all" | "some" | "none";
@@ -88,6 +88,58 @@ export function sitesChangePreview(
     }
     const names = (ids: Set<string>) => providers.filter((p) => p.writable && ids.has(p.id)).map((p) => p.name);
     return { changed, unchanged: records.length - changed, writtenTo: names(gained), removedFrom: names(lost), parked };
+}
+
+/** What the confirmation says before saving: one line each, a warning where records leave. */
+export interface SitesChangeConfirmation {
+    title: string;
+    notes: { tone: "info" | "warning"; text: string }[];
+    confirmLabel: string;
+    variant: "primary" | "danger";
+}
+
+/**
+ * The confirmation before the change is saved: which sites the records get and lose, and
+ * what that does at the providers. Removing records from a provider or parking them is
+ * confirmed as the record editor confirms it, with a button that says so.
+ */
+export function describeSitesChange(
+    preview: SitesChangePreview,
+    added: readonly string[],
+    removed: readonly string[],
+): SitesChangeConfirmation {
+    const many = preview.changed !== 1;
+    const what = [
+        added.length > 0 && `${many ? "get" : "gets"} ${nameList(added)}`,
+        removed.length > 0 && `${many ? "lose" : "loses"} ${nameList(removed)}`,
+    ].filter(Boolean);
+    const already =
+        preview.unchanged > 0
+            ? ` ${preview.unchanged} ${preview.unchanged === 1 ? "has its" : "have their"} sites like this already.`
+            : "";
+    const notes: SitesChangeConfirmation["notes"] = [
+        { tone: "info", text: `${plural(preview.changed, "record")} ${what.join(" and ")}.${already}` },
+    ];
+    if (preview.writtenTo.length > 0) notes.push({ tone: "info", text: `Written to ${nameList(preview.writtenTo)}.` });
+    if (preview.removedFrom.length > 0) {
+        notes.push({ tone: "warning", text: `Removed from ${nameList(preview.removedFrom)} once the other providers of each record hold it.` });
+    }
+    if (preview.parked > 0) {
+        notes.push({
+            tone: "warning",
+            text: `${preview.parked === 1 ? "1 record is" : `${preview.parked} records are`} left without a site: parked, and written to no provider.`,
+        });
+    }
+    if (preview.writtenTo.length === 0 && preview.removedFrom.length === 0 && preview.parked === 0) {
+        notes.push({ tone: "info", text: "No provider gets or loses a record." });
+    }
+    const confirmLabel = preview.parked > 0 ? "Save and park" : preview.removedFrom.length > 0 ? "Save and remove" : "Save";
+    return {
+        title: `Change the sites of ${plural(preview.changed, "record")}?`,
+        notes,
+        confirmLabel,
+        variant: confirmLabel === "Save" ? "primary" : "danger",
+    };
 }
 
 /** What a toast says after the change: how many records changed, and every refusal with its reason. */
