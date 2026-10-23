@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useParams } from "react-router-dom";
 import { Globe, X } from "lucide-react";
 import { RECORD_TYPES, RecordInputSchema, type DnsRecord, type RecordType } from "@dpm/shared";
 import {
@@ -6,7 +7,6 @@ import {
     Alert,
     Button,
     Card,
-    Checkbox,
     FieldLabel,
     Input,
     LoadingIndicator,
@@ -23,9 +23,8 @@ import { QueryError } from "../../../components/QueryError";
 import { useEntityForm } from "../../../hooks/useEntityForm";
 import { useUnsavedChangesGuard } from "../../../hooks/useUnsavedChangesGuard";
 import { NotFoundError } from "../../../lib/notFound";
-import { ROUTES } from "../../../lib/paths";
 import { HeaderBreadcrumb } from "../../app/HeaderBreadcrumb";
-import { getErrorMessage, toggled } from "../../../utils";
+import { getErrorMessage } from "../../../utils";
 import {
     EMPTY_RECORD_DRAFT,
     VALUE_PLACEHOLDER,
@@ -37,6 +36,7 @@ import {
 import { removedAt, saveOutcome } from "../lib/recordSync";
 import { describeSaveRemoving } from "../confirmations";
 import { RecordProviders } from "./RecordProviders";
+import { RecordSiteSelect } from "./RecordSiteSelect";
 
 /**
  * `/records/new` and `/records/:recordId`. The record is read from the list -- there is no
@@ -75,7 +75,15 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
         rules: recordRules,
     });
     const { draft, set, errors, isSaving } = form;
-    const { close, leave } = useUnsavedChangesGuard(form.isDirty, record ? "record" : "newRecord");
+    // The list to pick sites from takes the field's place; Escape closes it before the page.
+    const [selectingSites, setSelectingSites] = useState(false);
+    const { close, leave } = useUnsavedChangesGuard(form.isDirty, record ? "record" : "newRecord", {
+        onEscape: () => {
+            if (!selectingSites) return false;
+            setSelectingSites(false);
+            return true;
+        },
+    });
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -125,7 +133,6 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
                         placeholder="app.example.com"
                         error={errors.name}
                         hint="The full name. * as the first part stands for every name below it."
-                        classNames={{ input: "font-mono" }}
                     />
                     <Select
                         label="Type"
@@ -139,39 +146,30 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
                         onChange={(e) => set("value", e.target.value)}
                         placeholder={VALUE_PLACEHOLDER[draft.type]}
                         error={errors.value}
-                        classNames={{ input: "font-mono" }}
                     />
                 </div>
 
-                <div>
-                    <FieldLabel as="div">Sites</FieldLabel>
-                    {sitesError ? (
+                {sitesError ? (
+                    <div>
+                        <FieldLabel as="div">Sites</FieldLabel>
                         <Alert title="Could not load the sites">{getErrorMessage(sitesError)}</Alert>
-                    ) : sitesPending ? (
+                    </div>
+                ) : sitesPending ? (
+                    <div>
+                        <FieldLabel as="div">Sites</FieldLabel>
                         <LoadingIndicator label="Loading sites…" />
-                    ) : sites.length === 0 ? (
-                        <Alert tone="info">
-                            There is no site yet. A record goes to the providers of its sites —{" "}
-                            <Link to={ROUTES.siteNew} className="text-primary hover:underline">
-                                add a site
-                            </Link>{" "}
-                            first.
-                        </Alert>
-                    ) : (
-                        <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {sites.map((site) => (
-                                <Checkbox
-                                    key={site.id}
-                                    label={site.name}
-                                    hint={site.description || undefined}
-                                    checked={draft.siteIds.includes(site.id)}
-                                    onChange={(e) => set("siteIds", toggled(draft.siteIds, site.id, e.target.checked))}
-                                />
-                            ))}
-                        </div>
-                    )}
-                    {errors.siteIds && <p className="mt-1 text-xs text-error">{errors.siteIds}</p>}
-                </div>
+                    </div>
+                ) : (
+                    <RecordSiteSelect
+                        sites={sites}
+                        providers={providers}
+                        selectedIds={draft.siteIds}
+                        onChange={(ids) => set("siteIds", ids)}
+                        isSelecting={selectingSites}
+                        onSetIsSelecting={setSelectingSites}
+                        error={errors.siteIds}
+                    />
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Input

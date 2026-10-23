@@ -24,7 +24,7 @@ src/
 │   │   └── lib/dashboardMessages.ts      # Parses a socket message against the contract; assertNever
 │   ├── auth/                             # AuthContext and AuthProvider
 │   ├── dashboard/                        # DashboardOverview, and the counts its cards show (lib/)
-│   ├── records/                          # RecordOverview, RecordList, RecordEditor, the form rules (lib/)
+│   ├── records/                          # RecordOverview, RecordList, RecordEditor, RecordSiteSelect, the form rules (lib/)
 │   ├── providers/                        # ProviderOverview, ProviderList, ProviderDetail, ProviderEditor, the form rules and details (lib/)
 │   ├── sites/                            # SiteOverview, SiteList, SiteEditor, SiteProviderSelect, form rules and siteDeletion (lib/)
 │   ├── unmanaged/                        # UnmanagedOverview, AdoptDialog, the adoption rules (lib/)
@@ -32,7 +32,7 @@ src/
 │   ├── users/                            # UserOverview, UserList, UserDialog
 │   ├── webhooks/                         # WebhookOverview, WebhookEditor, the form rules (lib/)
 │   └── settings/                         # The sections of the settings page
-├── components/                           # Shared components: NotFoundCard, QueryError, RelativeTime, …
+├── components/                           # Shared components: MultiSelectField, NotFoundCard, QueryError, RelativeTime, …
 ├── hooks/                                # useEntityForm, useUnsavedChangesGuard, useBackPath, useNow, …
 ├── lib/                                  # api, apiFetch, paths, pageTitle, breadcrumb, queryClient, queryKeys,
 │                                         # cacheUpdates, storageKeys, notFound
