@@ -69,6 +69,7 @@ export const ACTIVITY_KINDS = [
     "record.drift",
     "record.corrected",
     "record.accepted",
+    "record.released",
     "site.created",
     "site.changed",
     "site.deleted",

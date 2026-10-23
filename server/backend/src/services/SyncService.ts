@@ -86,6 +86,14 @@ function facts(data: RecordData | null, provider: Provider | undefined) {
 const describeObserved = (observed: Observed | null) =>
     observed === null ? null : observed.disabled ? `${observed.value}, switched off` : observed.value;
 
+/** The records a sync is under way for, and how many. */
+const underway = new Map<string, number>();
+/**
+ * Records released while a sync of theirs was under way. What that sync still learns is not
+ * saved: a link left behind for a record that is gone would be a removal at the provider.
+ */
+const released = new Set<string>();
+
 const blank = (recordId: string, providerId: string): RecordLink => ({
     recordId,
     providerId,
@@ -124,6 +132,7 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
 
     const linkOf = (providerId: string) => links.find((l) => l.providerId === providerId);
     const save = (next: RecordLink) => {
+        if (released.has(recordId)) return;
         const before = linkOf(next.providerId);
         if (before && JSON.stringify(before) === JSON.stringify(next)) return;
         RecordLinkRepository.save(next);
@@ -345,10 +354,19 @@ async function syncMany(ids: readonly string[], options: SyncOptions): Promise<v
     const world = loadWorld();
     const changed: string[] = [];
     for (const id of ids) {
+        underway.set(id, (underway.get(id) ?? 0) + 1);
         try {
             if (await syncOne(id, world, options)) changed.push(id);
         } catch (err) {
             logger.error({ err, recordId: id }, "Bringing a record to its providers failed");
+        } finally {
+            const left = underway.get(id)! - 1;
+            if (left > 0) {
+                underway.set(id, left);
+            } else {
+                underway.delete(id);
+                released.delete(id);
+            }
         }
     }
     announce(changed);
@@ -464,6 +482,19 @@ export class SyncService {
     static view(id: string): DnsRecord | undefined {
         const record = RecordRepository.findById(id);
         return record && this.views([record])[0];
+    }
+
+    /**
+     * Gives the record up: it and its links are deleted, and no provider is touched. What the
+     * providers hold of it stays there, unmanaged from then on. A sync of it under way saves
+     * nothing more.
+     */
+    static release(id: string): void {
+        if (underway.has(id)) released.add(id);
+        // The links go first: a record gone and its links left would be removed at the providers.
+        RecordLinkRepository.deleteByRecord(id);
+        RecordRepository.delete(id);
+        announce([id]);
     }
 
     /** Deleted records a provider still holds, because removing them there has not worked yet. */

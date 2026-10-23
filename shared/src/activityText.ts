@@ -101,6 +101,8 @@ export function activityMessage(event: ActivityRecord): string {
         }
         case "record.accepted":
             return `Record ${recordLabel(event)} takes over what ${str(event, "provider") ?? "a provider"} holds${by(event)}`;
+        case "record.released":
+            return `Record ${recordLabel(event)} released${by(event)}`;
         case "provider.unreachable":
             return `Provider ${str(event, "name") ?? "?"} cannot be read`;
         case "provider.recovered":
@@ -127,6 +129,10 @@ export function activityDetail(event: ActivityRecord): string | null {
 
     const changed = changes(event);
     if (changed.length > 0) return changed.map((c) => `${c.field}: ${c.from} → ${c.to}`).join(" · ");
+
+    // What a released record left behind, rather than the sites it had.
+    const kept = event.kind === "record.released" ? strings(event.data?.providers) : [];
+    if (kept.length > 0) return `Left as it is at ${kept.join(", ")}`;
 
     const sites = strings(event.data?.sites);
     if (sites.length > 0) return `Sites: ${sites.join(", ")}`;

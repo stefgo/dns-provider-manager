@@ -18,6 +18,19 @@ export function describeDeleteRecord(
     };
 }
 
+/** Releasing a record: dpm forgets it, and the providers that hold it keep it as it is. */
+export function describeReleaseRecord(record: Pick<DnsRecord, "name" | "type" | "value">, heldAt: readonly string[]): ConfirmOptions {
+    return {
+        title: `Release ${record.name} ${record.type} ${record.value}?`,
+        description:
+            heldAt.length > 0
+                ? `dpm stops managing it and deletes it here. ${nameList(heldAt)} ${heldAt.length === 1 ? "keeps" : "keep"} it as it is; it shows up under Unmanaged and can be adopted again.`
+                : "No provider holds it; it is deleted here.",
+        confirmLabel: "Release",
+        variant: "danger",
+    };
+}
+
 /**
  * Saving removes the record from providers: it changed its sites, or its name moved. Without
  * a site left it is parked, and nothing waits for another provider to take it first.

@@ -88,6 +88,8 @@ import { RecordService } from "./RecordService.js";
 import { RequestError } from "./RequestError.js";
 import { SiteService } from "./SiteService.js";
 import { SyncService } from "./SyncService.js";
+import { UnmanagedService } from "./UnmanagedService.js";
+import { RecordLinkRepository } from "../repositories/RecordLinkRepository.js";
 
 const USER = "admin";
 
@@ -378,5 +380,56 @@ describe("drift", () => {
         await read(ag1.id);
         expect(values(ag1.id)).toEqual(["192.168.1.10"]);
         expect(ActivityRepository.list(0).find((e) => e.kind === "record.corrected")?.data).toMatchObject({ auto: true });
+    });
+});
+
+describe("releasing", () => {
+    async function written() {
+        const ag1 = adguard("AdGuard 1");
+        const ag2 = adguard("AdGuard 2");
+        const internal = site("internal", [ag1.id, ag2.id]);
+        await read(ag1.id);
+        await read(ag2.id);
+        const record = await RecordService.create(fields([internal.id]), USER);
+        return { ag1, ag2, internal, record };
+    }
+
+    it("deletes the record in dpm and leaves the providers as they are, unmanaged from then on", async () => {
+        const { ag1, ag2, record } = await written();
+        world.calls.length = 0;
+        RecordService.release(record.id, USER);
+        expect(RecordRepository.findById(record.id)).toBeUndefined();
+        expect(RecordLinkRepository.findByRecord(record.id)).toEqual([]);
+        expect(world.calls).toEqual([]);
+
+        await read(ag1.id);
+        await read(ag2.id);
+        expect(world.calls).toEqual([]);
+        expect(values(ag1.id)).toEqual(["192.168.1.10"]);
+        expect(UnmanagedService.list().entries.map((e) => e.providerId).sort()).toEqual([ag1.id, ag2.id].sort());
+        expect(ActivityRepository.list(0).find((e) => e.kind === "record.released")?.data).toMatchObject({
+            user: USER,
+            name: "app.example.com",
+            sites: ["internal"],
+            providers: ["AdGuard 1", "AdGuard 2"],
+        });
+    });
+
+    it("keeps what a write under way still does from becoming a removal", async () => {
+        const { ag1, ag2, internal, record } = await written();
+        const changing = RecordService.update(record.id, fields([internal.id], { value: "192.168.1.11" }), USER);
+        RecordService.release(record.id, USER);
+        await changing;
+        expect(RecordLinkRepository.findAll()).toEqual([]);
+
+        world.calls.length = 0;
+        await read(ag1.id);
+        await read(ag2.id);
+        expect(world.calls).toEqual([]);
+        expect(values(ag1.id)).toEqual(["192.168.1.11"]);
+    });
+
+    it("refuses a record that does not exist", () => {
+        expect(() => RecordService.release("nope", USER)).toThrow(RequestError);
     });
 });

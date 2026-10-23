@@ -126,6 +126,28 @@ export class RecordService {
         await SyncService.syncRecord(id, { correlationId });
     }
 
+    /**
+     * Gives the record up: dpm deletes it and touches no provider. What they hold stays there
+     * as it is -- unmanaged from then on, and to be adopted again.
+     */
+    static release(id: string, user: string): void {
+        const record = RecordRepository.findById(id);
+        if (!record) throw new RequestError(404, "Record not found");
+        const providers = ProviderRepository.findAll();
+        const heldAt = RecordLinkRepository.findByRecord(id)
+            .filter((l) => l.externalId !== null)
+            .map((l) => providers.find((p) => p.id === l.providerId)?.name ?? l.providerId)
+            .sort();
+        SyncService.release(id);
+        ActivityService.record({
+            kind: "record.released",
+            level: "info",
+            source: "user",
+            subject: { recordId: id },
+            data: { ...facts(record, user), providers: heldAt },
+        });
+    }
+
     /** Writes the record to its providers again: what failed, and what drifted there. */
     static async sync(id: string, user: string): Promise<DnsRecord> {
         const record = RecordRepository.findById(id);

@@ -26,6 +26,7 @@
     - [Create Record](#create-record)
     - [Update Record](#update-record)
     - [Delete Record](#delete-record)
+    - [Release Record](#release-record)
     - [Preview A Record](#preview-a-record)
     - [Write A Record Again](#write-a-record-again)
     - [Settle Drift](#settle-drift)
@@ -394,6 +395,12 @@ no longer goes to has it removed — once every provider it still goes to holds 
 `DELETE /api/v1/records/:recordId` answers `{ "success": true }`, or **404**, once the record
 is removed from its providers. A provider that cannot be reached keeps it until it can; see
 [Pending Removals](#pending-removals).
+
+### Release Record
+
+`POST /api/v1/records/:recordId/release` answers `{ "success": true }`, or **404**. dpm deletes
+the record and touches no provider: what they hold of it stays there as it is, is listed under
+[Unmanaged Records](#list-unmanaged-records) from then on and can be adopted again.
 
 ### Preview A Record
 
@@ -794,7 +801,8 @@ what the server did by itself.
 | `record.write_failed` | `error` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `action`, `error` — when a write that worked fails, or fails for another reason |
 | `record.drift` | `warning` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, `change` (`changed`, `missing`, `disabled`), `observed` (what the provider holds, as text) — found by a reading |
 | `record.corrected` | `info` | `recordId`, `providerId` | `name`, `type`, `value`, `provider`, and `user` — or `auto: true` when the provider corrects drift by itself |
-| `record.accepted` | `info` | `recordId`, `providerId` | `user`, `name`, `type`, `value`, `provider` — what the provider holds was taken over; the `record.changed` or `record.deleted` that follows says how |
+| `record.accepted` | `info` | `recordId`, `providerId` | `user`, `name`, `type`, `value`, `provider` — what the provider holds was taken over; the `record.changed` that follows says how |
+| `record.released` | `info` | `recordId` | `user`, `name`, `type`, `value`, `sites`, `providers` — the record was given up; `providers` are those left holding it |
 | `provider.unreachable` | `warning` | `providerId` | `name`, `providerType`, `error` — once, when a provider that answered stops answering |
 | `provider.recovered` | `info` | `providerId` | `name`, `providerType` — when it answers again |
 | `scheduler.failed` | `error` | — | `scheduler`, `trigger`, `error` |

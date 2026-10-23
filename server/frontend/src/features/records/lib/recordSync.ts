@@ -37,6 +37,9 @@ export const isProblem = (link: Pick<RecordLinkView, "status" | "error">) =>
 
 export const hasProblem = (record: Pick<DnsRecord, "links">) => record.links.some(isProblem);
 
+/** Whether the provider holds an entry dpm wrote or took over -- one a release leaves there. */
+export const holdsEntry = (link: Pick<RecordLinkView, "status" | "syncedAt">) => link.syncedAt !== null && link.status !== "missing";
+
 /** The name of a provider, or its id while the list has not arrived. */
 export const providerName = (id: string, providers: readonly Pick<Provider, "id" | "name">[]) =>
     providers.find((p) => p.id === id)?.name ?? id;

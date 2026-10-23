@@ -69,6 +69,10 @@ describe("activityMessage: changes made by a user", () => {
         expect(activityMessage(event("record.accepted", { data: { ...facts, user: "admin" } }))).toBe(
             "Record nas.lan A 192.168.1.20 takes over what AdGuard 1 holds by admin",
         );
+        const released = { ...facts, sites: ["internal"], providers: ["AdGuard 1", "Cloudflare"], user: "admin" };
+        expect(activityMessage(event("record.released", { data: released }))).toBe("Record nas.lan A 192.168.1.20 released by admin");
+        expect(activityDetail(event("record.released", { data: released }))).toBe("Left as it is at AdGuard 1, Cloudflare");
+        expect(activityDetail(event("record.released", { data: { ...released, providers: [] } }))).toBe("Sites: internal");
         expect(activityDetail(event("record.drift", { data: { ...facts, change: "changed", observed: "192.168.1.21" } }))).toBe(
             "AdGuard 1 holds 192.168.1.21",
         );

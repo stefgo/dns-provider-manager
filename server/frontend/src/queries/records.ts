@@ -55,6 +55,15 @@ export function useDeleteRecord() {
     });
 }
 
+/** Gives a record up: deleted in dpm, left as it is at every provider. */
+export function useReleaseRecord() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => api.post(`/api/v1/records/${id}/release`, {}, undefined, { fallback: "Failed to release the record" }),
+        onSettled: () => invalidateDns(queryClient),
+    });
+}
+
 /**
  * Deleted records a provider still holds. Read with the records, and again whenever they
  * are (`queryKeys.records.all`).

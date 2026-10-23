@@ -150,4 +150,8 @@ export class RecordLinkRepository {
     static delete(recordId: string, providerId: string): void {
         db.prepare("DELETE FROM record_links WHERE record_id = ? AND provider_id = ?").run(recordId, providerId);
     }
+
+    static deleteByRecord(recordId: string): void {
+        db.prepare("DELETE FROM record_links WHERE record_id = ?").run(recordId);
+    }
 }

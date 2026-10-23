@@ -2,15 +2,15 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { DnsRecord } from "@dpm/shared";
 import { Alert, useConfirm } from "@stefgo/react-ui-components";
-import { describeDeleteRecord } from "../confirmations";
+import { describeDeleteRecord, describeReleaseRecord } from "../confirmations";
 import { QueryError } from "../../../components/QueryError";
 import { ROUTES, paths } from "../../../lib/paths";
-import { fetchRecordPreview, useDeleteRecord, useRecords, useRemovals } from "../../../queries/records";
+import { fetchRecordPreview, useDeleteRecord, useRecords, useReleaseRecord, useRemovals } from "../../../queries/records";
 import { useProviders } from "../../../queries/providers";
 import { useSites } from "../../../queries/sites";
 import { plural } from "../../../utils";
 import { useLinkActions } from "../hooks/useLinkActions";
-import { providerName, removedAt } from "../lib/recordSync";
+import { holdsEntry, providerName, removedAt } from "../lib/recordSync";
 import { RecordList } from "./RecordList";
 
 /** The page at `/records`. Adding and editing happen on pages of their own. */
@@ -24,6 +24,7 @@ export const RecordOverview = () => {
     const { providers } = useProviders();
     const removals = useRemovals();
     const deleteRecord = useDeleteRecord();
+    const releaseRecord = useReleaseRecord();
     const actions = useLinkActions();
     const [problemsOnly, setProblemsOnly] = useState(false);
 
@@ -39,6 +40,12 @@ export const RecordOverview = () => {
             onConfirm: () => deleteRecord.mutateAsync(record.id),
         });
     };
+
+    const requestRelease = (record: DnsRecord) =>
+        confirm({
+            ...describeReleaseRecord(record, record.links.filter(holdsEntry).map((l) => providerName(l.providerId, providers))),
+            onConfirm: () => releaseRecord.mutateAsync(record.id),
+        });
 
     if (error) return <QueryError title="Could not load the records" error={error} />;
 
@@ -67,6 +74,7 @@ export const RecordOverview = () => {
                 onAdd={() => open(ROUTES.recordNew)}
                 onEdit={(record) => open(paths.record(record.id))}
                 onDelete={requestDelete}
+                onRelease={requestRelease}
                 onSync={actions.sync}
                 onRewrite={actions.rewrite}
                 onAccept={actions.accept}

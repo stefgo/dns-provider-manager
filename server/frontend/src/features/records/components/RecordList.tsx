@@ -1,4 +1,4 @@
-import { AlertTriangle, Download, Edit2, Globe, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, Download, Edit2, Globe, Plus, RefreshCw, Trash2, Unlink, Upload } from "lucide-react";
 import type { DnsRecord, Provider, RecordLinkView, Site } from "@dpm/shared";
 import {
     Badge,
@@ -15,7 +15,7 @@ import {
 } from "@stefgo/react-ui-components";
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
-import { hasProblem, providerName } from "../lib/recordSync";
+import { hasProblem, holdsEntry, providerName } from "../lib/recordSync";
 import { ProviderDots } from "./ProviderDots";
 
 interface RecordListProps {
@@ -29,6 +29,7 @@ interface RecordListProps {
     onAdd: () => void;
     onEdit: (record: DnsRecord) => void;
     onDelete: (record: DnsRecord) => void;
+    onRelease: (record: DnsRecord) => void;
     onSync: (record: DnsRecord) => void;
     onRewrite: (record: DnsRecord, link: RecordLinkView) => void;
     onAccept: (record: DnsRecord, link: RecordLinkView) => void;
@@ -55,6 +56,7 @@ export const RecordList = ({
     onAdd,
     onEdit,
     onDelete,
+    onRelease,
     onSync,
     onRewrite,
     onAccept,
@@ -89,6 +91,8 @@ export const RecordList = ({
                             { label: `Take over from ${name}`, icon: Download, onClick: () => onAccept(record, link) },
                         ];
                     }),
+                    // With no entry at any provider, releasing would be deleting.
+                    { label: "Release", icon: Unlink, onClick: () => onRelease(record), disabled: !record.links.some(holdsEntry) },
                     { label: "Delete", icon: Trash2, onClick: () => onDelete(record), variant: "danger" as const },
                 ]}
             />

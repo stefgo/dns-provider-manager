@@ -36,6 +36,14 @@ export class RecordController {
         });
     }
 
+    /** Deletes the record in dpm and leaves what the providers hold of it as it is. */
+    static async release(request: WithId, reply: FastifyReply) {
+        return serviceReply(reply, () => {
+            RecordService.release(request.params.recordId, request.user.username);
+            return { success: true };
+        });
+    }
+
     /** What saving or deleting would do at each provider. Changes nothing. */
     static async preview(request: FastifyRequest, reply: FastifyReply) {
         const parsed = RecordPreviewRequestSchema.safeParse(request.body);

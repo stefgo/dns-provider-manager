@@ -33,6 +33,7 @@ export const ACTIVITY_DEFAULT_LEVELS: Record<ActivityKind, readonly ActivityLeve
     "record.drift": ["warning"],
     "record.corrected": ["info"],
     "record.accepted": ["info"],
+    "record.released": ["info"],
     "site.created": ["info"],
     "site.changed": ["info"],
     "site.deleted": ["info"],

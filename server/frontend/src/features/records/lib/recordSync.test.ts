@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecordLinkView } from "@dpm/shared";
-import { acceptEffect, hasProblem, linkDetail, linksInOrder, removedAt, saveOutcome } from "./recordSync";
+import { acceptEffect, hasProblem, holdsEntry, linkDetail, linksInOrder, removedAt, saveOutcome } from "./recordSync";
 
 const link = (over: Partial<RecordLinkView>): RecordLinkView => ({
     providerId: "a",
@@ -36,6 +36,16 @@ describe("record states", () => {
             "b",
             "x",
         ]);
+    });
+});
+
+describe("holdsEntry", () => {
+    it("is true where dpm wrote or took over an entry that is still there", () => {
+        const synced = "2026-10-23T10:00:00.000Z";
+        expect(holdsEntry(link({ syncedAt: synced }))).toBe(true);
+        expect(holdsEntry(link({ status: "drift", syncedAt: synced }))).toBe(true);
+        expect(holdsEntry(link({ status: "missing", syncedAt: synced }))).toBe(false);
+        expect(holdsEntry(link({ status: "pending" }))).toBe(false);
     });
 });
 

@@ -40,6 +40,8 @@ provider shows where the record stands there:
   same. Switch it on to look at what DPM would do before it does it; records wait until it is
   switched off.
 - **Adopting** an entry leaves it as it is. The site's other providers get the record written.
+- **Releasing** a record is the way back: DPM deletes it and leaves every provider as it is.
+  What they hold of it is unmanaged again.
 
 ## Cloudflare
 

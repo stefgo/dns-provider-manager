@@ -67,6 +67,8 @@ Home instance, and the zones of a Samba AD domain — without the records its do
 register for themselves. What the providers hold and DNS Provider Manager does not manage yet is
 listed under *Unmanaged* and can be adopted into a site — one at a time, or several picked
 together. The entries stay as they are; the site's other providers get the records written.
+*Release* is the way back: DNS Provider Manager lets go of a record and leaves every provider
+as it is, so what they hold is unmanaged again.
 
 Several API tokens may see the same zone; each zone is used by one provider only. A provider
 can use every zone its token sees, or only the ones ticked in its editor, and *Test
