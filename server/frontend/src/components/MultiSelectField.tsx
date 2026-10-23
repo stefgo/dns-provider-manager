@@ -22,9 +22,12 @@ interface MultiSelectFieldProps<T extends { id: string }> {
     items: T[];
     selectedIds: string[];
     onChange: (ids: string[]) => void;
-    /** Whether the list to pick from is open. The editor holds it: Escape closes it first. */
-    isSelecting: boolean;
-    onSetIsSelecting: (selecting: boolean) => void;
+    /**
+     * Whether the list to pick from is open. The editor holds it: Escape closes it first.
+     * Without `onSetIsSelecting` the list is always open and there is no "Done".
+     */
+    isSelecting?: boolean;
+    onSetIsSelecting?: (selecting: boolean) => void;
     /** The field's label, as in "Providers"; the list says "Select Providers". */
     label: string;
     /** The line of an item, in the box and in the list. */
@@ -32,6 +35,7 @@ interface MultiSelectFieldProps<T extends { id: string }> {
     /** What an item's row opens to, usually an `InfoGrid`. */
     renderInfo: (item: T) => ReactNode;
     removeTooltip: string;
+    /** In the box when nothing is chosen; below the list where the list is always open. */
     noneSelected: string;
     /** Shown in the list when there is nothing to pick from. */
     emptyList: ReactNode;
@@ -43,7 +47,7 @@ interface MultiSelectFieldProps<T extends { id: string }> {
  * Several items picked for an editor, the way pbcm's job editor shows its repository: the
  * chosen ones in a box, each opening to its details and removable on its own, and a list to
  * pick from in their place. A click in the list ticks or unticks one, and the list stays open
- * until "Done".
+ * until "Done" -- or for good, where the editor leaves its opening and closing out.
  */
 export const MultiSelectField = <T extends { id: string }>({
     items,
@@ -61,6 +65,7 @@ export const MultiSelectField = <T extends { id: string }>({
     error,
 }: MultiSelectFieldProps<T>) => {
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const alwaysOpen = !onSetIsSelecting;
 
     const isSelected = (item: T) => selectedIds.includes(item.id);
     const toggle = (item: T) =>
@@ -88,7 +93,7 @@ export const MultiSelectField = <T extends { id: string }>({
         </>
     );
 
-    if (isSelecting) {
+    if (alwaysOpen || isSelecting) {
         const onRowKey = (e: KeyboardEvent, item: T) => {
             if (e.target !== e.currentTarget || (e.key !== " " && e.key !== "Enter")) return;
             e.preventDefault();
@@ -101,9 +106,11 @@ export const MultiSelectField = <T extends { id: string }>({
                     <FieldLabel as="div" className="mb-0">
                         Select {label}
                     </FieldLabel>
-                    <button type="button" onClick={() => onSetIsSelecting(false)} className={LINK_BUTTON}>
-                        Done
-                    </button>
+                    {onSetIsSelecting && (
+                        <button type="button" onClick={() => onSetIsSelecting(false)} className={LINK_BUTTON}>
+                            Done
+                        </button>
+                    )}
                 </div>
 
                 <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
@@ -135,6 +142,9 @@ export const MultiSelectField = <T extends { id: string }>({
                     ))}
                     {items.length === 0 && <div className="p-8 text-center text-sm text-text-muted">{emptyList}</div>}
                 </div>
+                {alwaysOpen && items.length > 0 && selectedIds.length === 0 && (
+                    <p className="ml-1 text-xs text-text-muted">{noneSelected}</p>
+                )}
                 {footer}
             </div>
         );
@@ -148,7 +158,7 @@ export const MultiSelectField = <T extends { id: string }>({
                 <FieldLabel as="div" className="mb-0">
                     {label}
                 </FieldLabel>
-                <button type="button" onClick={() => onSetIsSelecting(true)} className={LINK_BUTTON}>
+                <button type="button" onClick={() => onSetIsSelecting?.(true)} className={LINK_BUTTON}>
                     {selected.length > 0 ? `Change ${label}` : `Add ${label}`}
                 </button>
             </div>

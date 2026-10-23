@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { Globe, X } from "lucide-react";
 import { RECORD_TYPES, RecordInputSchema, type DnsRecord, type RecordType } from "@dpm/shared";
@@ -76,15 +75,7 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
         rules: recordRules,
     });
     const { draft, set, errors, isSaving } = form;
-    // The list to pick sites from takes the field's place; Escape closes it before the page.
-    const [selectingSites, setSelectingSites] = useState(false);
-    const { close, leave } = useUnsavedChangesGuard(form.isDirty, record ? "record" : "newRecord", {
-        onEscape: () => {
-            if (!selectingSites) return false;
-            setSelectingSites(false);
-            return true;
-        },
-    });
+    const { close, leave } = useUnsavedChangesGuard(form.isDirty, record ? "record" : "newRecord");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -164,8 +155,6 @@ const RecordEditor = ({ record }: { record: DnsRecord | null }) => {
                         providers={providers}
                         selectedIds={draft.siteIds}
                         onChange={(ids) => set("siteIds", ids)}
-                        isSelecting={selectingSites}
-                        onSetIsSelecting={setSelectingSites}
                         error={errors.siteIds}
                     />
                 )}

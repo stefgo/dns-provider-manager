@@ -32,12 +32,10 @@ interface RecordSiteSelectProps {
     providers: Provider[];
     selectedIds: string[];
     onChange: (ids: string[]) => void;
-    isSelecting: boolean;
-    onSetIsSelecting: (selecting: boolean) => void;
     error?: string;
 }
 
-/** The sites of a record, picked the way a site picks its providers. */
+/** The sites of a record, picked the way a site picks its providers -- with the list always open. */
 export const RecordSiteSelect = ({ sites, providers, ...selection }: RecordSiteSelectProps) => (
     <MultiSelectField
         {...selection}
