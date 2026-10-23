@@ -18,7 +18,6 @@ import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import type { ProviderRecordCount } from "../lib/providerRecords";
 import { readTone } from "../lib/providerDetails";
 import { RelativeTime } from "../../../components/RelativeTime";
-import { plural } from "../../../utils";
 
 interface ProviderListProps {
     providers: Provider[];
@@ -35,32 +34,25 @@ interface ProviderListProps {
 }
 
 /**
- * How the last reading went: when it succeeded and how many zones the provider uses, or why
- * it failed -- the reason wraps onto two lines and the tooltip has all of it.
+ * How the last reading went: when it succeeded, or why it failed -- the reason wraps onto
+ * two lines and the tooltip has all of it. The zones it found are on the provider's page.
  */
-const ReadState = ({ provider }: { provider: Provider }) => {
-    const used = provider.zones.filter((z) => z.owner === provider.id).length;
-    return (
-        <div className="flex flex-col items-start gap-1">
-            {provider.lastError !== null ? (
-                <Badge variant="error">Cannot be read</Badge>
-            ) : provider.lastSeenAt ? (
-                <span className="text-sm text-text-primary">
-                    <RelativeTime date={provider.lastSeenAt} />
-                    {/* AdGuard Home has no zones to count. */}
-                    {provider.type !== "adguard" && <> · {plural(used, "zone")}</>}
-                </span>
-            ) : (
-                <Badge variant="neutral">Not read yet</Badge>
-            )}
-            {provider.lastError !== null && (
-                <span className="line-clamp-2 max-w-sm break-words text-xs text-error" title={provider.lastError}>
-                    {provider.lastError}
-                </span>
-            )}
-        </div>
-    );
-};
+const ReadState = ({ provider }: { provider: Provider }) => (
+    <div className="flex flex-col items-start gap-1">
+        {provider.lastError !== null ? (
+            <Badge variant="error">Cannot be read</Badge>
+        ) : provider.lastSeenAt ? (
+            <RelativeTime date={provider.lastSeenAt} className="text-sm text-text-primary" />
+        ) : (
+            <Badge variant="neutral">Not read yet</Badge>
+        )}
+        {provider.lastError !== null && (
+            <span className="line-clamp-2 max-w-sm break-words text-xs text-error" title={provider.lastError}>
+                {provider.lastError}
+            </span>
+        )}
+    </div>
+);
 
 const sitesOf = (provider: Provider, sites: Site[]) => sites.filter((s) => provider.siteIds.includes(s.id));
 
