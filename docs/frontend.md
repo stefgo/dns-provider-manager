@@ -282,8 +282,9 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   and split horizon across sites. The editor offers Cloudflare's proxy switch only while a
   chosen site writes to Cloudflare (`reachesCloudflare`). A conflict with another record is
   the server's to find (`recordConflict` in `@dpm/shared`) and is shown above the form.
-- **Where a record stands** at each provider is a `StatusDot` per provider in the list
-  (`ProviderDots`, tone and words in `lib/recordSync.ts`), with "Problems" as a filter of its
+- **Where a record stands** is one `Badge` in the list, the most urgent state at any of
+  its providers (`ProviderStatus`, `overallState`, tone and words in `lib/recordSync.ts`); its
+  tooltip lists each provider. "Problems" is a filter of its
   own — not the search, so an empty list says that nothing failed. In the editor,
   `RecordProviders` lists the same with *Write again* and *Take over* for drift, and while the
   draft differs from what is stored, the server's preview of what saving does — asked once

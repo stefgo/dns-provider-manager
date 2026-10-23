@@ -16,7 +16,7 @@ import {
 import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import { hasProblem, holdsEntry, providerName } from "../lib/recordSync";
-import { ProviderDots } from "./ProviderDots";
+import { ProviderStatus } from "./ProviderStatus";
 
 interface RecordListProps {
     records: DnsRecord[];
@@ -153,7 +153,7 @@ export const RecordList = ({
             sortable: true,
             // Problems first when sorted: they are what the column is looked at for.
             sortValue: (r) => (hasProblem(r) ? 0 : 1),
-            render: (r) => <ProviderDots record={r} providers={providers} />,
+            render: (r) => <ProviderStatus record={r} providers={providers} />,
         },
         {
             header: "TTL",

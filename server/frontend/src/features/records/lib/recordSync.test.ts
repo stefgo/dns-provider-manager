@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RecordLinkView } from "@dpm/shared";
-import { acceptEffect, hasProblem, holdsEntry, linkDetail, linksInOrder, removedAt, saveOutcome } from "./recordSync";
+import { acceptEffect, hasProblem, holdsEntry, linkDetail, linksInOrder, overallState, removedAt, saveOutcome } from "./recordSync";
 
 const link = (over: Partial<RecordLinkView>): RecordLinkView => ({
     providerId: "a",
@@ -28,6 +28,24 @@ describe("record states", () => {
         expect(hasProblem({ links: [link({ status: "removing", error: null })] })).toBe(false);
         expect(hasProblem({ links: [link({ status: "removing", error: "down" })] })).toBe(true);
         expect(hasProblem({ links: [link({ status: "missing" })] })).toBe(true);
+    });
+
+    it("sum up as the most urgent one, with at how many providers it is", () => {
+        expect(overallState([])).toBeNull();
+        expect(overallState([link({}), link({})])).toEqual({ tone: "success", label: "In sync" });
+        expect(overallState([link({}), link({ status: "drift" }), link({ status: "error" })])).toEqual({
+            tone: "error",
+            label: "Writing failed (1 of 3)",
+        });
+        expect(overallState([link({ status: "drift" }), link({ status: "missing" })])).toEqual({
+            tone: "warning",
+            label: "Deleted at the provider (1 of 2)",
+        });
+        expect(overallState([link({ status: "removing", error: "down" }), link({ status: "pending" })])).toEqual({
+            tone: "error",
+            label: "Removal failed (1 of 2)",
+        });
+        expect(overallState([link({ status: "pending", error: "Read only" })])).toEqual({ tone: "neutral", label: "Not written yet" });
     });
 
     it("line up in the order of the providers", () => {

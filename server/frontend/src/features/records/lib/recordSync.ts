@@ -1,8 +1,11 @@
 import type { DnsRecord, LinkStatus, Provider, RecordLinkView, RecordPreview, Site, SyncAction } from "@dpm/shared";
 import type { StatusDotTone } from "@stefgo/react-ui-components";
 
+/** The tones a record's state takes: those a `StatusDot` and a `Badge` both know. */
+export type LinkTone = Extract<StatusDotTone, "success" | "warning" | "error" | "info" | "neutral">;
+
 /** The colour of a record's state at one provider: green is there as written, red failed, amber changed there. */
-export const LINK_TONE: Record<LinkStatus, StatusDotTone> = {
+export const LINK_TONE: Record<LinkStatus, LinkTone> = {
     in_sync: "success",
     pending: "neutral",
     error: "error",
@@ -36,6 +39,28 @@ export const isProblem = (link: Pick<RecordLinkView, "status" | "error">) =>
     link.status === "error" || link.status === "drift" || link.status === "missing" || (link.status === "removing" && link.error !== null);
 
 export const hasProblem = (record: Pick<DnsRecord, "links">) => record.links.some(isProblem);
+
+/** How urgent a state is, lowest first: what failed, then what changed at the provider, then what is under way. */
+const urgency = (link: Pick<RecordLinkView, "status" | "error">) => {
+    if (link.status === "error" || (link.status === "removing" && link.error !== null)) return 0;
+    return { missing: 1, drift: 2, pending: 3, removing: 4, in_sync: 5, error: 0 }[link.status];
+};
+
+/**
+ * A record's state at all its providers in one: the most urgent one, and at how many of
+ * them it is when not at every one. Null for a record that goes to no provider.
+ */
+export function overallState(links: readonly Pick<RecordLinkView, "status" | "error">[]): { tone: LinkTone; label: string } | null {
+    if (links.length === 0) return null;
+    const worst = links.reduce((a, b) => (urgency(b) < urgency(a) ? b : a));
+    const count = links.filter((l) => urgency(l) === urgency(worst)).length;
+    const failedRemoval = worst.status === "removing" && worst.error !== null;
+    const label = failedRemoval ? "Removal failed" : LINK_LABEL[worst.status];
+    return {
+        tone: failedRemoval ? "error" : LINK_TONE[worst.status],
+        label: count === links.length ? label : `${label} (${count} of ${links.length})`,
+    };
+}
 
 /** Whether the provider holds an entry dpm wrote or took over -- one a release leaves there. */
 export const holdsEntry = (link: Pick<RecordLinkView, "status" | "syncedAt">) => link.syncedAt !== null && link.status !== "missing";

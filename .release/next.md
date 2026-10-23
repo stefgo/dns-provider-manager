@@ -35,7 +35,8 @@ who made it.
 ### Records are written to Cloudflare and AdGuard Home
 
 Saving a record writes it to every provider of its sites — Cloudflare and AdGuard Home — and
-the list of records shows with a dot per provider where it stands there. Before saving, the
+the list of records shows with one badge where it stands — the most urgent state at any of
+its providers, each of them named in the badge's tooltip. Before saving, the
 editor shows what will happen at which provider, and it asks before a record is removed from
 one. A record that moves to another site, say from Cloudflare to the AdGuard Home instances, is
 removed from the old provider only once the new ones hold it. A provider that cannot be reached
