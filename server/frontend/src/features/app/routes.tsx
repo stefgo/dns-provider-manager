@@ -106,7 +106,7 @@ export const shellRoutes: RouteObject[] = [
     },
     {
         path: ROUTES.records,
-        handle: nav({ id: "records", groupId: "dns", label: "Records", icon: Globe }),
+        handle: nav({ id: "records", groupId: "records", label: "Records", icon: Globe }),
         errorElement: <RouteError />,
         children: [
             { index: true, element: <RecordOverview /> },

@@ -31,6 +31,8 @@ type PageNav = NonNullable<DashboardPage["nav"]>;
 const NAV_GROUPS: DashboardNavGroup[] = [
     { id: "overview" },
     { id: "dns", title: "DNS" },
+    // Untitled: only the gap sets the records, what dpm is about, apart from what feeds them.
+    { id: "records" },
     { id: "system", title: "System" },
 ];
 
