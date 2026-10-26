@@ -123,13 +123,13 @@ export const shellRoutes: RouteObject[] = [
     },
     {
         path: ROUTES.users,
-        handle: nav({ id: "users", groupId: "system", placement: "mobile-more", label: "Users", icon: Users }),
+        handle: nav({ id: "users", groupId: "admin", placement: "mobile-more", label: "Users", icon: Users }),
         errorElement: <RouteError />,
         element: <UserOverview />,
     },
     {
         path: ROUTES.webhooks,
-        handle: nav({ id: "webhooks", groupId: "system", placement: "mobile-more", label: "Webhooks", icon: Webhook }),
+        handle: nav({ id: "webhooks", groupId: "admin", placement: "mobile-more", label: "Webhooks", icon: Webhook }),
         errorElement: <RouteError />,
         children: [
             { index: true, element: <WebhookOverview /> },
@@ -141,7 +141,7 @@ export const shellRoutes: RouteObject[] = [
     },
     {
         path: ROUTES.settings,
-        handle: nav({ id: "settings", groupId: "system", placement: "mobile-more", label: "Settings", icon: SettingsIcon }),
+        handle: nav({ id: "settings", groupId: "admin", placement: "mobile-more", label: "Settings", icon: SettingsIcon }),
         errorElement: <RouteError />,
         element: <Settings />,
     },

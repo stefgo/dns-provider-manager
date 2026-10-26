@@ -35,6 +35,8 @@ const NAV_GROUPS: DashboardNavGroup[] = [
     // Untitled: only the gap sets the records, what dpm is about, apart from what feeds them.
     { id: "records" },
     { id: "system", title: "System" },
+    // Untitled as well: the gap sets what happened apart from what is set up.
+    { id: "admin" },
 ];
 
 /** The dashboard shell around every page behind the login. The page itself is the outlet. */
