@@ -4,22 +4,22 @@
  * has to go in as `primary: custom` plus these variables -- there is no way to
  * write the hex value in mkdocs.yml itself.
  *
- * #0d8080 is DPM's accent: server/frontend/src/index.css overrides the library's
- * `--ruic-primary` with it (13 128 128), and the favicon and logo use the same
- * teal. Keeping the two in sync is the point; if that override changes, this
+ * #c0303f is DPM's accent: server/frontend/src/index.css overrides the library's
+ * `--ruic-primary` with it (192 48 63), and the favicon and logo use the same
+ * red. Keeping the two in sync is the point; if that override changes, this
  * value follows it.
  */
 :root,
 [data-md-color-scheme="slate"] {
-    --md-primary-fg-color:        #0d8080;
-    --md-primary-fg-color--light: #14a0a0;
-    --md-primary-fg-color--dark:  #0a6666; /* --ruic-primary-hover */
+    --md-primary-fg-color:        #c0303f;
+    --md-primary-fg-color--light: #da4757;
+    --md-primary-fg-color--dark:  #9a2532; /* --ruic-primary-hover */
     --md-primary-bg-color:        #ffffff;
     --md-primary-bg-color--light: rgba(255, 255, 255, 0.7);
 }
 
 /* Material derives the body link colour from the primary colour. Links are
- * blue instead, so a link in the text does not read as part of the teal
+ * blue instead, so a link in the text does not read as part of the red
  * header chrome, and the two shades keep their contrast on both backgrounds.
  */
 :root {

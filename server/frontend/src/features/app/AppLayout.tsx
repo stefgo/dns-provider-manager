@@ -120,13 +120,9 @@ export function AppLayout() {
                 className="w-6 h-6"
             >
                 {/* The glyph of public/favicon.svg, on the same gradient plate. */}
-                <circle cx="12" cy="8" r="6" strokeWidth="1.8" />
-                <path d="M6 8h12M12 2c-2.2 2-2.2 10 0 12M12 2c2.2 2 2.2 10 0 12" strokeWidth="1.3" />
-                <path d="M12 14v3M5 21v-2a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M12 17v4" strokeWidth="1.5" />
-                <g fill="currentColor" stroke="none">
-                    <circle cx="5" cy="21.2" r="1.6" />
-                    <circle cx="12" cy="21.2" r="1.6" />
-                    <circle cx="19" cy="21.2" r="1.6" />
+                <g transform="rotate(45 12 12)">
+                    <path d="M12 2l4.2 10H7.8z" fill="currentColor" />
+                    <path d="M7.8 12h8.4L12 22z" />
                 </g>
             </svg>
         </div>

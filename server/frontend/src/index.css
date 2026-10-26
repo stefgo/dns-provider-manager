@@ -48,10 +48,11 @@
 
 @layer base {
     :root {
-        /* Teal (#0d8080, 180°): the plate of the favicon, and the header of the docs site.
-           Between the green of kasm and the blue of dim; white text on it reaches 4.75:1. */
-        --ruic-primary: 13 128 128;
-        --ruic-primary-hover: 10 102 102;
+        /* Compass red (#c0303f, 354°): the plate of the favicon, and the header of the docs
+           site. No sister app uses red (kasm green, sam violet, dim blue, pbcm orange); white
+           text on it reaches 5.62:1. */
+        --ruic-primary: 192 48 63;
+        --ruic-primary-hover: 154 37 50;
     }
 
     body {

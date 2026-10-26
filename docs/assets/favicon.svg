@@ -1,22 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-    <!-- A globe, and from it one line branching to three nodes: one record, several DNS
-         servers. The plate is the dashboard's accent (ruic-primary, #0d8080) running into
-         its hover shade. -->
+    <!-- A compass needle, tilted: DNS points every name the way to its address. The upper
+         half is filled, the lower one drawn. The plate is the dashboard's accent
+         (ruic-primary, #c0303f) running into its hover shade. -->
     <defs>
         <linearGradient id="plate" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#14A0A0" />
-            <stop offset="100%" stop-color="#0A6666" />
+            <stop offset="0%" stop-color="#DA4757" />
+            <stop offset="100%" stop-color="#9A2532" />
         </linearGradient>
     </defs>
     <rect x="0" y="0" width="100" height="100" rx="25" ry="25" fill="url(#plate)" />
-    <g transform="translate(14, 13) scale(3)" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
-        <circle stroke-width="1.8" cx="12" cy="8" r="6" />
-        <path stroke-width="1.3" d="M6 8h12M12 2c-2.2 2-2.2 10 0 12M12 2c2.2 2 2.2 10 0 12" />
-        <path stroke-width="1.5" d="M12 14v3M5 21v-2a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2M12 17v4" />
-        <g fill="#ffffff" stroke="none">
-            <circle cx="5" cy="21.2" r="1.6" />
-            <circle cx="12" cy="21.2" r="1.6" />
-            <circle cx="19" cy="21.2" r="1.6" />
+    <g transform="translate(14, 14) scale(3)" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <g transform="rotate(45 12 12)">
+            <path d="M12 2l4.2 10H7.8z" fill="#ffffff" />
+            <path d="M7.8 12h8.4L12 22z" />
         </g>
     </g>
 </svg>
