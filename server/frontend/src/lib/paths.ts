@@ -56,6 +56,20 @@ export const SEARCH_PARAM = "search";
 export const RECORD_FILTER_PARAM = { site: "site", status: "status" } as const;
 
 /**
+ * The list of records with its filters set, as the dashboard opens it on what it counted.
+ * The values are the list's own (`SiteFilter`, `StatusFilter`).
+ */
+export const recordsFiltered = (filters: Partial<Record<keyof typeof RECORD_FILTER_PARAM, string>>) => {
+    const params = new URLSearchParams();
+    for (const key of Object.keys(RECORD_FILTER_PARAM) as (keyof typeof RECORD_FILTER_PARAM)[]) {
+        const value = filters[key];
+        if (value) params.set(RECORD_FILTER_PARAM[key], value);
+    }
+    const search = params.toString();
+    return { pathname: ROUTES.records, search: search ? `?${search}` : "" };
+};
+
+/**
  * The activity list with a search set, as a page about one thing opens it. The search is the
  * page's query and not a pattern of its own -- but a link that sets it must not spell it
  * out either.

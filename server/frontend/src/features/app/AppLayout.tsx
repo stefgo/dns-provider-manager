@@ -25,6 +25,7 @@ import { useUnseenTone } from "../../queries/activity";
 import { useProviders } from "../../queries/providers";
 import { useSites } from "../../queries/sites";
 import { useUnmanaged } from "../../queries/unmanaged";
+import { providerCount } from "../dashboard/lib/dashboard";
 
 type PageNav = NonNullable<DashboardPage["nav"]>;
 
@@ -70,6 +71,9 @@ export function AppLayout() {
     // tree says what a page is. A provider and a site are called by the name their list holds.
     const { providers } = useProviders();
     const { sites } = useSites();
+
+    // A provider dpm cannot reach: red, as the dashboard counts it. Nothing otherwise.
+    const providerUnreachable = providerCount(providers).unreachable > 0;
     const { title, crumbs } = useMemo(() => {
         const { providerId, siteId } = matches[matches.length - 1]?.params ?? {};
         const nameOf = (subject: TitleSubject) => {
@@ -144,6 +148,7 @@ export function AppLayout() {
     const pages: DashboardPage[] = useMemo(() => {
         const live: Record<string, Partial<PageNav>> = {
             unmanaged: { badge: unmanagedCount > 0 ? String(unmanagedCount) : undefined },
+            providers: { badgeDot: providerUnreachable, badgeTone: providerUnreachable ? "error" : undefined },
             activity: { badgeDot: activityTone !== undefined, badgeTone: activityTone },
         };
 
@@ -152,7 +157,7 @@ export function AppLayout() {
             active: id === activeId,
             nav: { ...entry, ...live[id], onClick: () => navigate(path) },
         }));
-    }, [activityTone, unmanagedCount, navigate, activeId]);
+    }, [activityTone, unmanagedCount, providerUnreachable, navigate, activeId]);
 
     return (
         <StatusDotProvider live={!isLost}>

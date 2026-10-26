@@ -70,6 +70,16 @@ reading reports it, in the list of records and in the activity history. *Write a
 record back; *Take over* makes the provider's value the record's. A provider can be set to
 correct drift by itself.
 
+### A dashboard that says what needs a look
+
+The start page sums up how DNS is doing — *Healthy*, *Degraded* or *Critical* — and lists
+what needs a look: a provider that cannot be reached, a record that could not be written or
+removed, a record changed or deleted at a provider, a site without a provider. Each line leads
+to where it can be dealt with, and goes by itself once the problem is solved. Below, a tile
+per site shows its providers, whether each answered at its last reading, and how many of its
+records have a problem. The Providers entry in the sidebar carries a red dot while one of them
+cannot be reached.
+
 ### Bring your existing records along
 
 Every provider is read every few minutes (adjustable under *Settings → Providers*): the zones

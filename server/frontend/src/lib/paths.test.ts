@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activitySearch, paths } from "./paths";
+import { activitySearch, paths, recordsFiltered } from "./paths";
 
 describe("paths", () => {
     it("fills a pattern with its parameter", () => {
@@ -18,5 +18,19 @@ describe("paths", () => {
 describe("activitySearch", () => {
     it("names the search in the query of the activity list", () => {
         expect(activitySearch("app.example.com")).toEqual({ pathname: "/activity", search: "?search=app.example.com" });
+    });
+});
+
+describe("recordsFiltered", () => {
+    it("sets the filters of the record list it is given", () => {
+        expect(recordsFiltered({ status: "problems" })).toEqual({ pathname: "/records", search: "?status=problems" });
+        expect(recordsFiltered({ site: "parked", status: "in_sync" })).toEqual({
+            pathname: "/records",
+            search: "?site=parked&status=in_sync",
+        });
+    });
+
+    it("leaves the query empty without a filter", () => {
+        expect(recordsFiltered({})).toEqual({ pathname: "/records", search: "" });
     });
 });

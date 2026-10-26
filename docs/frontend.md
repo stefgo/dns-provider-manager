@@ -23,7 +23,7 @@ src/
 │   │   ├── context/                      # BreadcrumbContext, WebSocketContext and WebSocketProvider
 │   │   └── lib/dashboardMessages.ts      # Parses a socket message against the contract; assertNever
 │   ├── auth/                             # AuthContext and AuthProvider
-│   ├── dashboard/                        # DashboardOverview, and the counts its cards show (lib/)
+│   ├── dashboard/                        # DashboardOverview, FindingList, SiteOverviewCard; counts and findings (lib/)
 │   ├── records/                          # RecordOverview, RecordList, RecordEditor, RecordSiteSelect, RecordSitesDialog, the rules (lib/)
 │   ├── providers/                        # ProviderOverview, ProviderList, ProviderDetail, ProviderEditor, the form rules and details (lib/)
 │   ├── sites/                            # SiteOverview, SiteList, SiteEditor, SiteProviderSelect, form rules and siteDeletion (lib/)
@@ -327,11 +327,35 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
 
 ### DashboardOverview (`features/dashboard`)
 
-The landing page: what needs a look. For now one card, **Errors / Warnings**, counts the
-unseen activity rows at warning and above (`unseenProblems` in `lib/dashboard.ts`, grouped
-the way the activity list groups them) and opens the activity beneath it. The open list is
-kept in the `panel` query parameter. The cards for records, providers and sites join it as
-those areas arrive.
+The landing page: how DNS is doing, and what needs a look. Built like the dashboards of the
+sibling projects: a status card, counts that lead to their lists, the unseen problems of the
+activity, then the findings and an overview.
+
+- **DNS** is the status by the worst finding: *Critical* with an error, *Degraded* with a
+  warning, *Healthy* without either, *Unknown* until some provider has been read (or while a
+  list cannot be loaded).
+- **Providers reachable** (`providerCount`) leads to the providers. The sidebar's Providers
+  entry carries a red dot from the same count while one cannot be reached.
+- **Records** (`recordSummary`) counts by the states of the record list's filter and opens the
+  list with `?status=problems` while there are problems (`recordsFiltered` in `lib/paths.ts`).
+- **Errors / Warnings** counts the unseen activity rows at warning and above (`unseenProblems`,
+  grouped the way the activity list groups them) and opens the activity beneath the cards,
+  kept in the `panel` query parameter.
+
+**Needs attention** lists the findings (`lib/findings.ts`, `buildFindings`): a provider that
+cannot be reached or was never read, a write or a removal that failed, a record changed or
+deleted at a provider, a record none of its sites' providers takes, a site with records and
+no provider. A finding is a state, not an event: it goes once the problem does, and there is
+nothing to mark as seen. A provider that cannot be reached takes the failed writes at it into
+its own line ("… · 3 records wait for it"); more than `GROUP_ABOVE` findings of one kind at one
+provider are one line that leads to the filtered list.
+
+**Sites** is a tile per site (`siteTiles`): its record count, its providers with the dot of
+their last reading, and how many of its records have a problem; a tile for the parked records
+while there are any. Without a site it offers to create the first one.
+
+Everything is derived from the records, providers, sites and pending removals the cache holds
+and the socket keeps current; the page asks the server for nothing of its own.
 
 ### ActivityView (`features/activity`)
 
