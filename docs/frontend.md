@@ -488,6 +488,7 @@ The app is heavily integrated with `@stefgo/react-ui-components`, pinned to an e
 | `LoginPage`            | Pre-built login form UI (local & OIDC).                   |
 | `Card`                 | Generic surface card. `padding="none"` for a card that holds a table. |
 | `StatCard`             | Stat tile — the dashboard numbers (clickable, opening their list or page). |
+| `StatCardGrid`         | The row of `StatCard`s: as many columns as its own width has room for, never one card alone on the last row. |
 | `Input`                | Form input field.                                         |
 | `Button`               | Button with variants (primary, secondary, danger).        |
 | `DataTable`            | Table view with sorting and paging.                       |

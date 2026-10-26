@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Globe, Server, ShieldCheck } from "lucide-react";
-import { Card, StatCard } from "@stefgo/react-ui-components";
+import { Card, StatCard, StatCardGrid } from "@stefgo/react-ui-components";
 import { QueryError } from "../../../components/QueryError";
 import { useActivity } from "../../../queries/activity";
 import { useProviders } from "../../../queries/providers";
@@ -94,7 +94,7 @@ export const DashboardOverview = () => {
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCardGrid>
                 <StatCard
                     label="DNS"
                     value={DNS_STATUS[dns.status].label}
@@ -133,7 +133,7 @@ export const DashboardOverview = () => {
                     }}
                     aria-controls={PANEL_ID}
                 />
-            </div>
+            </StatCardGrid>
 
             {panel && (
                 <div id={PANEL_ID}>
