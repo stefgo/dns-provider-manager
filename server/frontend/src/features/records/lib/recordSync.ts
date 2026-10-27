@@ -1,4 +1,4 @@
-import type { DnsRecord, LinkStatus, Provider, RecordLinkView, RecordPreview, Site, SkippedProvider, SyncAction } from "@dpm/shared";
+import { linkDetail, providerName, type DnsRecord, type LinkStatus, type Provider, type RecordLinkView, type RecordPreview, type Site, type SkippedProvider, type SyncAction } from "@dpm/shared";
 import type { StatusDotTone } from "@stefgo/react-ui-components";
 
 /** The tones a record's state takes: those a `StatusDot` and a `Badge` both know. */
@@ -23,13 +23,8 @@ export const LINK_LABEL: Record<LinkStatus, string> = {
     removing: "Being removed",
 };
 
-/** What a provider holds instead, or why the record is held back or failed there. */
-export function linkDetail(link: Pick<RecordLinkView, "status" | "error" | "observed">): string | null {
-    if (link.status === "drift" && link.observed) {
-        return link.observed.disabled ? `Switched off there (${link.observed.value})` : `Holds ${link.observed.value} instead`;
-    }
-    return link.error;
-}
+// Live in shared, where the findings of the dashboard and the server's status report use them too.
+export { linkDetail, providerName } from "@dpm/shared";
 
 /**
  * Whether the state asks for someone to look: failed, changed or deleted at the provider, a
@@ -81,10 +76,6 @@ export function overallState(links: readonly Pick<RecordLinkView, "status" | "er
 
 /** Whether the provider holds an entry dpm wrote or took over -- one a release leaves there. */
 export const holdsEntry = (link: Pick<RecordLinkView, "status" | "syncedAt">) => link.syncedAt !== null && link.status !== "missing";
-
-/** The name of a provider, or its id while the list has not arrived. */
-export const providerName = (id: string, providers: readonly Pick<Provider, "id" | "name">[]) =>
-    providers.find((p) => p.id === id)?.name ?? id;
 
 /** A record's states in the order of the provider list, so the dots of every row line up. */
 export function linksInOrder<L extends { providerId: string }>(links: readonly L[], providers: readonly Pick<Provider, "id">[]): L[] {
