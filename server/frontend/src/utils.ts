@@ -88,9 +88,8 @@ export const formatTime = (date: Date | string | number | null | undefined, loca
     }).format(d);
 };
 
-/** A count with its noun: "1 record", "3 records". `many` for nouns without a plain -s plural. */
-export const plural = (count: number, one: string, many = `${one}s`): string =>
-    `${count} ${count === 1 ? one : many}`;
+// A count with its noun: "1 record", "3 records". Lives in shared, where the findings use it too.
+export { plural } from "@dpm/shared";
 
 /** Names in a sentence: "A", "A and B", "A, B and C". */
 export const nameList = (names: readonly string[]): string =>

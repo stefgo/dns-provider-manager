@@ -1,11 +1,10 @@
-import type { ActivityRecord, DnsRecord, Provider, Site } from "@dpm/shared";
+import type { ActivityRecord, DnsRecord, Provider, ProviderCount, Site } from "@dpm/shared";
 import type { StatusDotTone } from "@stefgo/react-ui-components";
 import { groupActivity } from "../../activity/lib/groupActivity";
 import { readTone } from "../../providers/lib/providerDetails";
 import { isParked, matchesStatus } from "../../records/lib/recordFilters";
 import { hasProblem, worstState } from "../../records/lib/recordSync";
 import { plural } from "../../../utils";
-import { isNotRead, isUnreachable } from "./findings";
 
 /**
  * The numbers the dashboard's cards show. Counted here, once, so a card and a badge that
@@ -46,20 +45,8 @@ export function problemSummary({ errors, warnings }: UnseenProblems): string {
     return parts.length > 0 ? parts.join(" · ") : "Nothing unseen";
 }
 
-/** How many providers there are, and how their last reading went. */
-export interface ProviderCount {
-    total: number;
-    reachable: number;
-    unreachable: number;
-    notRead: number;
-}
-
-export function providerCount(providers: readonly Pick<Provider, "lastError" | "lastSeenAt" | "readable">[]): ProviderCount {
-    const unreachable = providers.filter(isUnreachable).length;
-    const notRead = providers.filter(isNotRead).length;
-    const reachable = providers.filter((p) => !isUnreachable(p) && p.lastSeenAt !== null).length;
-    return { total: providers.length, reachable, unreachable, notRead };
-}
+// Counted in shared, where the server's status report counts with it too.
+export { providerCount, type ProviderCount } from "@dpm/shared";
 
 /** "3 / 4": reachable of all. */
 export const formatReachable = ({ reachable, total }: ProviderCount) => `${reachable} / ${total}`;

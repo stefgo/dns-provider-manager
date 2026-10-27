@@ -2,7 +2,7 @@
 
 **Base URL:** `/api` (REST endpoints use `/api/v1` prefix unless otherwise noted)
 
-> **Note:** All API responses are JSON formatted. All protected endpoints require a valid session: the `dpm_session` cookie set by the login, or the same JWT in an `Authorization: Bearer <token>` header.
+> **Note:** All API responses are JSON formatted. All protected endpoints require a valid session: the `dpm_session` cookie set by the login, or the same JWT in an `Authorization: Bearer <token>` header. [Status](#status) also takes the status token instead.
 
 > **Validation:** Every endpoint that takes a body or query parameters checks them against a Zod schema from `@dpm/shared` before doing anything else. A request that does not match is answered with **`400`** and a single message that starts with the path of the first offending field, e.g. `{ "error": "name: A name is required" }`. Only the first problem is reported; fix it and the next request names the next one.
 
@@ -65,6 +65,7 @@
     - [Send A Test Delivery](#send-a-test-delivery)
 - [Misc](#-misc)
     - [Health](#health)
+    - [Status](#status)
 - [WebSockets](#-websockets)
     - [Dashboard Connection](#dashboard-connection)
 
@@ -972,7 +973,83 @@ refuses is still a **200** here, with `ok: false`; **400** means the webhook its
 **Description:** Liveness probe, used by the image's `HEALTHCHECK` and the CI smoke test. No authentication — a probe has no session, and the answer discloses nothing.
 
 | Status | Body                 | Meaning                                                   |
-| :----- | :------------------- | :-------------------------------------------------------- |
+| :----- | :------------------- | :-----------------------------------------------------### Status
+
+`GET /api/v1/status`
+
+**Description:** What the dashboard shows, for a reader that is not a browser -- Home Assistant, a monitoring system, a script: the overall verdict and every line of **Needs attention**, in the dashboard's order and with the dashboard's text. The server computes both with the same functions the dashboard uses.
+
+**Authentication:** a session, like every other route, **or** the status token sent as `Authorization: Bearer <token>` -- `statusToken` in `config.yaml` or `DPM_STATUS_TOKEN` (`_FILE`), see [Configuration](configuration.md#server-configyaml). The token opens this route and no other, and only reads. Without one configured, a session is needed. At most **60 requests a minute** per client IP.
+
+#### Response
+
+```json
+{
+  "app": "dpm",
+  "version": "1.4.0",
+  "status": "degraded",
+  "checkedAt": "2026-10-27T10:00:00.000Z",
+  "counts": {
+    "error": 0,
+    "warning": 1
+  },
+  "summary": {
+    "providers": {
+      "total": 3,
+      "reachable": 3,
+      "unreachable": 0,
+      "notRead": 0
+    },
+    "records": {
+      "total": 41
+    }
+  },
+  "findings": [
+    {
+      "id": "record-drift:7f3c…:a1b2…",
+      "type": "record-drift",
+      "severity": "warning",
+      "text": "www.example.com A 10.0.0.1 changed at AdGuard Home: Holds 10.0.0.9 instead",
+      "since": null
+    }
+  ]
+}
+```
+
+| Field | |
+| :---- | :-- |
+| `status` | `healthy`, `degraded`, `critical` or `unknown` -- the dashboard's first card. |
+| `counts` | How many of `findings` are errors and warnings. |
+| `summary` | The key figures of the dashboard's cards. |
+| `findings[].id` | Stays the same while a finding lasts; never derived from its text. |
+| `findings[].type` | What kind of finding it is. |
+| `findings[].since` | Since when it stands, where the server knows it; otherwise `null`. |
+
+The **Errors / Warnings** card is not part of it: what is unseen is a login's own. More than five findings of one kind at one provider are one line, as on the dashboard.
+
+| Status | Meaning |
+| :----- | :------ |
+| `200` | The report |
+| `401` | Neither a valid session nor the status token |
+| `429` | More than 60 requests in a minute |
+| `503` | `{"status":"unknown"}`: the report could not be put together |
+
+A sensor in Home Assistant:
+
+```yaml
+rest:
+  - resource: https://dns.example.com/api/v1/status
+    headers:
+      Authorization: !secret dpm_status_token   # "Bearer <token>"
+    scan_interval: 60
+    sensor:
+      - name: dpm Health
+        unique_id: dpm_health
+        value_template: "{{ value_json.status }}"
+        json_attributes: [counts, summary, findings, checkedAt]
+```
+
+--- |
 | `200`  | `{"status":"ok"}`    | The process serves requests and its database is reachable |
 | `503`  | `{"status":"error"}` | The database could not be queried                         |
 
