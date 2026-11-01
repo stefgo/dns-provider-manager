@@ -30,7 +30,8 @@ site lists its providers, and mark the primary with the crown.
 
 A record goes to the primary and right away to the other nodes. A change at the primary
 reaches them with the next run, every 5 minutes by default (**Settings → Providers → Cluster
-Sync Interval**), or at once with **Sync Now** on the cluster's page. A change made at another
+Sync Interval**), or at once with **Sync Now** on the cluster's page; **Check** next to it shows what differs at
+each node without writing anything. A change made at another
 node is written over and reported as a warning, so make changes at the primary's own address,
 not through a virtual IP. Before saving, the editor shows what each node is about to get;
 saving itself writes nothing to the nodes. While the primary cannot be reached nothing is

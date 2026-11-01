@@ -217,6 +217,52 @@ describe("a new cluster", () => {
     });
 });
 
+describe("a check", () => {
+    it("names what differs at each node, and writes and remembers nothing", async () => {
+        const cluster = await threeNodes();
+        world.general.set("B", { cache: 7, ttl: 10 });
+        world.down.add("C");
+        const before = ClusterSyncService.status(cluster.id);
+        const nodesBefore = ProviderRepository.findById(cluster.id);
+        const result = await ClusterSyncService.check(cluster.id);
+        expect(result).toEqual({
+            error: null,
+            nodes: [
+                {
+                    name: "B",
+                    areas: [
+                        { area: "rewrites", steps: [], error: null },
+                        { area: "general", steps: ["cache set to 1"], error: null },
+                    ],
+                },
+                {
+                    name: "C",
+                    areas: [
+                        { area: "rewrites", steps: [], error: "C could not be reached" },
+                        { area: "general", steps: [], error: "C could not be reached" },
+                    ],
+                },
+            ],
+        });
+        expect(world.writes).toEqual([]);
+        expect(events()).toEqual([]);
+        expect(ClusterSyncService.status(cluster.id)).toEqual(before);
+        expect(ProviderRepository.findById(cluster.id)).toEqual(nodesBefore);
+    });
+
+    it("says so when the primary cannot be read, without pausing the cluster", async () => {
+        const cluster = await threeNodes();
+        world.down.add("A");
+        expect(await ClusterSyncService.check(cluster.id)).toEqual({ error: "A cannot be read: A could not be reached", nodes: [] });
+        expect(ClusterSyncService.status(cluster.id)!.pausedError).toBeNull();
+        expect(events()).toEqual([]);
+    });
+
+    it("refuses a provider that is no cluster", async () => {
+        await expect(ClusterSyncService.check("nope")).rejects.toMatchObject({ status: 404 });
+    });
+});
+
 describe("a run", () => {
     it("spreads a change made at the primary and names it", async () => {
         const cluster = await threeNodes();

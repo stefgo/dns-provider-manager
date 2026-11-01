@@ -49,6 +49,7 @@
     - [List Every Cluster](#list-every-cluster)
     - [Get A Cluster](#get-a-cluster)
     - [Preview A Cluster](#preview-a-cluster)
+    - [Check A Cluster](#check-a-cluster)
     - [Sync A Cluster Now](#sync-a-cluster-now)
     - [Sync Every Cluster Now](#sync-every-cluster-now)
 - [Unmanaged](#-unmanaged)
@@ -711,6 +712,16 @@ cannot be read.
 Saving a cluster writes nothing to its nodes: the next run of the `cluster-sync` scheduler, or
 `POST …/cluster/run`, does. Another primary has that run write its state to every other node as
 a `cluster.propagated`, not as changes made at the nodes.
+
+### Check A Cluster
+
+`POST /api/v1/providers/:providerId/cluster/check` reads the primary and every other node now and
+answers, in the shape of the preview above, how each node differs from the primary: per area the
+changes a run would write there, `[]` where it holds the same, or why the area could not be
+read. Every node is listed with every area it keeps alike. It waits for a run or the writes
+under way at the cluster, and changes nothing — no write, no status, no activity. `error` is
+set, and `nodes` empty, when the primary cannot be read; **404** for a provider that is no
+cluster.
 
 ### Sync A Cluster Now
 

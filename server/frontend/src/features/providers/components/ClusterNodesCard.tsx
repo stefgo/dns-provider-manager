@@ -1,10 +1,11 @@
-import { Network, RefreshCw } from "lucide-react";
-import { CONFIG_AREA_LABELS, type ClusterProvider, type ClusterStatus } from "@dpm/shared";
-import { Alert, Badge, Button, Card, StatusDot, useToast } from "@stefgo/react-ui-components";
+import { useState } from "react";
+import { Network, RefreshCw, SearchCheck, X } from "lucide-react";
+import { CONFIG_AREA_LABELS, type ClusterPreview, type ClusterProvider, type ClusterStatus } from "@dpm/shared";
+import { ActionButton, Alert, Badge, Button, Card, StatusDot, useToast } from "@stefgo/react-ui-components";
 import { RelativeTime } from "../../../components/RelativeTime";
-import { useRunCluster } from "../../../queries/clusters";
+import { useCheckCluster, useRunCluster } from "../../../queries/clusters";
 import { describeFailure } from "../../../utils";
-import { LINK_STATUS, nodeRows, syncOutcome } from "../lib/clusterForm";
+import { LINK_STATUS, checkFindings, checkOutcome, nodeRows, syncOutcome } from "../lib/clusterForm";
 import { readTone } from "../lib/providerDetails";
 
 interface ClusterNodesCardProps {
@@ -13,21 +14,43 @@ interface ClusterNodesCardProps {
     status: ClusterStatus | undefined;
 }
 
+/** What the last "Check" found, and when. */
+interface CheckResult {
+    at: string;
+    result: ClusterPreview;
+}
+
 /**
  * The nodes of a cluster on its page: which one the others are copies of, what each answered,
  * and per node and area how the last run went. What is kept alike is chosen in the editor;
- * this only shows it and runs it.
+ * this only shows it, checks it and runs it.
  */
 export const ClusterNodesCard = ({ cluster, status }: ClusterNodesCardProps) => {
     const { show } = useToast();
     const run = useRunCluster();
+    const check = useCheckCluster();
+    const [checked, setChecked] = useState<CheckResult | null>(null);
     const primary = cluster.nodes.find((n) => n.primary);
+    const busy = run.isPending || check.isPending;
 
     const syncNow = () =>
         run
             .mutateAsync(cluster.id)
-            .then((after) => show({ ...syncOutcome(cluster.name, after) }))
+            .then((after) => {
+                // What the check found is out of date once the run wrote.
+                setChecked(null);
+                show({ ...syncOutcome(cluster.name, after) });
+            })
             .catch((err) => show({ variant: "error", ...describeFailure(`Could not keep ${cluster.name} alike`, err), duration: 0 }));
+
+    const checkNow = () =>
+        check
+            .mutateAsync(cluster.id)
+            .then((result) => {
+                setChecked({ at: new Date().toISOString(), result });
+                show({ ...checkOutcome(cluster.name, result) });
+            })
+            .catch((err) => show({ variant: "error", ...describeFailure(`Could not check ${cluster.name}`, err), duration: 0 }));
 
     return (
         <Card
@@ -38,23 +61,28 @@ export const ClusterNodesCard = ({ cluster, status }: ClusterNodesCardProps) => 
                     Nodes
                 </>
             }
-            padding="none"
-        >
-            <div className="space-y-4 p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm text-text-muted">
-                        Copied from <span className="font-medium text-text-primary">{primary?.name ?? "–"}</span>
-                        {status?.lastRunAt && (
-                            <>
-                                {" "}
-                                · last run <RelativeTime date={status.lastRunAt} />
-                            </>
-                        )}
-                    </p>
-                    <Button type="button" variant="secondary" size="sm" icon={RefreshCw} isLoading={run.isPending} onClick={syncNow}>
+            action={
+                <div className="flex items-center gap-2">
+                    <Button type="button" variant="secondary" size="sm" icon={SearchCheck} isLoading={check.isPending} disabled={busy} onClick={checkNow}>
+                        Check
+                    </Button>
+                    <Button type="button" variant="secondary" size="sm" icon={RefreshCw} isLoading={run.isPending} disabled={busy} onClick={syncNow}>
                         Sync Now
                     </Button>
                 </div>
+            }
+            padding="none"
+        >
+            <div className="space-y-4 p-6">
+                <p className="text-sm text-text-muted">
+                    Copied from <span className="font-medium text-text-primary">{primary?.name ?? "–"}</span>
+                    {status?.lastRunAt && (
+                        <>
+                            {" "}
+                            · last run <RelativeTime date={status.lastRunAt} />
+                        </>
+                    )}
+                </p>
                 {status?.pausedError && (
                     <Alert tone="warning" title={`Paused: ${primary?.name ?? "the primary"} cannot be read`}>
                         <span className="break-words">{status.pausedError}</span>
@@ -62,8 +90,53 @@ export const ClusterNodesCard = ({ cluster, status }: ClusterNodesCardProps) => 
                 )}
                 <NodeList cluster={cluster} />
                 {status && <NodeTable cluster={cluster} status={status} />}
+                {checked && <CheckPanel checked={checked} primaryName={primary?.name ?? "the primary"} onClose={() => setChecked(null)} />}
             </div>
         </Card>
+    );
+};
+
+/** What the last check found: per node and area what a run would write there. Nothing was written. */
+const CheckPanel = ({ checked, primaryName, onClose }: { checked: CheckResult; primaryName: string; onClose: () => void }) => {
+    const findings = checkFindings(checked.result);
+    return (
+        <div className="space-y-2 rounded-md border border-border p-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-text-primary">
+                    Last check <RelativeTime date={checked.at} />
+                </span>
+                <ActionButton icon={X} tooltip="Close" onClick={onClose} />
+            </div>
+            {checked.result.error !== null ? (
+                <p className="break-words text-error">{checked.result.error}</p>
+            ) : findings.length === 0 ? (
+                <p className="text-text-muted">Every node holds what {primaryName} holds.</p>
+            ) : (
+                <>
+                    <p className="text-text-muted">What Sync Now would write, per node and area:</p>
+                    <ul className="space-y-2">
+                        {findings.map((f) => (
+                            <li key={f.key}>
+                                <span className="font-medium text-text-primary">
+                                    {f.node} · {CONFIG_AREA_LABELS[f.area]}
+                                </span>
+                                {f.error !== null ? (
+                                    <p className="break-words text-xs text-error">{f.error}</p>
+                                ) : (
+                                    <ul className="list-disc pl-5 text-xs text-text-muted">
+                                        {f.lines.map((line, i) => (
+                                            <li key={i} className="break-words">
+                                                {line}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </>
+            )}
+        </div>
     );
 };
 

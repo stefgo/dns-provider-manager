@@ -196,3 +196,46 @@ export function syncOutcome(clusterName: string, status: ClusterStatus): { varia
     if (waiting > 0) return { variant: "warning", title: `${clusterName} partly alike`, description: `${plural(waiting, "area")} waiting` };
     return { variant: "success", title: `${clusterName}: every node in step` };
 }
+
+/** At most this many changes are listed per node and area after a check; the rest are counted. */
+export const MAX_CHECK_LINES = 20;
+
+/** One node and area a check found different from the primary, or could not compare. */
+export interface CheckFinding {
+    key: string;
+    node: string;
+    area: ConfigArea;
+    /** The changes a run would write there, a sentence each, the rest counted. Empty where `error` is set. */
+    lines: string[];
+    error: string | null;
+}
+
+/** What a check found: only the nodes and areas that differ or could not be read, in the cluster's order. */
+export function checkFindings(result: ClusterPreview): CheckFinding[] {
+    return result.nodes.flatMap((node) =>
+        node.areas
+            .filter((a) => a.error !== null || a.steps.length > 0)
+            .map((a) => ({
+                key: `${node.name}:${a.area}`,
+                node: node.name,
+                area: a.area,
+                lines:
+                    a.steps.length <= MAX_CHECK_LINES
+                        ? [...a.steps]
+                        : [...a.steps.slice(0, MAX_CHECK_LINES), `and ${a.steps.length - MAX_CHECK_LINES} more`],
+                error: a.error,
+            })),
+    );
+}
+
+/** What a toast says after "Check": whether the nodes hold what the primary holds. Nothing was written. */
+export function checkOutcome(clusterName: string, result: ClusterPreview): { variant: "success" | "warning" | "error"; title: string; description?: string } {
+    if (result.error !== null) return { variant: "error", title: `${clusterName} could not be checked`, description: result.error };
+    const areas = result.nodes.flatMap((n) => n.areas);
+    const failed = areas.filter((a) => a.error !== null).length;
+    const differ = areas.filter((a) => a.error === null && a.steps.length > 0).length;
+    const parts = [differ > 0 ? `${plural(differ, "area")} ${differ === 1 ? "differs" : "differ"}` : null, failed > 0 ? `${plural(failed, "area")} cannot be read` : null].filter((p) => p !== null);
+    if (failed > 0) return { variant: "error", title: `${clusterName}: check incomplete`, description: parts.join(", ") };
+    if (differ > 0) return { variant: "warning", title: `${clusterName}: nodes differ`, description: `${parts.join(", ")} -- Sync Now writes them` };
+    return { variant: "success", title: `${clusterName}: every node in step` };
+}

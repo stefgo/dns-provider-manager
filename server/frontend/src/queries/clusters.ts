@@ -41,6 +41,14 @@ export function useRunCluster() {
     });
 }
 
+/** "Check": how every node differs from the primary now. Reads only, so nothing in the cache changes. */
+export function useCheckCluster() {
+    return useMutation({
+        mutationFn: (providerId: string) =>
+            api.post(`/api/v1/providers/${providerId}/cluster/check`, undefined, ClusterPreviewSchema, { fallback: "The cluster could not be checked" }),
+    });
+}
+
 /**
  * What saving a cluster as the editor holds it would write to its nodes, read from them now.
  * Not cached: it is asked right before saving or not at all.

@@ -14,7 +14,7 @@ server/backend/src/
 ├── controllers/                      # HTTP and WebSocket request handlers
 │   ├── ActivityController.ts         # Activity list, seen state, deletion
 │   ├── AuthController.ts             # Login, logout, session, OIDC
-│   ├── ClusterController.ts          # How an AdGuard Home cluster keeps its nodes alike: status, preview, run
+│   ├── ClusterController.ts          # How an AdGuard Home cluster keeps its nodes alike: status, preview, check, run
 │   ├── RecordController.ts           # Records CRUD
 │   ├── SiteController.ts             # Sites CRUD
 │   ├── ProviderController.ts         # Providers CRUD
@@ -64,7 +64,7 @@ server/backend/src/
 ├── services/
 │   ├── ActivityService.ts            # Records events, applies level overrides, tells dashboards and webhooks
 │   ├── AuthService.ts                # Local and OIDC sign-in, session validity
-│   ├── ClusterSyncService.ts         # Keeps the nodes of each AdGuard Home cluster alike: scheduler, runs, preview
+│   ├── ClusterSyncService.ts         # Keeps the nodes of each AdGuard Home cluster alike: scheduler, runs, preview, check
 │   ├── clusterSyncPlan.ts            # What a run does per area and node: prepareArea, planArea (pure)
 │   ├── DashboardService.ts           # The open dashboard sockets, broadcast and per-user sends
 │   ├── NotificationCleanupService.ts # Retention of the activity history

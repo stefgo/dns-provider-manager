@@ -110,6 +110,7 @@ export default async function apiRoutes(fastify: FastifyInstance) {
                 protectedRoutes.post("/clusters/run", ClusterController.runAll);
                 protectedRoutes.get("/providers/:providerId/cluster", ClusterController.status);
                 protectedRoutes.post("/providers/:providerId/cluster/run", ClusterController.run);
+                protectedRoutes.post("/providers/:providerId/cluster/check", ClusterController.check);
                 protectedRoutes.get("/unmanaged", UnmanagedController.list);
                 protectedRoutes.post("/unmanaged/adopt", UnmanagedController.adopt);
 

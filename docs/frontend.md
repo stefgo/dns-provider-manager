@@ -324,7 +324,8 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   The areas kept alike are checkboxes, the rewrites ticked and locked. Saving asks first, with
   the server's preview of what the next run writes to each node that starts over
   (`describeClusterSave`); saving itself starts no run. The provider's page shows the nodes
-  and a table of each area at each node with "Sync Now" (`ClusterNodesCard`), the provider
+  and a table of each area at each node, with "Check" and "Sync Now" in the card's header and
+  what the last check found below the table (`ClusterNodesCard`), the provider
   list how many nodes a cluster has and how they stand (`clusterBadge`). The rules, the rows
   and the badges are pure (`lib/clusterForm.ts`). Everything reads one list of every cluster's
   status (`queries/clusters.ts`), read again on `CLUSTER_UPDATE`; the dashboard's findings read

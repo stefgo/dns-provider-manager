@@ -25,6 +25,11 @@ export class ClusterController {
         return ClusterSyncService.status(request.params.providerId);
     }
 
+    /** "Check": how every node differs from the primary now. Reads only; changes nothing. */
+    static async check(request: WithId, reply: FastifyReply) {
+        return serviceReply(reply, () => ClusterSyncService.check(request.params.providerId));
+    }
+
     /** Every cluster now, as a run of the scheduler. */
     static async runAll() {
         const result = await ClusterSyncService.run("manual");

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { ClusterNode, ClusterStatus } from "@dpm/shared";
+import type { ClusterNode, ClusterPreview, ClusterStatus } from "@dpm/shared";
 import {
+    MAX_CHECK_LINES,
+    checkFindings,
+    checkOutcome,
     clusterBadge,
     describeClusterSave,
     emptyNodeDraft,
@@ -138,5 +141,44 @@ describe("the status of a cluster", () => {
         expect(clusterBadge(status([link("2", "rewrites", "in_sync"), link("2", "general", "pending")]))?.label).toBe("Nodes waiting");
         expect(clusterBadge(status([link("2", "general", "error"), link("2", "rewrites", "pending")]))?.label).toBe("Nodes failed");
         expect(clusterBadge(status([link("2", "general", "error")], "down"))?.label).toBe("Paused");
+    });
+});
+
+describe("a check of a cluster", () => {
+    const result = (areas: ClusterPreview["nodes"][number]["areas"]): ClusterPreview => ({ error: null, nodes: [{ name: "adguard-2", areas }] });
+
+    it("says every node is in step when nothing differs", () => {
+        const same = result([{ area: "rewrites", steps: [], error: null }]);
+        expect(checkOutcome("c", same)).toEqual({ variant: "success", title: "c: every node in step" });
+        expect(checkFindings(same)).toEqual([]);
+    });
+
+    it("lists only what differs or cannot be read, and counts the areas", () => {
+        const found = result([
+            { area: "rewrites", steps: ["Rewrite a added"], error: null },
+            { area: "general", steps: [], error: null },
+            { area: "clients", steps: [], error: "too old" },
+        ]);
+        expect(checkFindings(found).map((f) => [f.key, f.lines, f.error])).toEqual([
+            ["adguard-2:rewrites", ["Rewrite a added"], null],
+            ["adguard-2:clients", [], "too old"],
+        ]);
+        expect(checkOutcome("c", found)).toMatchObject({ variant: "error", description: "1 area differs, 1 area cannot be read" });
+        expect(checkOutcome("c", result([{ area: "rewrites", steps: ["x"], error: null }]))).toMatchObject({ variant: "warning", title: "c: nodes differ" });
+    });
+
+    it("counts the changes beyond the first ones", () => {
+        const steps = Array.from({ length: MAX_CHECK_LINES + 3 }, (_, i) => `step ${i}`);
+        const lines = checkFindings(result([{ area: "rewrites", steps, error: null }]))[0].lines;
+        expect(lines).toHaveLength(MAX_CHECK_LINES + 1);
+        expect(lines[lines.length - 1]).toBe("and 3 more");
+    });
+
+    it("says why the primary could not be read", () => {
+        expect(checkOutcome("c", { error: "adguard-1 cannot be read: down", nodes: [] })).toEqual({
+            variant: "error",
+            title: "c could not be checked",
+            description: "adguard-1 cannot be read: down",
+        });
     });
 });

@@ -112,6 +112,31 @@ function markNode(reading: NodeReading, at: string): void {
     ClusterRepository.markNode(reading.node.id, at, reading.error !== null ? { error: reading.error } : { version: reading.version });
 }
 
+/**
+ * How each node differs from the primary in the areas asked of it, a sentence per change: what a
+ * run would write there. Compared on the fields the primary and every node read know.
+ */
+function compare(primaryReading: NodeReading, asked: readonly { reading: NodeReading; areas: readonly ConfigArea[] }[]): ClusterPreview {
+    const primary = primaryReading.node;
+    if (primaryReading.error !== null) return { error: `${primary.name} cannot be read: ${primaryReading.error}`, nodes: [] };
+    return {
+        error: null,
+        nodes: asked.map(({ reading, areas }) => ({
+            name: reading.node.name,
+            areas: areas.map((area) => {
+                const sync = configAreaSync(area);
+                const source = areaOf(primaryReading, area);
+                const copy = areaOf(reading, area);
+                if (!source.ok) return { area, steps: [], error: `${primary.name}: ${source.error}` };
+                if (!copy.ok) return { area, steps: [], error: copy.error };
+                const readable = asked.map((a) => areaOf(a.reading, area)).flatMap((a) => (a.ok ? [a.state] : []));
+                const shape = commonShape([source.state, ...readable]);
+                return { area, steps: sync.diff(project(source.state, shape), project(copy.state, shape)).map((s) => sync.describe(s)), error: null };
+            }),
+        })),
+    };
+}
+
 function broadcast(providerId: string): void {
     DashboardService.broadcastToDashboard({ type: WS_EVENTS.CLUSTER_UPDATE, payload: { providerId } });
 }
@@ -202,23 +227,28 @@ export class ClusterSyncService {
         if (asked.length === 0) return { error: null, nodes: [] };
 
         const [primaryReading, ...readings] = await Promise.all([readNode(primary, areas), ...asked.map((a) => readNode(a.node, a.areas))]);
-        if (primaryReading.error !== null) return { error: `${primary.name} cannot be read: ${primaryReading.error}`, nodes: [] };
-        return {
-            error: null,
-            nodes: readings.map((reading, i) => ({
-                name: reading.node.name,
-                areas: asked[i].areas.map((area) => {
-                    const sync = configAreaSync(area);
-                    const source = areaOf(primaryReading, area);
-                    const copy = areaOf(reading, area);
-                    if (!source.ok) return { area, steps: [], error: `${primary.name}: ${source.error}` };
-                    if (!copy.ok) return { area, steps: [], error: copy.error };
-                    const readable = readings.map((r) => areaOf(r, area)).flatMap((a) => (a.ok ? [a.state] : []));
-                    const shape = commonShape([source.state, ...readable]);
-                    return { area, steps: sync.diff(project(source.state, shape), project(copy.state, shape)).map((s) => sync.describe(s)), error: null };
-                }),
-            })),
-        };
+        return compare(primaryReading, readings.map((reading, i) => ({ reading, areas: asked[i].areas })));
+    }
+
+    // ── Check ────────────────────────────────────────────────────────────────
+
+    /**
+     * "Check": how every node of a stored cluster differs from its primary now, area by area --
+     * what a run would write there. Goes through the cluster's queue, so it does not read in the
+     * middle of a run or a write; reads only, and changes nothing, not even what is remembered.
+     */
+    static check(providerId: string): Promise<ClusterPreview> {
+        const cluster = clusterById(providerId);
+        if (!cluster) return Promise.reject(new RequestError(404, "Cluster not found"));
+        return queueFor(providerId, async () => {
+            const nodes = clusterNodeAccess(cluster);
+            const primary = nodes?.find((n) => n.primary);
+            if (!nodes || !primary) throw new RequestError(400, "The cluster has no primary");
+            const areas = areasOf(cluster.areas);
+            const copies = nodes.filter((n) => n !== primary);
+            const [primaryReading, ...readings] = await Promise.all([primary, ...copies].map((n) => readNode(n, areas)));
+            return compare(primaryReading, readings.map((reading) => ({ reading, areas })));
+        });
     }
 
     // ── Runs ─────────────────────────────────────────────────────────────────

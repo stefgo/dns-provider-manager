@@ -457,6 +457,9 @@ export const ClusterStatusListSchema = z.array(ClusterStatusSchema);
  * `POST /api/v1/providers/cluster/preview`: what saving a cluster as the editor holds it would
  * write to each node that starts over -- new to the cluster, an area switched on, another
  * primary. Read from the instances now; changes nothing.
+ *
+ * `POST /api/v1/providers/:providerId/cluster/check` answers the same shape for a stored
+ * cluster: every node with every area it keeps, what a run would write there now.
  */
 export const ClusterPreviewSchema = z.object({
     /** Why the primary could not be read, in which case nothing else is known. */

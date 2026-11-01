@@ -58,7 +58,9 @@ the cluster's runs would write over the other's changes there.
 Below the provider's details, the card **Nodes** shows every node with its version and when it
 last answered, and a table of where each area stands at each node besides the primary:
 **In step**, **Waiting** (not reached yet, or new), **Failed** (with the reason below the
-table) or **Paused**. **Sync Now** runs the cluster at once. The provider list shows how many
+table) or **Paused**. In the card's header, **Check** reads the nodes now and lists below the table
+what differs from the primary at each node and area — what a run would write there — without
+writing anything or changing the table; **Sync Now** runs the cluster at once. The provider list shows how many
 nodes a cluster has and how they stand.
 
 ## Records
