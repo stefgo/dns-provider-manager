@@ -116,5 +116,5 @@ export const describeFailure = (title: string, error: unknown): AlertOptions => 
 });
 
 /** A list of ids after one of its boxes was ticked or unticked: added once, or taken out. */
-export const toggled = (ids: readonly string[], id: string, on: boolean): string[] =>
+export const toggled = <T extends string>(ids: readonly T[], id: T, on: boolean): T[] =>
     on ? (ids.includes(id) ? [...ids] : [...ids, id]) : ids.filter((other) => other !== id);

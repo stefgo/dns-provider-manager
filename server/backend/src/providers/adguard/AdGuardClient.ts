@@ -1,5 +1,5 @@
 import type { DnsProviderClient, EntryRef, ProviderEntry, ProviderZoneInfo, RecordData } from "../DnsProvider.js";
-import { httpRequest, type HttpOptions } from "../http.js";
+import { AdGuardApi, type AdGuardOptions, type Request } from "./AdGuardApi.js";
 import {
     entryFromRewrite,
     hasRewriteSettings,
@@ -9,11 +9,6 @@ import {
     type AdGuardRewrite,
 } from "./adguardMapping.js";
 
-/** How long one call may take before it counts as unanswered. */
-const TIMEOUT_MS = 10_000;
-
-type Request = (url: string, options: HttpOptions) => ReturnType<typeof httpRequest>;
-
 /**
  * One AdGuard Home instance, through the API of its web interface with Basic Auth: its DNS
  * rewrites. AdGuard Home has no zones: a rewrite may be for any name.
@@ -22,64 +17,34 @@ type Request = (url: string, options: HttpOptions) => ReturnType<typeof httpRequ
  */
 export class AdGuardClient implements DnsProviderClient {
     readonly zoned = false;
+    private readonly api: AdGuardApi;
 
-    constructor(
-        private readonly options: { url: string; username: string; password: string; allowSelfSigned: boolean },
-        private readonly request: Request = httpRequest,
-    ) {}
-
-    /** One call; the body of a success as text. Throws with a sentence otherwise. */
-    private async call(path: string, method: "GET" | "POST" | "PUT" = "GET", body?: unknown): Promise<string> {
-        const base = this.options.url.replace(/\/+$/, "");
-        const auth = Buffer.from(`${this.options.username}:${this.options.password}`).toString("base64");
-        const { status, body: text } = await this.request(`${base}${path}`, {
-            method,
-            body,
-            headers: { Authorization: `Basic ${auth}`, Accept: "application/json" },
-            insecure: this.options.allowSelfSigned,
-            timeoutMs: TIMEOUT_MS,
-        });
-        if (status === 401 || status === 403) {
-            // After five failed logins AdGuard Home refuses every login from the address for a
-            // while (`auth_attempts`, `block_auth_min`), the right password included.
-            throw new Error(
-                "AdGuard Home refused the user name or the password. After several failed attempts it refuses this address for a while, even with the right password.",
-            );
-        }
-        if (status === 404) throw new Error(`AdGuard Home does not know ${path} -- is ${base} the address of its web interface?`);
-        if (status < 200 || status >= 300) {
-            throw new Error(`AdGuard Home refused it (HTTP ${status})${text ? `: ${text.trim().slice(0, 200)}` : ""}`);
-        }
-        return text;
-    }
-
-    private async json(path: string): Promise<unknown> {
-        const text = await this.call(path);
-        try {
-            return JSON.parse(text);
-        } catch {
-            throw new Error(`${this.options.url} answered something that is not AdGuard Home's API`);
-        }
+    constructor(options: AdGuardOptions, request?: Request) {
+        this.api = new AdGuardApi(options, request);
     }
 
     private async rewrites(): Promise<AdGuardRewrite[]> {
-        const list = await this.json("/control/rewrite/list");
+        const list = await this.api.json("/control/rewrite/list");
         if (!Array.isArray(list)) throw new Error("AdGuard Home sent no list of rewrites");
         return list.filter(
             (r): r is AdGuardRewrite => typeof r?.domain === "string" && typeof r?.answer === "string",
         );
     }
 
+    /** The version AdGuard Home reports, such as `v0.107.79`; null when it names none. */
+    version(): Promise<string | null> {
+        return this.api.version();
+    }
+
     /** Says what it found; a version dpm cannot write to is a failed test, not a remark. */
     async test(): Promise<string> {
-        const status = (await this.json("/control/status")) as { version?: unknown };
-        const version = typeof status?.version === "string" ? status.version : null;
+        const version = await this.api.version();
         const tooOld = version && versionError(version);
         if (tooOld) throw new Error(tooOld);
         const count = (await this.rewrites()).length;
         let note = "";
         if (version && hasRewriteSettings(version)) {
-            const settings = (await this.json("/control/rewrite/settings")) as { enabled?: unknown };
+            const settings = (await this.api.json("/control/rewrite/settings")) as { enabled?: unknown };
             if (settings?.enabled === false) note = " Its rewrites are switched off as a whole in its settings, so none of them is answered.";
         }
         return `AdGuard Home${version ? ` ${version}` : ""} answered and holds ${count === 1 ? "1 DNS rewrite" : `${count} DNS rewrites`}.${note}`;
@@ -99,7 +64,7 @@ export class AdGuardClient implements DnsProviderClient {
      */
     async create(_zone: ProviderZoneInfo | null, record: RecordData): Promise<ProviderEntry> {
         const rewrite = { ...rewriteFor(record), enabled: true };
-        await this.call("/control/rewrite/add", "POST", rewrite);
+        await this.api.call("/control/rewrite/add", "POST", rewrite);
         return written(rewrite);
     }
 
@@ -108,7 +73,7 @@ export class AdGuardClient implements DnsProviderClient {
         const current = rewriteOf(target.externalId);
         if (!current) throw new Error("This is not a rewrite AdGuard Home could find");
         const rewrite = { ...rewriteFor(record), enabled: true };
-        await this.call("/control/rewrite/update", "PUT", { target: current, update: rewrite });
+        await this.api.call("/control/rewrite/update", "PUT", { target: current, update: rewrite });
         return written(rewrite);
     }
 
@@ -119,7 +84,7 @@ export class AdGuardClient implements DnsProviderClient {
     async delete(target: EntryRef): Promise<void> {
         const current = rewriteOf(target.externalId);
         if (!current) throw new Error("This is not a rewrite AdGuard Home could find");
-        await this.call("/control/rewrite/delete", "POST", current);
+        await this.api.call("/control/rewrite/delete", "POST", current);
     }
 
     async close(): Promise<void> {}

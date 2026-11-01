@@ -25,6 +25,13 @@ export function connectionDetails(provider: Provider): ProviderDetailLine[] {
             return [{ label: "Zone Mode", value: provider.zoneMode === "all" ? "All zones the token sees" : "Selected zones" }];
         case "adguard":
             return [{ label: "URL", value: provider.url || EMPTY_VALUE }];
+        case "adguard-cluster": {
+            const primary = provider.nodes.find((n) => n.primary);
+            return [
+                { label: "Primary", value: primary ? `${primary.name} (${primary.url})` : EMPTY_VALUE },
+                { label: provider.nodes.length === 1 ? "Node" : "Nodes", value: provider.nodes.map((n) => n.name).join(", ") || EMPTY_VALUE },
+            ];
+        }
         case "samba-ad":
             return [
                 {
@@ -37,10 +44,11 @@ export function connectionDetails(provider: Provider): ProviderDetailLine[] {
 
 /**
  * How dpm signs in there. A Cloudflare token is the whole of it; the others have a user and
- * a certificate dpm may or may not accept unchecked.
+ * a certificate dpm may or may not accept unchecked. A cluster's nodes each sign in on their
+ * own, and say so in the list of nodes.
  */
 export function accessDetails(provider: Provider): ProviderDetailLine[] {
-    if (provider.type === "cloudflare") return [];
+    if (provider.type === "cloudflare" || provider.type === "adguard-cluster") return [];
     return [
         { label: "Username", value: provider.username || EMPTY_VALUE },
         { label: "Self-Signed Certificate", value: provider.allowSelfSigned ? "Accepted" : "Refused" },

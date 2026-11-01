@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
     ACTIVITY_KINDS,
+    CONFIG_AREAS,
+    CONFIG_LINK_STATUSES,
     ACTIVITY_LEVELS,
     ACTIVITY_SOURCES,
     LINK_STATUSES,
@@ -30,6 +32,7 @@ import {
     RecordPreviewRequestSchema,
     RecordSitesRequestSchema,
     SitePreviewRequestSchema,
+    ClusterNodeInputSchema,
 } from "./schemas.js";
 import {
     AdoptResultSchema,
@@ -53,6 +56,10 @@ import {
     SchedulerStatusesSchema,
     UserSchema,
     WebhookTestResultSchema,
+    ClusterNodeViewSchema,
+    ClusterLinkViewSchema,
+    ClusterStatusSchema,
+    ClusterPreviewSchema,
 } from "./responses.js";
 
 // REST request bodies
@@ -104,6 +111,8 @@ export type SchedulerRunStatus = (typeof SCHEDULER_RUN_STATUSES)[number];
 export interface SchedulerRunResults {
     "notification-cleanup": { removed: number };
     "provider-read": { read: number; failed: number };
+    /** Clusters run, nodes written to, and writes or readings that failed. */
+    "cluster-sync": { clusters: number; written: number; failed: number };
 }
 
 /** The last run a scheduler finished, as `scheduler_state` holds it. */
@@ -175,6 +184,15 @@ export type Site = z.infer<typeof SiteViewSchema>;
 export type ProviderInput = z.input<typeof ProviderInputSchema>;
 export type ProviderFields = z.output<typeof ProviderInputSchema>;
 export type Provider = z.infer<typeof ProviderViewSchema>;
+export type ClusterProvider = Extract<Provider, { type: "adguard-cluster" }>;
+export type ClusterNodeInput = z.input<typeof ClusterNodeInputSchema>;
+export type ClusterNodeFields = z.output<typeof ClusterNodeInputSchema>;
+export type ClusterNode = z.infer<typeof ClusterNodeViewSchema>;
+export type ConfigArea = (typeof CONFIG_AREAS)[number];
+export type ConfigLinkStatus = (typeof CONFIG_LINK_STATUSES)[number];
+export type ClusterLinkView = z.infer<typeof ClusterLinkViewSchema>;
+export type ClusterStatus = z.infer<typeof ClusterStatusSchema>;
+export type ClusterPreview = z.infer<typeof ClusterPreviewSchema>;
 export type ProviderZone = z.infer<typeof ProviderZoneViewSchema>;
 export type ProviderTestRequest = z.input<typeof ProviderTestRequestSchema>;
 export type ProviderTestResult = z.infer<typeof ProviderTestResultSchema>;

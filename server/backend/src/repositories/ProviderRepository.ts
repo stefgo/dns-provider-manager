@@ -1,11 +1,12 @@
 import db from "../core/Database.js";
-import { WRITABLE_PROVIDER_TYPES, ZONE_MODES, type Provider, type ProviderFields, type ProviderType } from "@dpm/shared";
+import { WRITABLE_PROVIDER_TYPES, ZONE_MODES, type ClusterNode, type Provider, type ProviderFields, type ProviderType } from "@dpm/shared";
+import { ClusterRepository, type ClusterSettings } from "./ClusterRepository.js";
 import { idsColumn } from "./SiteRepository.js";
 import { ProviderZoneRepository, type StoredZone } from "./ProviderZoneRepository.js";
 import { zoneOwnership } from "../services/zoneOwnership.js";
 
 /** The types this build can read: all of them, since every type has its client. */
-export const READABLE_TYPES: readonly ProviderType[] = ["cloudflare", "adguard", "samba-ad"];
+export const READABLE_TYPES: readonly ProviderType[] = ["cloudflare", "adguard", "adguard-cluster", "samba-ad"];
 
 interface ProviderRow {
     id: string;
@@ -28,13 +29,18 @@ const SELECT_PROVIDER = `
         (SELECT json_group_array(site_id) FROM site_providers WHERE provider_id = p.id) AS site_ids
     FROM providers p`;
 
-/** What a provider keeps in `settings`: everything of its input but name, secret and the switch. */
+/**
+ * What a provider keeps in `settings`: everything of its input but name, secret and the switch.
+ * A cluster keeps its nodes and areas in tables of their own (`ClusterRepository`).
+ */
 function settingsOf(fields: ProviderFields): Record<string, unknown> {
     switch (fields.type) {
         case "cloudflare":
             return { zoneMode: fields.zoneMode };
         case "adguard":
             return { url: fields.url, username: fields.username, allowSelfSigned: fields.allowSelfSigned };
+        case "adguard-cluster":
+            return {};
         case "samba-ad":
             return { servers: fields.servers, username: fields.username, allowSelfSigned: fields.allowSelfSigned };
     }
@@ -63,11 +69,25 @@ interface ZoneFacts {
     zoneIds: string[];
 }
 
+/** What the view of a cluster adds from its own tables. */
+interface ClusterFacts {
+    nodes: Map<string, ClusterNode[]>;
+    settings: Map<string, ClusterSettings>;
+}
+
+function clusterFacts(): ClusterFacts {
+    const nodes = new Map<string, ClusterNode[]>();
+    for (const { providerId, ...node } of ClusterRepository.allNodes()) {
+        nodes.set(providerId, [...(nodes.get(providerId) ?? []), node]);
+    }
+    return { nodes, settings: new Map(ClusterRepository.allSettings().map((s) => [s.providerId, s])) };
+}
+
 /**
  * A row as the API shows it -- without the secret. A row of a type this build does not
  * know is left out rather than shown as something it is not.
  */
-function rowToProvider(row: ProviderRow, { zones, zoneIds }: ZoneFacts): Provider | null {
+function rowToProvider(row: ProviderRow, { zones, zoneIds }: ZoneFacts, clusters: ClusterFacts): Provider | null {
     const settings = parseSettings(row.settings);
     const common = {
         id: row.id,
@@ -100,6 +120,17 @@ function rowToProvider(row: ProviderRow, { zones, zoneIds }: ZoneFacts): Provide
                 username: text(settings.username),
                 allowSelfSigned: flag(settings.allowSelfSigned),
             };
+        case "adguard-cluster": {
+            const nodes = clusters.nodes.get(row.id) ?? [];
+            return {
+                type: "adguard-cluster",
+                ...common,
+                // The cluster has no secret of its own: it has what its nodes need when each has its password.
+                hasSecret: nodes.length > 0 && nodes.every((n) => n.hasSecret),
+                areas: clusters.settings.get(row.id)?.areas ?? [],
+                nodes,
+            };
+        }
         case "samba-ad":
             return {
                 type: "samba-ad",
@@ -144,7 +175,8 @@ export class ProviderRepository {
     static findAll(): Provider[] {
         const rows = db.prepare(`${SELECT_PROVIDER} ORDER BY p.name COLLATE NOCASE`).all() as ProviderRow[];
         const facts = zoneFacts(rows, ProviderZoneRepository.findAll());
-        return rows.map((row) => rowToProvider(row, facts.get(row.id)!)).filter((p): p is Provider => p !== null);
+        const clusters = clusterFacts();
+        return rows.map((row) => rowToProvider(row, facts.get(row.id)!, clusters)).filter((p): p is Provider => p !== null);
     }
 
     /** Through the whole list: who uses a zone is decided among all providers. */
@@ -175,8 +207,11 @@ export class ProviderRepository {
         );
     }
 
-    /** `secret` is what `SecretCrypto` made of it; nothing here sees it in the clear. */
-    static create(id: string, fields: ProviderFields, secret: string): void {
+    /**
+     * `secret` is what `SecretCrypto` made of it; nothing here sees it in the clear. A cluster
+     * has none: its nodes are saved with `ClusterRepository.save`.
+     */
+    static create(id: string, fields: ProviderFields, secret: string | null): void {
         db.prepare(`
             INSERT INTO providers (id, type, name, settings, secret, auto_correct, read_only, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -207,6 +242,11 @@ export class ProviderRepository {
             new Date().toISOString(),
             id,
         );
+    }
+
+    /** Runs `work` in one transaction: a cluster is saved with its nodes or not at all. */
+    static inTransaction<T>(work: () => T): T {
+        return db.transaction(work)();
     }
 
     /** Takes the provider out of every site as well (ON DELETE CASCADE). */

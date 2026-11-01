@@ -14,6 +14,7 @@ import { initOIDC, appConfig, serverPort, statusToken, trustedProxies } from "./
 import { AuthService } from "./services/AuthService.js";
 import { NotificationCleanupService } from "./services/NotificationCleanupService.js";
 import { ProviderReadService } from "./services/ProviderReadService.js";
+import { ClusterSyncService } from "./services/ClusterSyncService.js";
 import { SchedulerStateRepository } from "./repositories/SchedulerStateRepository.js";
 import apiRoutes from "./routes/api.js";
 import { SESSION_COOKIE } from "./services/SessionCookie.js";
@@ -31,6 +32,7 @@ await AuthService.initializeAdmin(); // Ensure admin user
 SchedulerStateRepository.markInterrupted();
 NotificationCleanupService.startScheduler();
 ProviderReadService.startScheduler();
+ClusterSyncService.startScheduler();
 
 import { loggerOptions } from "@dpm/shared/node";
 
@@ -188,6 +190,7 @@ const shutdown = () => {
     server.log.info("Shutting down server...");
     NotificationCleanupService.stopScheduler();
     ProviderReadService.stopScheduler();
+    ClusterSyncService.stopScheduler();
     // close() waits for every socket to finish its closing handshake. A peer that never
     // answers must not hold the process until Docker kills it.
     setTimeout(() => {
@@ -215,6 +218,8 @@ try {
     // What the providers hold is kept in memory only, so a start reads it at once rather than
     // one interval later. In the background: an unreachable provider must not hold the start.
     void ProviderReadService.run("schedule").catch(() => undefined);
+    // The clusters are kept alike once at every start as well, rather than one interval later.
+    void ClusterSyncService.run("schedule").catch(() => undefined);
     // Said once at startup, because the wrong value fails silently: an unlisted proxy makes
     // every request look like it came from the proxy itself.
     server.log.info(

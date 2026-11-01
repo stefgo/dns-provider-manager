@@ -10,7 +10,9 @@ the DNS servers that should answer for them.** Each record belongs to one or mor
 site is a group of providers that give the same answers, such as `internal` (two AdGuard Home
 instances and Samba AD) and `external` (Cloudflare). DPM writes a record to every provider of
 its sites, notices when a provider's copy has been changed behind its back, and leaves alone
-what it does not manage.
+what it does not manage. Several AdGuard Home instances can be one provider, a cluster, whose
+nodes DPM keeps alike — rewrites, settings, clients, filter lists, blocked services, custom
+rules — copied from one of them.
 
 > **In development.** DPM is being built in milestones. Records are written to Cloudflare and
 > AdGuard Home and kept there; Samba AD is read and compared, and writing to it follows.
@@ -30,6 +32,7 @@ Samba AD over LDAPS — all from the server.
 - [Quick Start](quickstart.md) — the server with Docker Compose, the first sign-in.
 - [Configuration](configuration.md) — the server's `config.yaml` and the environment variables.
 - [Providers](providers.md) — what each kind of DNS server needs, and what DPM reads from it.
+- [AdGuard Home Clusters](clusters.md) — several instances as one provider, kept alike from one of them.
 - [Security](security.md) and [Operations](operations.md) — reverse proxy, backup, health.
 - [Webhooks](webhooks.md) — report events to a chat or a script.
 - [REST & WebSocket API](api.md) — what the dashboard itself uses.

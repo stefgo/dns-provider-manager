@@ -16,6 +16,7 @@ const GROUP_LABELS: Record<string, string> = {
     record: "Records",
     site: "Sites",
     provider: "Providers",
+    cluster: "Clusters",
     scheduler: "Server jobs",
 };
 

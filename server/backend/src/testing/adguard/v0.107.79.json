@@ -1,0 +1,254 @@
+{
+    "/control/status": {
+        "version": "v0.107.79"
+    },
+    "/control/filtering/status": {
+        "filters": [
+            {
+                "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt",
+                "name": "AdGuard DNS filter",
+                "last_updated": "2026-10-31T20:19:49Z",
+                "id": 1,
+                "rules_count": 186078,
+                "enabled": true
+            },
+            {
+                "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt",
+                "name": "AdAway Default Blocklist",
+                "id": 2,
+                "rules_count": 0,
+                "enabled": false
+            },
+            {
+                "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_9.txt",
+                "name": "Renamed",
+                "last_updated": "2026-10-31T20:21:31Z",
+                "id": 1793477984,
+                "rules_count": 0,
+                "enabled": false
+            }
+        ],
+        "whitelist_filters": [
+            {
+                "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_11.txt",
+                "name": "Allowed hosts",
+                "last_updated": "2026-10-31T20:23:59Z",
+                "id": 1793477985,
+                "rules_count": 1870,
+                "enabled": true
+            }
+        ],
+        "user_rules": [
+            "||ads.example^",
+            "@@||ok.example^"
+        ],
+        "interval": 12,
+        "enabled": true
+    },
+    "/control/safebrowsing/status": {
+        "enabled": true
+    },
+    "/control/parental/status": {
+        "enabled": true
+    },
+    "/control/safesearch/status": {
+        "enabled": true,
+        "bing": false,
+        "duckduckgo": true,
+        "ecosia": true,
+        "google": true,
+        "pixabay": true,
+        "yandex": true,
+        "youtube": true
+    },
+    "/control/querylog/config": {
+        "ignored": [
+            "example.org"
+        ],
+        "interval": 86400000,
+        "enabled": true,
+        "ignored_enabled": true,
+        "anonymize_client_ip": true
+    },
+    "/control/stats/config": {
+        "ignored": [
+            "b.example"
+        ],
+        "interval": 604800000,
+        "enabled": true,
+        "ignored_enabled": true
+    },
+    "/control/dns_info": {
+        "upstream_dns": [
+            "9.9.9.9",
+            "[/lan/]192.168.1.1"
+        ],
+        "upstream_dns_file": "",
+        "bootstrap_dns": [
+            "9.9.9.10",
+            "149.112.112.10",
+            "2620:fe::10",
+            "2620:fe::fe:10"
+        ],
+        "fallback_dns": [],
+        "protection_enabled": false,
+        "ratelimit": 20,
+        "ratelimit_subnet_len_ipv4": 24,
+        "ratelimit_subnet_len_ipv6": 56,
+        "upstream_timeout": 10,
+        "ratelimit_whitelist": [],
+        "blocking_mode": "default",
+        "edns_cs_enabled": false,
+        "edns_cs_use_custom": false,
+        "dnssec_enabled": true,
+        "disable_ipv6": false,
+        "upstream_mode": "",
+        "blocked_response_ttl": 10,
+        "cache_size": 1000,
+        "cache_ttl_min": 0,
+        "cache_ttl_max": 0,
+        "cache_enabled": true,
+        "cache_optimistic": false,
+        "resolve_clients": true,
+        "use_private_ptr_resolvers": true,
+        "local_ptr_upstreams": [],
+        "blocking_ipv4": "",
+        "blocking_ipv6": "",
+        "protection_disabled_until": "2026-10-31T21:23:45.09719163Z",
+        "edns_cs_custom_ip": "",
+        "default_local_ptr_upstreams": [
+            "192.168.65.7:53"
+        ]
+    },
+    "/control/access/list": {
+        "allowed_clients": [],
+        "disallowed_clients": [
+            "10.9.9.9"
+        ],
+        "blocked_hosts": [
+            "version.bind"
+        ]
+    },
+    "/control/clients": {
+        "clients": [
+            {
+                "safe_search": {
+                    "enabled": false,
+                    "bing": false,
+                    "duckduckgo": false,
+                    "ecosia": false,
+                    "google": false,
+                    "pixabay": false,
+                    "yandex": false,
+                    "youtube": false
+                },
+                "blocked_services_schedule": {
+                    "time_zone": "UTC"
+                },
+                "name": "Bare",
+                "blocked_services": null,
+                "ids": [
+                    "10.0.0.9"
+                ],
+                "tags": null,
+                "upstreams": null,
+                "filtering_enabled": false,
+                "parental_enabled": false,
+                "safebrowsing_enabled": false,
+                "safesearch_enabled": false,
+                "use_global_blocked_services": false,
+                "use_global_settings": false,
+                "ignore_querylog": false,
+                "ignore_statistics": false,
+                "upstreams_cache_size": 0,
+                "upstreams_cache_enabled": false
+            },
+            {
+                "safe_search": {
+                    "enabled": true,
+                    "bing": true,
+                    "duckduckgo": false,
+                    "ecosia": true,
+                    "google": true,
+                    "pixabay": true,
+                    "yandex": true,
+                    "youtube": false
+                },
+                "blocked_services_schedule": {
+                    "mon": {
+                        "start": 3600000,
+                        "end": 7200000
+                    },
+                    "time_zone": "Europe/Berlin"
+                },
+                "name": "TV",
+                "blocked_services": [
+                    "youtube",
+                    "tiktok"
+                ],
+                "ids": [
+                    "192.168.1.50",
+                    "aa:bb:cc:dd:ee:ff"
+                ],
+                "tags": [
+                    "device_tv"
+                ],
+                "upstreams": [
+                    "1.1.1.1"
+                ],
+                "filtering_enabled": true,
+                "parental_enabled": true,
+                "safebrowsing_enabled": true,
+                "safesearch_enabled": true,
+                "use_global_blocked_services": false,
+                "use_global_settings": false,
+                "ignore_querylog": true,
+                "ignore_statistics": false,
+                "upstreams_cache_size": 1024,
+                "upstreams_cache_enabled": true
+            }
+        ],
+        "auto_clients": [
+            {
+                "whois_info": {},
+                "ip": "ff00::",
+                "name": "ip6-mcastprefix",
+                "source": "etc/hosts"
+            }
+        ],
+        "supported_tags": [
+            "device_audio",
+            "device_camera",
+            "device_gameconsole"
+        ]
+    },
+    "/control/blocked_services/get": {
+        "schedule": {
+            "sat": {
+                "start": 0,
+                "end": 86340000
+            },
+            "time_zone": "Europe/Berlin"
+        },
+        "ids": [
+            "tiktok",
+            "9gag"
+        ]
+    },
+    "/control/blocked_services/all": {
+        "blocked_services": [
+            {
+                "id": "9gag",
+                "name": "9GAG"
+            },
+            {
+                "id": "tiktok",
+                "name": "TikTok"
+            },
+            {
+                "id": "youtube",
+                "name": "YouTube"
+            }
+        ]
+    }
+}

@@ -34,10 +34,12 @@ describe("the scheduler schemas", () => {
         const schedulers = {
             "notification-cleanup": { ...idle, lastRun: run },
             "provider-read": { ...idle, lastRun: { ...run, status: "partial", result: { read: 2, failed: 1 } } },
+            "cluster-sync": { ...idle, lastRun: { ...run, result: { clusters: 1, written: 2, failed: 0 } } },
         };
         const parsed = SchedulerStatusResponseSchema.parse({ schedulers }).schedulers;
         expect(parsed["notification-cleanup"].lastRun?.result).toEqual({ removed: 3 });
         expect(parsed["provider-read"].lastRun?.result).toEqual({ read: 2, failed: 1 });
+        expect(parsed["cluster-sync"].lastRun?.result).toEqual({ clusters: 1, written: 2, failed: 0 });
     });
 
     it("refuse a response that lacks a scheduler", () => {

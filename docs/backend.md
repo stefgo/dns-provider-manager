@@ -14,6 +14,7 @@ server/backend/src/
 ├── controllers/                      # HTTP and WebSocket request handlers
 │   ├── ActivityController.ts         # Activity list, seen state, deletion
 │   ├── AuthController.ts             # Login, logout, session, OIDC
+│   ├── ClusterController.ts          # How an AdGuard Home cluster keeps its nodes alike: status, preview, run
 │   ├── RecordController.ts           # Records CRUD
 │   ├── SiteController.ts             # Sites CRUD
 │   ├── ProviderController.ts         # Providers CRUD
@@ -33,16 +34,22 @@ server/backend/src/
 │       ├── 01_dns.ts                 # providers, sites, site_providers, records, record_sites
 │       ├── 02_provider_zones.ts      # provider_zones
 │       ├── 03_record_links.ts        # record_links, providers.read_only
-│       └── 04_record_settings.ts     # record_settings: TTL and proxy per record and provider
+│       ├── 04_record_settings.ts     # record_settings: TTL and proxy per record and provider
+│       └── 05_adguard_cluster.ts     # provider_clusters, cluster_nodes, cluster_baselines, cluster_links
 ├── providers/                        # The clients that talk to the DNS servers
 │   ├── DnsProvider.ts                # What dpm asks of one: zones, records, writes; what each type knows
-│   ├── clients.ts                    # The client for a provider's type
+│   ├── ConfigAreaSync.ts             # One area of AdGuard Home's configuration: read, normalise, diff, apply, describe
+│   ├── configAreas.ts                # The areas a cluster keeps alike, in run order
+│   ├── configState.ts                # Canonical JSON, hashes, the fields every node knows (pure)
+│   ├── clients.ts                    # The client for a provider's type; adguardApiFor
 │   ├── http.ts                       # One request over node:http(s), with the certificate check a setting
 │   ├── cloudflare/                   # CloudflareClient (API v4, paged) and cloudflareMapping (pure)
-│   ├── adguard/                      # AdGuardClient (DNS rewrites, Basic Auth) and adguardMapping (pure)
+│   ├── adguard/                      # AdGuardApi (Basic Auth), AdGuardClient (DNS rewrites), AdGuardClusterClient, adguardMapping (pure)
+│   │   └── config/                   # The areas a cluster keeps alike, each with tests against recorded answers
 │   └── samba/                        # SambaClient (LDAPS, ldapts), dnsRecord decoding, the domain's own names (pure)
 ├── repositories/                     # Database access
 │   ├── ActivityRepository.ts         # insert (idempotent by id), seen state, retention
+│   ├── ClusterRepository.ts          # A cluster's nodes (their passwords encrypted), areas, baselines and links
 │   ├── HealthRepository.ts           # SELECT 1 for the liveness probe
 │   ├── ProviderRepository.ts         # providers, without their secret on the way out, with their zones
 │   ├── ProviderZoneRepository.ts     # provider_zones: what each reading found, which are ticked
@@ -57,6 +64,8 @@ server/backend/src/
 ├── services/
 │   ├── ActivityService.ts            # Records events, applies level overrides, tells dashboards and webhooks
 │   ├── AuthService.ts                # Local and OIDC sign-in, session validity
+│   ├── ClusterSyncService.ts         # Keeps the nodes of each AdGuard Home cluster alike: scheduler, runs, preview
+│   ├── clusterSyncPlan.ts            # What a run does per area and node: prepareArea, planArea (pure)
 │   ├── DashboardService.ts           # The open dashboard sockets, broadcast and per-user sends
 │   ├── NotificationCleanupService.ts # Retention of the activity history
 │   ├── ProviderService.ts            # Providers: names, fixed type, the secret encrypted, ticked zones
@@ -78,7 +87,9 @@ server/backend/src/
 │   ├── SettingsService.ts            # Settings retrieval, update and persistence
 │   └── WebhookService.ts             # Renders and delivers events to the webhooks
 ├── testing/
-│   └── memoryDatabase.ts             # An in-memory database on the current schema, for tests
+│   ├── memoryDatabase.ts             # An in-memory database on the current schema, for tests
+│   ├── adguardRecording.ts           # Plays recorded AdGuard Home answers back to an AdGuardApi
+│   └── adguard/                      # What v0.107.79 and v0.107.33 answered, recorded from the images
 ├── types/
 │   └── fastify.d.ts                  # Fastify request/instance augmentations
 └── index.ts                          # Server setup and entry point
@@ -123,6 +134,23 @@ server/backend/src/
   that is where drift is found and failures are tried again.
 - **`record_links`** outlive their record: a deleted record keeps its links until each provider
   has removed it. A provider's links go with the provider; dpm then deletes nothing there.
+- **AdGuard Home clusters** are providers of type `adguard-cluster` with nodes of their own
+  (`cluster_nodes`, each with its password). For reading and writing records a cluster is one
+  provider: `AdGuardClusterClient` reads its primary and writes a record to the primary, then
+  to every node whose rewrites are in step; a node it does not reach is marked behind.
+  `providerAccess.ts` builds the client of a stored provider or of the editor's draft, the
+  nodes' passwords decrypted. Keeping the nodes alike is `ClusterSyncService`, on a scheduler
+  of its own (`cluster-sync`, every minute by default) and on request; a run of a cluster goes
+  through the cluster's queue, so no record is written to it meanwhile. A run reads the areas
+  of the primary and of every node, and per area `prepareArea` compares them on the fields
+  every node knows (`commonShape`) and `planArea` decides per node: nothing, bring it up,
+  write over a change made there, or wait for it. Two hashes per node keep "behind" apart from
+  "changed by hand": what it holds on the compared fields, against the primary, and everything
+  it holds, against what dpm last wrote there (`cluster_links.written_hash`).
+  `cluster_baselines` hold the primary's state the last run found, which tells a change at the
+  primary. An area is a `ConfigAreaSync` in `providers/adguard/config/`: reading and writing
+  talk to AdGuard Home through `AdGuardApi`, the rest is pure and tested against recorded
+  answers. After writing, the run reads the node back. `CLUSTER_UPDATE` tells the dashboards.
 - **`DashboardService`** keeps every open dashboard socket with the user who opened it.
   `broadcastToDashboard` and `sendToUser` take a `DashboardMessage`, so a message that is not
   part of the union in `shared/src/dashboardMessages.ts` does not compile.

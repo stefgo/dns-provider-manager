@@ -29,6 +29,8 @@ export const DashboardMessageSchema = z.discriminatedUnion("type", [
     z.object({ type: z.literal(WS_EVENTS.READINGS_UPDATE), payload: z.object({ providerId: z.string() }) }),
     /** Records were written, or their state at a provider changed. */
     z.object({ type: z.literal(WS_EVENTS.RECORDS_UPDATE), payload: z.object({ recordIds: z.array(z.string()) }) }),
+    /** A run of an AdGuard Home cluster ended, or how the cluster stands changed. */
+    z.object({ type: z.literal(WS_EVENTS.CLUSTER_UPDATE), payload: z.object({ providerId: z.string() }) }),
     /** One server scheduler, whenever a run starts or ends or its timer moves. */
     z.object({ type: z.literal(WS_EVENTS.SCHEDULER_STATUS_UPDATE), payload: SchedulerStatusUpdateSchema }),
 ]);

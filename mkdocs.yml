@@ -104,6 +104,7 @@ nav:
           - Quick Start: quickstart.md
           - Configuration: configuration.md
           - Providers: providers.md
+          - AdGuard Home Clusters: clusters.md
     - Operations:
           - Security: security.md
           - Operations: operations.md

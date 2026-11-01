@@ -10,6 +10,10 @@ export function describeRunResult(run: SchedulerRunSummary): string {
     }
     const result = run.result;
     if (!result) return "Done";
+    if ("clusters" in result) {
+        const written = `${result.clusters} ${result.clusters === 1 ? "cluster" : "clusters"}, ${result.written} written`;
+        return result.failed > 0 ? `${written}, ${result.failed} failed` : written;
+    }
     if ("read" in result) {
         return result.failed > 0 ? `${result.read} read, ${result.failed} failed` : `${result.read} read`;
     }

@@ -49,7 +49,7 @@ describe("providerInputFrom", () => {
     });
 
     it("leaves the secret out while the field is empty, so the stored one stays", () => {
-        expect(providerInputFrom(providerDraftFrom(stored)).secret).toBeUndefined();
+        expect(providerInputFrom(providerDraftFrom(stored))).not.toHaveProperty("secret", expect.anything());
     });
 
     it("is what providerDraftFrom read", () => {

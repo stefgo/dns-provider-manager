@@ -27,12 +27,14 @@ import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import { readProvider, useDeleteProvider, useProviders } from "../../../queries/providers";
 import { useRecords } from "../../../queries/records";
 import { useSites } from "../../../queries/sites";
+import { useClusters } from "../../../queries/clusters";
 import { EMPTY_VALUE, describeFailure, formatDate, plural } from "../../../utils";
 import { HeaderBreadcrumb } from "../../app/HeaderBreadcrumb";
 import { describeDeleteProvider } from "../confirmations";
 import { SECRET_LABEL } from "../lib/providerForm";
 import { accessDetails, connectionDetails, readTone, usedZones, type ProviderDetailLine } from "../lib/providerDetails";
 import { recordCounts } from "../lib/providerRecords";
+import { ClusterNodesCard } from "./ClusterNodesCard";
 
 /** `/providers/:providerId`, read from the list like the editor. */
 export const ProviderDetailRoute = () => {
@@ -74,6 +76,7 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
     const { sites } = useSites();
     const { records } = useRecords();
     const deleteProvider = useDeleteProvider();
+    const { statuses: clusters } = useClusters();
 
     useEscapeToLeave(back);
 
@@ -102,8 +105,8 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
     const memberOf = sites.filter((s) => provider.siteIds.includes(s.id));
     const count = recordCounts(records).get(provider.id) ?? { total: 0, problems: 0 };
     const zones = usedZones(provider);
-    // AdGuard Home has no zones.
-    const hasZones = provider.type !== "adguard";
+    // AdGuard Home has no zones, a cluster of it neither.
+    const hasZones = provider.type === "cloudflare" || provider.type === "samba-ad";
 
     const details: EntityDetail[] = [
         ...connectionDetails(provider).map((line) => asDetail(line, "always")),
@@ -130,7 +133,9 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
             visibility: "always",
         },
         ...accessDetails(provider).map((line) => asDetail(line)),
-        { label: SECRET_LABEL[provider.type], value: provider.hasSecret ? "Stored" : "Not stored" },
+        ...(provider.type === "adguard-cluster"
+            ? []
+            : [{ label: SECRET_LABEL[provider.type], value: provider.hasSecret ? "Stored" : "Not stored" }]),
         { label: "Read Only", value: provider.readOnly ? "Yes" : "No" },
         { label: "Correct Drift by Itself", value: provider.autoCorrect ? "Yes" : "No" },
         ...(hasZones
@@ -204,6 +209,9 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
                     </div>
                 }
             />
+            {provider.type === "adguard-cluster" && (
+                <ClusterNodesCard cluster={provider} status={clusters.find((c) => c.providerId === provider.id)} />
+            )}
         </div>
     );
 };

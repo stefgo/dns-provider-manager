@@ -16,7 +16,7 @@ import {
 } from "@dpm/shared";
 import { logger } from "@dpm/shared/node";
 import type { DnsProviderClient, ProviderEntry, RecordData } from "../providers/DnsProvider.js";
-import { clientFor } from "../providers/clients.js";
+import { storedClient } from "./providerAccess.js";
 import { ProviderRepository } from "../repositories/ProviderRepository.js";
 import { RecordLinkRepository, type Observed, type RecordLink } from "../repositories/RecordLinkRepository.js";
 import { RecordRepository, type StoredRecord } from "../repositories/RecordRepository.js";
@@ -24,7 +24,6 @@ import { SiteRepository } from "../repositories/SiteRepository.js";
 import { ActivityService } from "./ActivityService.js";
 import { DashboardService } from "./DashboardService.js";
 import { ProviderReadService } from "./ProviderReadService.js";
-import { decryptSecret } from "./SecretCrypto.js";
 import { queueFor } from "./providerQueue.js";
 import { recordTargets, type RecordTargets } from "./recordTargets.js";
 import { claimKey, dataFor, planRecord, type DesiredRecord, type PlanContext, type Step } from "./syncPlan.js";
@@ -271,9 +270,8 @@ async function syncOne(recordId: string, world: World, options: SyncOptions): Pr
 
 /** Runs `work` with a client of the provider, and closes it after. */
 async function withClient<T>(provider: Provider, work: (client: DnsProviderClient) => Promise<T>): Promise<T> {
-    const stored = ProviderRepository.storedSecret(provider.id);
-    if (!stored) throw new Error("The provider has no stored secret");
-    const client = clientFor(provider, decryptSecret(stored));
+    const client = storedClient(provider);
+    if (!client) throw new Error("The provider has no stored secret");
     try {
         return await work(client);
     } finally {

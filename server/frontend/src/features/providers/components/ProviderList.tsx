@@ -1,5 +1,5 @@
 import { Edit2, Plus, RefreshCw, Server, Trash2 } from "lucide-react";
-import { PROVIDER_TYPE_LABELS, type Provider, type Site } from "@dpm/shared";
+import { PROVIDER_TYPE_LABELS, type ClusterStatus, type Provider, type Site } from "@dpm/shared";
 import {
     Badge,
     Button,
@@ -17,6 +17,7 @@ import { useSearchQueryParam } from "../../../hooks/useSearchQueryParam";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import type { ProviderRecordCount } from "../lib/providerRecords";
 import { readTone } from "../lib/providerDetails";
+import { clusterBadge } from "../lib/clusterForm";
 import { RelativeTime } from "../../../components/RelativeTime";
 
 interface ProviderListProps {
@@ -24,6 +25,8 @@ interface ProviderListProps {
     sites: Site[];
     /** How many records go to each provider, and how many need a look there. */
     counts: Map<string, ProviderRecordCount>;
+    /** How each AdGuard Home cluster keeps its nodes alike. */
+    clusters: ClusterStatus[];
     isLoading: boolean;
     onAdd: () => void;
     /** A click on the row: the provider's page. */
@@ -57,10 +60,21 @@ const ReadState = ({ provider }: { provider: Provider }) => (
     </div>
 );
 
+/** How many nodes a cluster has, and how they stand against its primary. */
+const ClusterBadge = ({ status, nodes }: { status: ClusterStatus | undefined; nodes: number }) => {
+    const badge = clusterBadge(status);
+    return (
+        <>
+            <Badge variant="neutral">{nodes === 1 ? "1 node" : `${nodes} nodes`}</Badge>
+            {badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
+        </>
+    );
+};
+
 const sitesOf = (provider: Provider, sites: Site[]) => sites.filter((s) => provider.siteIds.includes(s.id));
 
 /** The providers: one access each to a DNS server dpm writes to. */
-export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpen, onEdit, onDelete, onRead, onReadAll, readingAll }: ProviderListProps) => {
+export const ProviderList = ({ providers, sites, counts, clusters, isLoading, onAdd, onOpen, onEdit, onDelete, onRead, onReadAll, readingAll }: ProviderListProps) => {
     const [searchQuery, setSearchQuery] = useSearchQueryParam();
 
     const matchesSearch = (provider: Provider, query: string) => {
@@ -104,6 +118,7 @@ export const ProviderList = ({ providers, sites, counts, isLoading, onAdd, onOpe
                     <Badge variant="neutral">{PROVIDER_TYPE_LABELS[p.type]}</Badge>
                     {/* A provider dpm only reads, by choice or because it cannot write that type yet. */}
                     {!p.writable && <Badge variant="warning">Read only</Badge>}
+                    {p.type === "adguard-cluster" && <ClusterBadge status={clusters.find((c) => c.providerId === p.id)} nodes={p.nodes.length} />}
                 </div>
             ),
         },

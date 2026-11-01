@@ -11,6 +11,7 @@ vi.mock("../repositories/RecordRepository.js", () => ({ RecordRepository: { find
 vi.mock("../repositories/ProviderRepository.js", () => ({ ProviderRepository: { findAll: () => providers() } }));
 vi.mock("../repositories/SiteRepository.js", () => ({ SiteRepository: { findAll: () => sites() } }));
 vi.mock("./SyncService.js", () => ({ SyncService: { views: () => records(), removals: () => removals() } }));
+vi.mock("./ClusterSyncService.js", () => ({ ClusterSyncService: { statuses: () => [] } }));
 
 const { StatusService } = await import("./StatusService.js");
 

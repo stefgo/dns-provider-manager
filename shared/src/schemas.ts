@@ -2,6 +2,9 @@ import { z } from "zod";
 import {
     ACTIVITY_LEVELS,
     ACTIVITY_SOURCES,
+    CONFIG_AREAS,
+    DEFAULT_CONFIG_AREAS,
+    FIXED_CONFIG_AREAS,
     RECORD_TYPES,
     TTL_MAX,
     TTL_MIN,
@@ -124,6 +127,7 @@ export const CleanupSettingsSchema = z.looseObject({
     notification_cleanup_interval_hours: WholeNumberSettingSchema.optional(),
     activity_level_overrides: ActivityLevelOverridesSettingSchema.optional(),
     provider_read_interval_minutes: WholeNumberSettingSchema.optional(),
+    cluster_sync_interval_minutes: WholeNumberSettingSchema.optional(),
     security: z
         .undefined({
             error: "Configured in config.yaml only, not through this endpoint",
@@ -146,6 +150,8 @@ export const AppSettingsSchema = z
         activity_level_overrides: ActivityLevelOverridesSettingSchema.default(""),
         /** Minutes between two readings of every provider; 0 reads only on request. */
         provider_read_interval_minutes: WholeNumberSettingSchema.default("5"),
+        /** Minutes between two runs that keep the nodes of each AdGuard Home cluster alike; 0 runs only on request. */
+        cluster_sync_interval_minutes: WholeNumberSettingSchema.default("1"),
     })
     .prefault({});
 
@@ -476,14 +482,74 @@ const HostPortSchema = z
  */
 const SecretInputSchema = z.string().min(1, { error: "Enter it, or leave the field untouched" }).optional();
 
-const providerCommon = {
+const providerBase = {
     name: EntityNameSchema,
     /** Whether drift is written back by itself. Off: drift is reported and waits for a decision. */
     autoCorrect: z.boolean().default(false),
     /** Read and compared, never written: nothing is created, changed or deleted there. */
     readOnly: z.boolean().default(false),
-    secret: SecretInputSchema,
 };
+
+const providerCommon = { ...providerBase, secret: SecretInputSchema };
+
+/** Where AdGuard Home's web interface answers, e.g. `http://192.168.1.2:3000`. */
+const AdGuardUrlSchema = z
+    .string()
+    .trim()
+    .pipe(z.url({ protocol: /^https?$/, error: "Must be an http:// or https:// URL" }));
+
+/**
+ * What tells two addresses of AdGuard Home apart: scheme, host and port in lower case, with
+ * the path but no trailing slash. `http://AdGuard:80/` and `http://adguard` are one instance.
+ */
+export function adguardAddressKey(url: string): string {
+    try {
+        const parsed = new URL(url.trim());
+        const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+        return `${parsed.protocol}//${parsed.hostname.toLowerCase()}:${port}${parsed.pathname.replace(/\/+$/, "")}`;
+    } catch {
+        return url.trim().toLowerCase();
+    }
+}
+
+/**
+ * One AdGuard Home instance of a cluster. `id` names a stored node, whose password stays
+ * while `secret` is left out; a node without one is new to the cluster.
+ */
+export const ClusterNodeInputSchema = z.object({
+    id: z.string().min(1).optional(),
+    name: EntityNameSchema,
+    url: AdGuardUrlSchema,
+    username: z.string().trim().min(1, { error: "Enter the user name" }),
+    secret: SecretInputSchema,
+    allowSelfSigned: z.boolean().default(false),
+    /** The node the others are made copies of. Exactly one per cluster. */
+    primary: z.boolean().default(false),
+});
+
+/** The areas a cluster keeps alike, in the order of `CONFIG_AREAS`, the fixed ones always among them. */
+const ClusterAreasSchema = z
+    .array(z.enum(CONFIG_AREAS))
+    .default([...DEFAULT_CONFIG_AREAS])
+    .transform((areas) => CONFIG_AREAS.filter((area) => FIXED_CONFIG_AREAS.includes(area) || areas.includes(area)));
+
+const ClusterNodesSchema = z
+    .array(ClusterNodeInputSchema)
+    .min(1, { error: "Add at least one node" })
+    .superRefine((nodes, ctx) => {
+        if (nodes.filter((node) => node.primary).length !== 1) {
+            ctx.addIssue({ code: "custom", message: "Choose one node as the primary" });
+        }
+        nodes.forEach((node, i) => {
+            const before = nodes.slice(0, i);
+            if (before.some((other) => other.name.toLowerCase() === node.name.toLowerCase())) {
+                ctx.addIssue({ code: "custom", path: [i, "name"], message: `Another node is called "${node.name}" already` });
+            }
+            if (before.some((other) => adguardAddressKey(other.url) === adguardAddressKey(node.url))) {
+                ctx.addIssue({ code: "custom", path: [i, "url"], message: `${node.url} is the address of another node already` });
+            }
+        });
+    });
 
 /**
  * `POST /api/v1/providers` and `PUT /api/v1/providers/:providerId`, one shape per type. The
@@ -503,14 +569,21 @@ export const ProviderInputSchema = z.discriminatedUnion("type", [
     z.object({
         type: z.literal("adguard"),
         ...providerCommon,
-        /** Where AdGuard Home's web interface answers, e.g. `http://192.168.1.2:3000`. */
-        url: z
-            .string()
-            .trim()
-            .pipe(z.url({ protocol: /^https?$/, error: "Must be an http:// or https:// URL" })),
+        url: AdGuardUrlSchema,
         username: z.string().trim().min(1, { error: "Enter the user name" }),
         /** Accept a certificate that does not validate, for an https:// URL. */
         allowSelfSigned: z.boolean().default(false),
+    }),
+    z.object({
+        /**
+         * Several AdGuard Home instances kept alike: the primary is read and written like one
+         * instance, the other nodes are made copies of it, area by area. The passwords are the
+         * nodes' own; the cluster has none.
+         */
+        type: z.literal("adguard-cluster"),
+        ...providerBase,
+        areas: ClusterAreasSchema,
+        nodes: ClusterNodesSchema,
     }),
     z.object({
         type: z.literal("samba-ad"),
@@ -523,8 +596,19 @@ export const ProviderInputSchema = z.discriminatedUnion("type", [
     }),
 ]);
 
-/** Why a new provider cannot be created without more: it has no secret yet. */
-export function providerSecretMissing(input: { type: string; secret?: string }): string | null {
+/**
+ * Why a provider cannot be saved without more: a new provider has no secret yet, or a node new
+ * to a cluster has no password.
+ */
+export function providerSecretMissing(input: {
+    type: string;
+    secret?: string;
+    nodes?: readonly { id?: string; name: string; secret?: string }[];
+}): string | null {
+    if (input.type === "adguard-cluster") {
+        const node = input.nodes?.find((n) => !n.id && !n.secret);
+        return node ? `Enter the password of ${node.name}` : null;
+    }
     if (input.secret) return null;
     return input.type === "cloudflare" ? "Enter the API token" : "Enter the password";
 }

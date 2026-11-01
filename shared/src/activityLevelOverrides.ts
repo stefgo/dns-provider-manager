@@ -43,6 +43,12 @@ export const ACTIVITY_DEFAULT_LEVELS: Record<ActivityKind, readonly ActivityLeve
     "provider.deleted": ["info"],
     "provider.unreachable": ["warning"],
     "provider.recovered": ["info"],
+    "cluster.propagated": ["info"],
+    "cluster.corrected": ["warning"],
+    "cluster.write_failed": ["error"],
+    "cluster.paused": ["warning"],
+    "cluster.resumed": ["info"],
+    "cluster.primary_changed": ["info"],
     "scheduler.failed": ["error"],
 };
 

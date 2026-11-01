@@ -1,7 +1,7 @@
 # Providers
 
 A provider is one access to a DNS server: a Cloudflare API token, an AdGuard Home instance, a
-Samba AD domain. It is added under **Providers**; **Test Connection** asks it before anything
+Samba AD domain — or an AdGuard Home cluster, several instances kept alike as one. It is added under **Providers**; **Test Connection** asks it before anything
 is saved. Which sites a provider belongs to is set in each site.
 
 DPM reads every provider every few minutes (*Settings → Providers*), once at every start and
@@ -90,6 +90,20 @@ every login from that address for 15 minutes, the right password included (`auth
 saving it, and do not try again and again.
 
 Tested with AdGuard Home v0.107.79; the calls DPM writes with were tried against v0.107.33.
+
+Several AdGuard Home instances that should answer alike can be one provider instead, kept alike
+by DPM: see [AdGuard Home Clusters](clusters.md).
+
+## AdGuard Home cluster
+
+| Field | |
+| :---- | :-- |
+| Nodes | The instances, each with its name, URL, user, password and *Accept a Self-Signed Certificate* as for a single AdGuard Home. One is the **primary**, marked with the crown. |
+| Kept Alike | What the other nodes copy from the primary besides the DNS rewrites, which are always copied. |
+
+DPM reads the cluster's records from the primary, as from a single AdGuard Home, and writes a
+record to the primary and then to every other node that is in step. Everything else about the
+nodes — the runs, the areas, the activity — is on [AdGuard Home Clusters](clusters.md).
 
 ## Samba AD
 

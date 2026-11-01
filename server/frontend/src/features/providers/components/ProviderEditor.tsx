@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { PlugZap, Server, X } from "lucide-react";
 import {
+    CONFIG_AREAS,
+    CONFIG_AREA_LABELS,
+    FIXED_CONFIG_AREAS,
     PROVIDER_TYPES,
     PROVIDER_TYPE_LABELS,
     WRITABLE_PROVIDER_TYPES,
@@ -22,8 +25,10 @@ import {
     Select,
     Switch,
     Textarea,
+    useConfirm,
 } from "@stefgo/react-ui-components";
 import { testProvider, useProviders, useSaveProvider } from "../../../queries/providers";
+import { fetchClusterPreview } from "../../../queries/clusters";
 import { getErrorMessage, toggled } from "../../../utils";
 import { useSites } from "../../../queries/sites";
 import { QueryError } from "../../../components/QueryError";
@@ -40,6 +45,8 @@ import {
     providerRules,
     type ProviderDraft,
 } from "../lib/providerForm";
+import { describeClusterSave, type NodeDraft } from "../lib/clusterForm";
+import { ClusterNodesField } from "./ClusterNodesField";
 
 /** `/providers/new` and `/providers/:providerId/edit`, read from the list like every editor. */
 export const ProviderEditorRoute = () => {
@@ -110,6 +117,14 @@ const ZoneChoice = ({
     );
 };
 
+/** What the name field suggests for each type. */
+const NAME_PLACEHOLDER: Record<ProviderType, string> = {
+    cloudflare: "Cloudflare",
+    adguard: "AdGuard 1",
+    "adguard-cluster": "AdGuard cluster",
+    "samba-ad": "Samba AD",
+};
+
 /** A switch with a label above it, laid out like the other fields of a row. */
 const SwitchField = ({
     id,
@@ -154,7 +169,17 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
         rules: providerRules(isNew),
     });
     const { draft, set, errors, isSaving } = form;
-    const { close, leave } = useUnsavedChangesGuard(form.isDirty, isNew ? "newProvider" : "provider");
+    const { confirm } = useConfirm();
+    // The form of a cluster's node takes the box's place; Escape closes it before the page.
+    const [editingNode, setEditingNode] = useState<NodeDraft | null>(null);
+    const { close, leave } = useUnsavedChangesGuard(form.isDirty, isNew ? "newProvider" : "provider", {
+        onEscape: () => {
+            if (!editingNode) return false;
+            setEditingNode(null);
+            return true;
+        },
+    });
+    const cluster = provider?.type === "adguard-cluster" ? provider : null;
 
     const [testResult, setTestResult] = useState<ProviderTestResult | null>(null);
     const [testError, setTestError] = useState<string | null>(null);
@@ -174,11 +199,42 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
         }
     };
 
+    /**
+     * Before a cluster is saved: what the next run writes to the nodes that start over, read
+     * from them now. Saving itself writes nothing to them.
+     */
+    const confirmCluster = async (): Promise<boolean> => {
+        if (draft.type !== "adguard-cluster" || !form.input) return true;
+        const before = cluster?.nodes.find((n) => n.primary);
+        const after = draft.nodes.find((n) => n.primary);
+        const primaryChanged = before && after && before.id !== after.id ? { from: before.name, to: after.name } : null;
+        const preview = await fetchClusterPreview({ id: provider?.id, provider: form.input }).catch((err: unknown) => ({ error: getErrorMessage(err) }));
+        const question = describeClusterSave(draft.name, preview, primaryChanged);
+        if (!question) return true;
+        return confirm({
+            title: question.title,
+            description: (
+                <div className="space-y-2">
+                    <ul className="list-disc space-y-1 pl-5">
+                        {question.lines.map((line) => (
+                            <li key={line}>{line}</li>
+                        ))}
+                    </ul>
+                    <p>It is written with the next run of the cluster, not now. What a node holds there of its own is written over.</p>
+                </div>
+            ),
+            confirmLabel: "Save",
+            variant: question.danger ? "danger" : "primary",
+        });
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // What is stored is not shown again: the secret field goes back to empty.
+        if (!form.canSave) return;
+        if (!(await confirmCluster())) return;
+        // What is stored is not shown again: the secret fields go back to empty.
         const saved = await form.submit((input) => saveProvider({ id: provider?.id, input }), {
-            rebase: (sent: ProviderDraft) => ({ ...sent, secret: "" }),
+            rebase: (sent: ProviderDraft) => ({ ...sent, secret: "", nodes: sent.nodes.map((n) => ({ ...n, secret: "" })) }),
         });
         if (saved) leave();
     };
@@ -214,7 +270,7 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                         label="Name"
                         value={draft.name}
                         onChange={(e) => set("name", e.target.value)}
-                        placeholder={draft.type === "cloudflare" ? "Cloudflare" : draft.type === "adguard" ? "AdGuard 1" : "Samba AD"}
+                        placeholder={NAME_PLACEHOLDER[draft.type]}
                         error={errors.name}
                     />
                 </div>
@@ -275,6 +331,40 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                     </>
                 )}
 
+                {draft.type === "adguard-cluster" && (
+                    <>
+                        <ClusterNodesField
+                            cluster={cluster}
+                            nodes={draft.nodes}
+                            onChange={(nodes) => set("nodes", nodes)}
+                            editing={editingNode}
+                            onSetEditing={setEditingNode}
+                            error={errors.nodes}
+                        />
+                        <div>
+                            <FieldLabel as="div">Kept Alike</FieldLabel>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {CONFIG_AREAS.map((area) => {
+                                    const fixed = FIXED_CONFIG_AREAS.includes(area);
+                                    return (
+                                        <Checkbox
+                                            key={area}
+                                            label={CONFIG_AREA_LABELS[area]}
+                                            hint={fixed ? "Always: without them a node would not hold the records" : undefined}
+                                            checked={fixed || draft.areas.includes(area)}
+                                            disabled={fixed}
+                                            onChange={(e) => set("areas", toggled(draft.areas, area, e.target.checked))}
+                                        />
+                                    );
+                                })}
+                            </div>
+                            <p className="mt-1 text-xs text-text-muted">
+                                Each area ticked is copied from the primary to every other node as a whole: what a node holds there and the primary does not is removed.
+                            </p>
+                        </div>
+                    </>
+                )}
+
                 {draft.type === "samba-ad" && (
                     <>
                         <Textarea
@@ -308,7 +398,7 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                     </>
                 )}
 
-                {draft.type !== "adguard" && (
+                {(draft.type === "cloudflare" || draft.type === "samba-ad") && (
                     <div>
                         <FieldLabel as="div">Zones</FieldLabel>
                         <ZoneChoice provider={provider} draft={draft} onChange={(zoneIds) => set("zoneIds", zoneIds)} />
@@ -316,7 +406,7 @@ const ProviderEditor = ({ provider }: { provider: Provider | null }) => {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {draft.type !== "cloudflare" && (
+                    {(draft.type === "adguard" || draft.type === "samba-ad") && (
                         <SwitchField
                             id="provider-self-signed"
                             label="Accept a Self-Signed Certificate"

@@ -28,7 +28,7 @@ import {
     PAGE_SIZE,
     listPagination,
 } from "@stefgo/react-ui-components";
-import { ACTIVITY_LEVELS, ActivityLevel, ActivityRecord, activityDetail, activityMessage } from "@dpm/shared";
+import { ACTIVITY_LEVELS, ActivityLevel, ActivityRecord, activityDetail, activityItems, activityMessage } from "@dpm/shared";
 import { unseenTone } from "../../../lib/cacheUpdates";
 import { useActivity, useClearActivity, useMarkActivitySeen } from "../../../queries/activity";
 import { QueryError } from "../../../components/QueryError";
@@ -204,8 +204,10 @@ export function ActivityView({ initialLevel }: ActivityViewProps = {}) {
             tableHeader: "Message",
             tableItemRender: (g) => {
                 const isExpanded = expandedIds.has(g.head.id);
-                const detail = activityDetail(g.head);
-                const expandable = !!detail || g.members.length > 0;
+                // Parts listed one per line take the place of the second line that names them all.
+                const items = activityItems(g.head);
+                const detail = items.length > 0 ? null : activityDetail(g.head);
+                const expandable = !!detail || items.length > 0 || g.members.length > 0;
                 return (
                     <div className={`flex items-start gap-2 w-full ${g.unseen ? "" : "opacity-60"}`}>
                         <div className="mt-0.5 shrink-0 w-[14px]">
@@ -236,6 +238,15 @@ export function ActivityView({ initialLevel }: ActivityViewProps = {}) {
                                 <p className="mt-1 text-xs text-text-muted whitespace-pre-wrap break-words">
                                     {detail}
                                 </p>
+                            )}
+                            {isExpanded && items.length > 0 && (
+                                <ul className="mt-1 space-y-0.5">
+                                    {items.map((item) => (
+                                        <li key={item} className="text-xs text-text-muted break-words">
+                                            {item}
+                                        </li>
+                                    ))}
+                                </ul>
                             )}
                             {isExpanded && g.members.length > 0 && (
                                 <ActivityGroupSteps members={g.members} />
