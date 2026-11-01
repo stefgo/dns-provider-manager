@@ -33,6 +33,7 @@ import {
     ActivitySection,
     ProvidersSection,
 } from "../features/settings/components/SettingsSections";
+import { describeSettingsSave } from "../features/settings/lib/saveMessage";
 
 /** Escape leaves an editor; this page is no editor and has nowhere to close onto. */
 const stayOnEscape = () => true;
@@ -111,7 +112,7 @@ export default function Settings() {
             // The endpoint validates the body and names the offending field.
             await saveSettings(body);
             setSaved((prev) => ({ ...prev, ...body }));
-            show({ variant: "success", title: `${section.label} saved` });
+            show({ variant: "success", ...describeSettingsSave(section, saved, { ...saved, ...body }) });
             // A changed interval moves the next scheduled run.
             void queryClient.invalidateQueries({ queryKey: schedulerStatusOptions.queryKey });
         } catch (e: unknown) {
