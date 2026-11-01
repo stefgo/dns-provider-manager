@@ -34,7 +34,7 @@ answers; split horizon is the same name in two sites with two answers.
   primary; the others become exact copies of it — **DNS rewrites** always, and, chosen per
   cluster, **general settings, DNS settings, client settings, DNS blocklists, DNS allowlists,
   blocked services and custom filtering rules**. A record goes to every node at once, a change
-  at the primary reaches the other nodes within a minute, and a change made at another node is
+  at the primary reaches the other nodes within 5 minutes, and a change made at another node is
   written over and reported. Before saving, DPM shows what each node is about to get.
 - **Cloudflare, AdGuard Home, Samba AD:** over their own APIs — HTTPS, HTTP and LDAPS. There
   is no agent to install. Samba AD is read without the records its domain controllers

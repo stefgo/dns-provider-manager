@@ -89,7 +89,7 @@ function checkZones(id: string, fields: ProviderFields): void {
 /**
  * Refuses a node of a cluster at an AdGuard Home address dpm reaches already, as a provider of
  * its own or as a node of another cluster: the cluster's run would write over the other's
- * changes there every minute. Two single providers at one address are left as they were.
+ * changes there on every run. Two single providers at one address are left as they were.
  */
 function checkAddresses(id: string | undefined, fields: ProviderFields): void {
     const wanted = fields.type === "adguard" ? [fields.url] : fields.type === "adguard-cluster" ? fields.nodes.map((n) => n.url) : [];

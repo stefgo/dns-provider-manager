@@ -140,7 +140,7 @@ server/backend/src/
   to every node whose rewrites are in step; a node it does not reach is marked behind.
   `providerAccess.ts` builds the client of a stored provider or of the editor's draft, the
   nodes' passwords decrypted. Keeping the nodes alike is `ClusterSyncService`, on a scheduler
-  of its own (`cluster-sync`, every minute by default) and on request; a run of a cluster goes
+  of its own (`cluster-sync`, every 5 minutes by default) and on request; a run of a cluster goes
   through the cluster's queue, so no record is written to it meanwhile. A run reads the areas
   of the primary and of every node, and per area `prepareArea` compares them on the fields
   every node knows (`commonShape`) and `planArea` decides per node: nothing, bring it up,

@@ -151,7 +151,7 @@ export const AppSettingsSchema = z
         /** Minutes between two readings of every provider; 0 reads only on request. */
         provider_read_interval_minutes: WholeNumberSettingSchema.default("5"),
         /** Minutes between two runs that keep the nodes of each AdGuard Home cluster alike; 0 runs only on request. */
-        cluster_sync_interval_minutes: WholeNumberSettingSchema.default("1"),
+        cluster_sync_interval_minutes: WholeNumberSettingSchema.default("5"),
     })
     .prefault({});
 

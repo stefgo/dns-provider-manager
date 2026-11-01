@@ -74,7 +74,7 @@ manage* holds for the primary only.
 
 ## How a run works
 
-The cluster runs on its own timer — every minute by default (**Settings → Providers → Cluster
+The cluster runs on its own timer — every 5 minutes by default (**Settings → Providers → Cluster
 Sync Interval**), once at every start of the server and on **Sync Now**. Saving a cluster
 starts no run. While a cluster runs, no record is written to it.
 
@@ -110,15 +110,15 @@ v0.107.37) shows as failed at that node; the other areas carry on.
   lacks it.
 - **A freshly installed primary empties the other nodes.** Before replacing the primary, make
   another node the primary.
-- **A change at the primary reaches the nodes with the next run**, within a minute by default.
+- **A change at the primary reaches the nodes with the next run**, within 5 minutes by default.
   If the primary goes down before that, the change stays on it and goes out once it is back.
 - **A URL is either a blocklist or an allowlist** in AdGuard Home. A list moved from the
   allowlists to the blocklists at the primary needs two runs at a node, with a failed write in
   between.
 - AdGuard Home has no way to write "only if unchanged": a change made at a node in the seconds
   between a run's reading and its writing can be written over unreported.
-- A run reads every area of every node — a handful of small requests each, every minute by
-  default. Set the interval higher, or to `0` (only on request), if that is too often.
+- A run reads every area of every node — a handful of small requests each, every 5 minutes
+  by default. Set the interval higher, or to `0` (only on request), if that is too often.
 
 ## From single providers to a cluster
 

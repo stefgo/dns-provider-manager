@@ -41,7 +41,7 @@ export const ProvidersSection = ({ values, onChange }: SectionProps) => (
                 label="Cluster Sync Interval (Minutes)"
                 value={values.cluster_sync_interval_minutes}
                 onChange={(v) => onChange("cluster_sync_interval_minutes", v)}
-                placeholder="1"
+                placeholder="5"
                 hint="How often the nodes of each AdGuard Home cluster are compared with its primary. Set to 0 to run only on request. The server runs once at every start either way."
             />
         </div>

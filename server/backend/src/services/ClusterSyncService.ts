@@ -35,8 +35,8 @@ type ClusterFields = Extract<ProviderFields, { type: "adguard-cluster" }>;
 const MAX_STEPS_NAMED = 20;
 
 const intervalMinutes = () => {
-    const minutes = parseInt(appConfig.settings.cluster_sync_interval_minutes ?? "1", 10);
-    return Number.isFinite(minutes) && minutes >= 0 ? minutes : 1;
+    const minutes = parseInt(appConfig.settings.cluster_sync_interval_minutes ?? "5", 10);
+    return Number.isFinite(minutes) && minutes >= 0 ? minutes : 5;
 };
 
 const job = new ScheduledJob({
@@ -442,7 +442,7 @@ export class ClusterSyncService {
         });
     }
 
-    /** Writes a link, unless nothing about it changed: a run every minute leaves most as they are. */
+    /** Writes a link, unless nothing about it changed: a run every few minutes leaves most as they are. */
     private static saveLink(nodeId: string, area: ConfigArea, before: ClusterLink | undefined, change: Partial<ClusterLink>): void {
         const next: ClusterLink = {
             nodeId,

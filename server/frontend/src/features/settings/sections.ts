@@ -47,7 +47,7 @@ export const DEFAULT_SETTINGS: SettingsValues = {
     notification_cleanup_interval_hours: "24",
     activity_level_overrides: "",
     provider_read_interval_minutes: "5",
-    cluster_sync_interval_minutes: "1",
+    cluster_sync_interval_minutes: "5",
 };
 
 /** Whether the draft differs from what the server holds in any of the section's keys. */

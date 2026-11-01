@@ -29,7 +29,7 @@ blocked services and custom filtering rules. Add the nodes in the provider edito
 site lists its providers, and mark the primary with the crown.
 
 A record goes to the primary and right away to the other nodes. A change at the primary
-reaches them with the next run, every minute by default (**Settings → Providers → Cluster
+reaches them with the next run, every 5 minutes by default (**Settings → Providers → Cluster
 Sync Interval**), or at once with **Sync Now** on the cluster's page. A change made at another
 node is written over and reported as a warning, so make changes at the primary's own address,
 not through a virtual IP. Before saving, the editor shows what each node is about to get;
