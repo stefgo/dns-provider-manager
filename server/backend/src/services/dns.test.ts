@@ -125,7 +125,8 @@ describe("RecordService", () => {
         expect(parked).toMatchObject({ siteIds: [], links: [], skipped: [] });
         await RecordService.update(parked.id, RecordInputSchema.parse({ ...parked, siteIds: [internal.id] }), USER);
         await RecordService.update(parked.id, RecordInputSchema.parse({ ...parked, siteIds: [] }), USER);
-        expect(events("record.changed")[0].data).toMatchObject({ changes: [{ field: "sites", from: "internal", to: "none" }] });
+        // Both changes may fall into one millisecond, which leaves their order in the list open.
+        expect(events("record.changed").map((e) => e.data?.changes)).toContainEqual([{ field: "sites", from: "internal", to: "none" }]);
     });
 
     it("stores a record with its sites and who made it", async () => {
