@@ -1,4 +1,5 @@
-import type { DnsRecord, PendingRemoval, Provider, RecordLinkView, Site } from "./types.js";
+import { CONFIG_AREA_LABELS } from "./constants.js";
+import type { ClusterStatus, DnsRecord, PendingRemoval, Provider, RecordLinkView, Site } from "./types.js";
 
 /**
  * What needs a look across the providers right now, as the dashboard's "Needs attention"
@@ -40,6 +41,9 @@ const FINDING_TYPES = [
     "record-drift",
     "record-no-target",
     "site-without-provider",
+    "cluster-node-failed",
+    "cluster-paused",
+    "cluster-node-unreachable",
 ] as const;
 
 export type FindingType = (typeof FINDING_TYPES)[number];
@@ -70,6 +74,8 @@ export interface FindingsInput {
     sites: readonly Site[];
     /** Deleted records a provider still holds. */
     removals: readonly PendingRemoval[];
+    /** How each AdGuard Home cluster keeps its nodes alike; none where it is not read. */
+    clusters?: readonly ClusterStatus[];
 }
 
 /**
@@ -154,7 +160,7 @@ const RECORD_SEVERITY: Record<RecordItem["type"], FindingSeverity> = {
  * A provider that cannot be reached takes the failed writes and removals at it into its own
  * finding: they have the one cause, and it is the one line that says what to do.
  */
-export function buildFindings({ records, providers, sites, removals }: FindingsInput): Finding[] {
+export function buildFindings({ records, providers, sites, removals, clusters = [] }: FindingsInput): Finding[] {
     const found: Finding[] = [];
     const unreachable = new Set(providers.filter(isUnreachable).map((p) => p.id));
     const waiting = new Map<string, number>();
@@ -257,12 +263,67 @@ export function buildFindings({ records, providers, sites, removals }: FindingsI
         });
     }
 
+    found.push(...clusterFindings(clusters, providers, unreachable));
+
     return found.sort(
         (a, b) =>
             SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] ||
             FINDING_TYPES.indexOf(a.type) - FINDING_TYPES.indexOf(b.type) ||
             a.text.localeCompare(b.text, undefined, { sensitivity: "base" }),
     );
+}
+
+/**
+ * What keeping an AdGuard Home cluster alike needs a look for: a node that could not be
+ * written to -- one line per node, naming the areas --, a node that is not reachable, and a
+ * primary that answers but cannot give an area. A primary that cannot be reached at all is the
+ * cluster's own "not reachable" finding already.
+ */
+function clusterFindings(statuses: readonly ClusterStatus[], providers: readonly Provider[], unreachable: ReadonlySet<string>): Finding[] {
+    const found: Finding[] = [];
+    for (const status of statuses) {
+        const cluster = providers.find((p) => p.id === status.providerId);
+        if (cluster?.type !== "adguard-cluster" || unreachable.has(cluster.id)) continue;
+        const target: FindingTarget = { kind: "provider", id: cluster.id };
+        const nodeName = (id: string) => cluster.nodes.find((n) => n.id === id)?.name ?? id;
+        if (status.pausedError !== null) {
+            const primary = status.primaryNodeId ? nodeName(status.primaryNodeId) : "its primary";
+            found.push({
+                id: `cluster-paused:${cluster.id}`,
+                type: "cluster-paused",
+                severity: "warning",
+                text: withReason(`Cluster ${cluster.name} is paused: ${primary} cannot be read`, status.pausedError),
+                target,
+            });
+            continue;
+        }
+        const failed = new Map<string, ClusterStatus["links"]>();
+        for (const link of status.links) {
+            if (link.status === "error") failed.set(link.nodeId, [...(failed.get(link.nodeId) ?? []), link]);
+        }
+        for (const [nodeId, links] of failed) {
+            const areas = links.map((l) => CONFIG_AREA_LABELS[l.area]).join(", ");
+            found.push({
+                id: `cluster-node-failed:${nodeId}`,
+                type: "cluster-node-failed",
+                severity: "error",
+                text: withReason(`${areas} could not be written to ${nodeName(nodeId)} (cluster ${cluster.name})`, links[0].error),
+                target,
+            });
+        }
+        for (const node of cluster.nodes) {
+            if (node.primary || node.lastError === null || failed.has(node.id)) continue;
+            found.push({
+                id: `cluster-node-unreachable:${node.id}`,
+                type: "cluster-node-unreachable",
+                severity: "warning",
+                text: withReason(`${node.name} of cluster ${cluster.name} is not reachable`, node.lastError),
+                target,
+                lastReached: node.lastSeenAt,
+            });
+        }
+    }
+    return found;
 }
 
 export type DnsStatus = "healthy" | "degraded" | "critical" | "unknown";

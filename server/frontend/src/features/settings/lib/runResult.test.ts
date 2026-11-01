@@ -8,6 +8,8 @@ describe("describeRunResult", () => {
         expect(describeRunResult({ ...run, status: "success", result: { removed: 3 } })).toBe("3 removed");
         expect(describeRunResult({ ...run, status: "success", result: { read: 2, failed: 0 } })).toBe("2 read");
         expect(describeRunResult({ ...run, status: "partial", result: { read: 2, failed: 1 } })).toBe("2 read, 1 failed");
+        expect(describeRunResult({ ...run, status: "success", result: { clusters: 1, written: 2, failed: 0 } })).toBe("1 cluster, 2 written");
+        expect(describeRunResult({ ...run, status: "partial", result: { clusters: 2, written: 0, failed: 1 } })).toBe("2 clusters, 0 written, 1 failed");
     });
 
     it("gives the error of a failed run", () => {

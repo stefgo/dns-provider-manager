@@ -16,7 +16,8 @@ filters it passes:
 
 - **Minimum level** — `trace`, `info`, `warning` or `error`. The default is `warning`.
 - **Event kinds** — a comma-separated list of patterns, `*` as wildcard: `record.*`,
-  `scheduler.failed`. Empty means every kind. The kinds are listed in the
+  `cluster.*` (the [AdGuard Home clusters](clusters.md)), `scheduler.failed`. Empty means
+  every kind. The kinds are listed in the
   [Activity reference](api.md#-activity).
 
 ## Delivery

@@ -45,6 +45,13 @@
     - [Delete Provider](#delete-provider)
     - [Test A Provider](#test-a-provider)
     - [Read Providers](#read-providers)
+- [Clusters](#-clusters)
+    - [List Every Cluster](#list-every-cluster)
+    - [Get A Cluster](#get-a-cluster)
+    - [Preview A Cluster](#preview-a-cluster)
+    - [Check A Cluster](#check-a-cluster)
+    - [Sync A Cluster Now](#sync-a-cluster-now)
+    - [Sync Every Cluster Now](#sync-every-cluster-now)
 - [Unmanaged](#-unmanaged)
     - [List Unmanaged Records](#list-unmanaged-records)
     - [Adopt](#adopt)
@@ -521,13 +528,14 @@ removed from its providers; a record that belonged to this site alone is parked.
 ## 🖥️ Providers
 
 One provider is one access to a DNS server: a Cloudflare API token, an AdGuard Home instance,
-a Samba AD domain. Its secret — the API token or the password — is stored encrypted and never
-returned; `hasSecret` says whether one is stored.
+a Samba AD domain, an AdGuard Home cluster. Its secret — the API token or the password — is
+stored encrypted and never returned; `hasSecret` says whether one is stored.
 
 | `type` | Fields besides `name`, `autoCorrect`, `readOnly` and `secret` |
 | :----- | :-------------------------------------------------- |
 | `cloudflare` | `zoneMode`: `all` (every zone the token sees) or `selected`; `zoneIds`: the zones ticked under `selected`, by Cloudflare's zone id |
 | `adguard` | `url` (`http://` or `https://`), `username`, `allowSelfSigned` |
+| `adguard-cluster` | `areas`, `nodes` — and no `secret`: each node has its own. See [Clusters](#-clusters) |
 | `samba-ad` | `servers` (one or more `host` or `host:port`, port 636 unless named), `username`, `allowSelfSigned` |
 
 ```json
@@ -602,6 +610,17 @@ what it leaves out, is described under [Providers](providers.md).
 
 A provider that refuses is a **200** with `ok: false` and its reason in `message`.
 
+A cluster's `nodes` are `{ "id", "name", "url", "username", "secret", "allowSelfSigned",
+"primary" }`, at least one, exactly one `primary`, names and addresses unique within the
+cluster. A node sent with the `id` of a stored node keeps its password while `secret` is left
+out; a node without `id` is new and needs one (**400**). A node whose address is that of
+another cluster's node, or of a single `adguard` provider, is refused with **409**. `areas` is
+what the other nodes copy from the primary, of `rewrites`, `general`, `dns`, `clients`,
+`blocklists`, `allowlists`, `blocked_services` and `user_rules`; `rewrites` is always among
+them, and left out the list defaults to all but `dns`. In a response, each node carries
+`hasSecret`, `version`, `lastSeenAt` and `lastError` — what the last run found there — instead
+of `secret`, and the cluster's `hasSecret` is whether every node has one.
+
 ### Read Providers
 
 The server reads every provider on a timer (`provider_read_interval_minutes`, default 5), once
@@ -615,6 +634,104 @@ only.
   (see [List Unmanaged Records](#list-unmanaged-records)).
 - `POST /api/v1/providers/read` reads every provider now, as a run of the `provider-read`
   scheduler, and answers `{ "success": true, "read": 2, "failed": 0 }`.
+
+A cluster is read at its primary; the other nodes are read by the cluster's runs.
+
+---
+
+## 🔗 Clusters
+
+How an AdGuard Home cluster keeps its nodes alike: its **primary** is the source, every other
+node is made to hold what it holds, area by area. The cluster itself is created and changed as
+a [provider](#-providers). See [AdGuard Home Clusters](clusters.md) for how a run decides.
+
+```json
+{
+    "providerId": "a50c…",
+    "primaryNodeId": "1f0e…",
+    "areas": ["rewrites", "general", "clients"],
+    "pausedError": null,
+    "lastRunAt": "2026-11-01T12:05:00.000Z",
+    "links": [
+        {
+            "nodeId": "95a0…",
+            "area": "clients",
+            "status": "error",
+            "error": "AdGuard Home refused it (HTTP 400): …",
+            "attempts": 2,
+            "lastAttemptAt": "2026-11-01T12:02:00.000Z",
+            "syncedAt": "2026-11-01T12:00:05.000Z"
+        }
+    ]
+}
+```
+
+`areas` are always listed in the order of the list above. `pausedError` is why the primary
+could not be read on the last run, `null` while it could. `lastRunAt` is when the cluster last
+ran, whether it wrote anything or found the primary down; `null` before its first run. A link
+is one area at one node besides the primary; its `status` is `in_sync`, `pending` (not reached
+yet, new, or a write of a record did not reach it), `error` (writing failed, or the node cannot
+take the area — with `error`) or `paused` (the primary could not be read). `syncedAt` is when
+the node last came to hold what the primary holds. An area not run since it was chosen has no
+link yet.
+
+### List Every Cluster
+
+`GET /api/v1/clusters` answers the status above for every cluster, ordered by name.
+
+### Get A Cluster
+
+`GET /api/v1/providers/:providerId/cluster` answers the cluster's status; **404** for a
+provider that is no cluster.
+
+### Preview A Cluster
+
+`POST /api/v1/providers/cluster/preview` with `{ "provider": { …as for a create… }, "id": "…" }`
+reads the nodes and answers what saving the cluster would have the next run write to each
+node that starts over — every node of a new cluster or after another primary, a node new to it,
+an area just chosen — a sentence per change, or why the area cannot be written there. Nodes that
+are kept alike already are not listed. `id` names the stored cluster whose passwords stand in
+where `secret` is left out. Changes nothing. `error` is set, and `nodes` empty, when the primary
+cannot be read.
+
+```json
+{
+    "error": null,
+    "nodes": [
+        {
+            "name": "adguard-2",
+            "areas": [
+                { "area": "rewrites", "steps": ["Rewrite nas.lan → 10.0.0.20 added"], "error": null },
+                { "area": "blocked_services", "steps": [], "error": "Blocked services need AdGuard Home v0.107.37 or later; adguard-2 runs v0.107.33" }
+            ]
+        }
+    ]
+}
+```
+
+Saving a cluster writes nothing to its nodes: the next run of the `cluster-sync` scheduler, or
+`POST …/cluster/run`, does. Another primary has that run write its state to every other node as
+a `cluster.propagated`, not as changes made at the nodes.
+
+### Check A Cluster
+
+`POST /api/v1/providers/:providerId/cluster/check` reads the primary and every other node now and
+answers, in the shape of the preview above, how each node differs from the primary: per area the
+changes a run would write there, `[]` where it holds the same, or why the area could not be
+read. Every node is listed with every area it keeps alike. It waits for a run or the writes
+under way at the cluster, and changes nothing — no write, no status, no activity. `error` is
+set, and `nodes` empty, when the primary cannot be read; **404** for a provider that is no
+cluster.
+
+### Sync A Cluster Now
+
+`POST /api/v1/providers/:providerId/cluster/run` runs the cluster at once — after the run or the
+writes under way at it — and answers its status afterwards.
+
+### Sync Every Cluster Now
+
+`POST /api/v1/clusters/run` runs every cluster, as a run of the `cluster-sync` scheduler, and
+answers `{ "success": true, "clusters", "written", "failed" }`.
 
 ---
 
@@ -783,7 +900,7 @@ Keys not listed are accepted and written as they are: the settings page sends ba
 }
 ```
 
-Every scheduler reports `isRunning`, `nextRun` (`null` while its interval is `0`) and `lastRun`, the last run it finished (`null` before its first). `lastRun.trigger` is `schedule` or `manual`; `lastRun.status` is `success`, `failed` (with `error`) or `interrupted` (the server stopped during the run; no `finishedAt`, no `result`). `result` is `{ removed }`. The state is kept in the database and survives a restart.
+Every scheduler reports `isRunning`, `nextRun` (`null` while its interval is `0`) and `lastRun`, the last run it finished (`null` before its first). `lastRun.trigger` is `schedule` or `manual`; `lastRun.status` is `success`, `partial` (finished with failures), `failed` (with `error`) or `interrupted` (the server stopped during the run; no `finishedAt`, no `result`). The schedulers are `notification-cleanup` (`result`: `{ removed }`), `provider-read` (`{ read, failed }`) and `cluster-sync` (`{ clusters, written, failed }`). The state is kept in the database and survives a restart.
 
 ---
 
@@ -828,11 +945,17 @@ what the server did by itself.
 | `record.released` | `info` | `recordId` | `user`, `name`, `type`, `value`, `sites`, `providers` — the record was given up; `providers` are those left holding it |
 | `provider.unreachable` | `warning` | `providerId` | `name`, `providerType`, `error` — once, when a provider that answered stops answering |
 | `provider.recovered` | `info` | `providerId` | `name`, `providerType` — when it answers again |
+| `cluster.propagated` | `info` | `providerId` (the cluster) | `cluster`, `primary`, `areas` (names of the areas written), `nodes` (the nodes written to), `steps` — what changed at the primary, or what a node that was behind got, a sentence each; one per run that wrote to a node |
+| `cluster.corrected` | `warning` | `providerId` | `cluster`, `primary`, `node`, `areas`, `steps` — a change made at a node was written over; one per node and run |
+| `cluster.write_failed` | `error` | `providerId` | `cluster`, `node`, `area`, `error` — when writing an area to a node fails, or fails for another reason |
+| `cluster.paused` / `cluster.resumed` | `warning` / `info` | `providerId` | `cluster`, `primary`, `error` — when the primary stops answering, and when it answers again |
+| `cluster.primary_changed` | `info` | `providerId` | `user`, `cluster`, `from`, `to` — another node was made the primary |
 | `scheduler.failed` | `error` | — | `scheduler`, `trigger`, `error` |
 
 `changes` lists what a change changed, as `{ field, from, to }` with both values written out
 as text — a site renamed since still reads as it was called then. A new secret is named as
-`{ "field": "secret", "from": "stored", "to": "replaced" }` and never shown.
+`{ "field": "secret", "from": "stored", "to": "replaced" }` and never shown; a node's new
+password as `{ "field": "password of adguard-2", … }`.
 
 ### List Activity
 
@@ -1098,4 +1221,5 @@ rules, and a nullable column arrives as `null`, not as a missing key.
 | `ACTIVITY_SEEN`       | `{ ids: string[] }`                         | Events the session's user has just marked seen. Sent to that user's sessions only. |
 | `READINGS_UPDATE`     | `{ providerId }`                            | A provider was read. The dashboard reads the providers and the unmanaged records again. |
 | `RECORDS_UPDATE`      | `{ recordIds }`                             | Records were written, or where they stand at a provider changed. The dashboard reads the records and the unmanaged records again. |
+| `CLUSTER_UPDATE`      | `{ providerId }`                            | A cluster ran, was saved or deleted. The dashboard reads the clusters and the providers again. |
 | `SCHEDULER_STATUS_UPDATE` | `{ scheduler, status }`                 | One scheduler's status, in the shape of [Scheduler Status](#scheduler-status), whenever a run starts or ends or its timer is set. |

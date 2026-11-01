@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
     ACTIVITY_LEVELS,
+    CONFIG_AREAS,
+    CONFIG_LINK_STATUSES,
     LINK_STATUSES,
     PROVIDER_TYPES,
     RECORD_TYPES,
@@ -65,6 +67,7 @@ const schedulerStatus = <R extends z.ZodType>(result: R) =>
 export const SchedulerStatusesSchema = z.object({
     "notification-cleanup": schedulerStatus(z.object({ removed: z.number() })),
     "provider-read": schedulerStatus(z.object({ read: z.number(), failed: z.number() })),
+    "cluster-sync": schedulerStatus(z.object({ clusters: z.number(), written: z.number(), failed: z.number() })),
 });
 
 /** `GET /api/v1/settings/scheduler-status`. */
@@ -81,6 +84,7 @@ const schedulerUpdate = <Id extends keyof typeof SchedulerStatusesSchema.shape>(
 export const SchedulerStatusUpdateSchema = z.discriminatedUnion("scheduler", [
     schedulerUpdate("notification-cleanup"),
     schedulerUpdate("provider-read"),
+    schedulerUpdate("cluster-sync"),
 ]);
 
 // ── Users, session ───────────────────────────────────────────────────────────
@@ -125,6 +129,8 @@ export const ManualRunResultSchema = z.object({
     removed: z.number().optional(),
     read: z.number().optional(),
     failed: z.number().optional(),
+    clusters: z.number().optional(),
+    written: z.number().optional(),
 });
 
 // ── Webhooks ─────────────────────────────────────────────────────────────────
@@ -302,6 +308,22 @@ const providerView = {
     readable: z.boolean(),
 };
 
+/** One AdGuard Home instance of a cluster, without its password. */
+export const ClusterNodeViewSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    url: z.string(),
+    username: z.string(),
+    allowSelfSigned: z.boolean(),
+    primary: z.boolean(),
+    hasSecret: z.boolean(),
+    /** The version the node reported on the last run that reached it. */
+    version: z.string().nullable(),
+    /** When a run last reached the node, and why it last failed to. */
+    lastSeenAt: z.string().nullable(),
+    lastError: z.string().nullable(),
+});
+
 /** A provider as the API returns it, one shape per type, without its secret. */
 export const ProviderViewSchema = z.discriminatedUnion("type", [
     z.object({
@@ -316,6 +338,13 @@ export const ProviderViewSchema = z.discriminatedUnion("type", [
         url: z.string(),
         username: z.string(),
         allowSelfSigned: z.boolean(),
+    }),
+    z.object({
+        type: z.literal("adguard-cluster"),
+        ...providerView,
+        /** What the nodes are kept alike in, the fixed areas included. */
+        areas: z.array(z.enum(CONFIG_AREAS)),
+        nodes: z.array(ClusterNodeViewSchema),
     }),
     z.object({
         type: z.literal("samba-ad"),
@@ -389,5 +418,65 @@ export const AdoptResultSchema = z.object({
     ),
     refused: z.array(
         z.object({ name: z.string(), type: z.string(), value: z.string(), reason: z.string() }),
+    ),
+});
+
+// ── AdGuard Home clusters ────────────────────────────────────────────────────
+
+/** Where one area stands at one node besides the primary. */
+export const ClusterLinkViewSchema = z.object({
+    nodeId: z.string(),
+    area: z.enum(CONFIG_AREAS),
+    status: z.enum(CONFIG_LINK_STATUSES),
+    /** Why the last write or reading failed, or why the area is paused there. */
+    error: z.string().nullable(),
+    attempts: z.number(),
+    lastAttemptAt: z.string().nullable(),
+    /** When the node last held what the primary holds. */
+    syncedAt: z.string().nullable(),
+});
+
+/**
+ * `GET /api/v1/providers/:providerId/cluster`, and one element of `GET /api/v1/clusters`: how
+ * a cluster's nodes stand against its primary, area by area.
+ */
+export const ClusterStatusSchema = z.object({
+    providerId: z.string(),
+    primaryNodeId: z.string().nullable(),
+    areas: z.array(z.enum(CONFIG_AREAS)),
+    /** Why the primary could not be read on the last run; null while it could. */
+    pausedError: z.string().nullable(),
+    /** When the cluster was last run, whatever it wrote; null before its first run. */
+    lastRunAt: z.string().nullable(),
+    links: z.array(ClusterLinkViewSchema),
+});
+
+export const ClusterStatusListSchema = z.array(ClusterStatusSchema);
+
+/**
+ * `POST /api/v1/providers/cluster/preview`: what saving a cluster as the editor holds it would
+ * write to each node that starts over -- new to the cluster, an area switched on, another
+ * primary. Read from the instances now; changes nothing.
+ *
+ * `POST /api/v1/providers/:providerId/cluster/check` answers the same shape for a stored
+ * cluster: every node with every area it keeps, what a run would write there now.
+ */
+export const ClusterPreviewSchema = z.object({
+    /** Why the primary could not be read, in which case nothing else is known. */
+    error: z.string().nullable(),
+    nodes: z.array(
+        z.object({
+            /** Names tell the nodes apart: a node new to the cluster has no id yet. */
+            name: z.string(),
+            areas: z.array(
+                z.object({
+                    area: z.enum(CONFIG_AREAS),
+                    /** The changes, a sentence each: `Client "TV" added`. Empty: the node holds it already. */
+                    steps: z.array(z.string()),
+                    /** Why the node could not be read or cannot take the area. */
+                    error: z.string().nullable(),
+                }),
+            ),
+        }),
     ),
 });

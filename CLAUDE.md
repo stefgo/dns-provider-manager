@@ -18,6 +18,9 @@ plan with its milestones is `plans/implementation-plan.md` (not committed).
 
 - **Provider** — one configured connection: a Cloudflare API token, an AdGuard Home
   instance, a Samba AD domain. Several Cloudflare accounts are several providers.
+- **Cluster** — a provider of several AdGuard Home instances, its **nodes**. One node is the
+  **primary**: it is read and written like a single AdGuard Home, and the other nodes are made
+  copies of it.
 - **Site** — a group of providers that give the same answers (`internal`, `external`). A
   record belongs to one or more sites. Not to be confused with the sites of an Active
   Directory, which dpm neither shows nor names.
@@ -112,6 +115,16 @@ bundle without the backend, use `npm run preview -w server/frontend`.
   that provider -- the only place drift is found and failures are retried. **dpm touches only
   entries a link holds**; AdGuard Home adds duplicates, so "is it there already" is asked of the
   reading first.
+- An AdGuard Home cluster is one provider (`adguard-cluster`) with nodes of its own
+  (`cluster_nodes`, each with its password). `AdGuardClusterClient` reads its primary and
+  writes a record to the primary, then to the nodes in step; the client of a stored provider
+  comes from `providerAccess.ts`. Keeping the nodes alike is `ClusterSyncService`, on its own
+  scheduler (`cluster-sync`), each run in the cluster's queue. Per area, `prepareArea` and
+  `planArea` (`clusterSyncPlan.ts`, pure and tested) decide per node: nothing, bring up, write
+  over a change made there, wait. An area is a `ConfigAreaSync` in `providers/adguard/config/`,
+  tested against recorded answers (`src/testing/adguard/`). Areas are compared on the fields
+  every node knows (`commonShape`); what a node holds is remembered as a hash of everything it
+  holds. **The README lists the areas a cluster keeps alike**; a new area goes there too.
 - Secrets the server has to read back (provider credentials) are encrypted with
   `SecretCrypto` (`secretKey`); they never go back to the browser.
 
@@ -306,6 +319,7 @@ See `docs/` for detailed documentation:
 - `docs/quickstart.md` — The server with Docker Compose, the first sign-in
 - `docs/configuration.md` — The server's `config.yaml` and the environment variables
 - `docs/providers.md` — Per provider type: what it needs, what is read and what is left out
+- `docs/clusters.md` — AdGuard Home clusters: the nodes, the areas kept alike, how a run decides
 - `docs/security.md` — Reverse proxy, security headers, stored secrets, container user
 - `docs/operations.md` — Images and tags, upgrading, backup, health, logs
 - `docs/upgrade-notes.md` — What a release changes for a running installation, newest

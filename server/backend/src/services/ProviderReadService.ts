@@ -11,12 +11,10 @@ import { appConfig } from "../config/AppConfig.js";
 import { ProviderRepository } from "../repositories/ProviderRepository.js";
 import { ProviderZoneRepository } from "../repositories/ProviderZoneRepository.js";
 import type { ProviderEntry } from "../providers/DnsProvider.js";
-import { clientFor } from "../providers/clients.js";
+import { editorClient, storedClient } from "./providerAccess.js";
 import { ActivityService } from "./ActivityService.js";
 import { DashboardService } from "./DashboardService.js";
 import { ScheduledJob } from "./ScheduledJob.js";
-import { decryptSecret } from "./SecretCrypto.js";
-import { RequestError } from "./RequestError.js";
 import { queueFor } from "./providerQueue.js";
 import { SyncService } from "./SyncService.js";
 
@@ -64,9 +62,8 @@ async function readNow(providerId: string): Promise<boolean> {
         readings.delete(providerId);
         return true;
     }
-    const stored = ProviderRepository.storedSecret(providerId);
-    if (!stored) return true;
-    const client = clientFor(provider, decryptSecret(stored));
+    const client = storedClient(provider);
+    if (!client) return true;
 
     const now = new Date().toISOString();
     try {
@@ -205,14 +202,7 @@ export class ProviderReadService {
      * the stored provider whose secret stands in while none was typed. Changes nothing.
      */
     static async test(fields: ProviderFields, id?: string): Promise<ProviderTestResult> {
-        let secret = fields.secret;
-        if (!secret && id) {
-            const stored = ProviderRepository.storedSecret(id);
-            if (stored === null) throw new RequestError(404, "Provider not found");
-            secret = decryptSecret(stored);
-        }
-        if (!secret) throw new RequestError(400, fields.type === "cloudflare" ? "Enter the API token" : "Enter the password");
-        const client = clientFor(fields, secret);
+        const client = editorClient(fields, id);
         try {
             const zones = client.zoned ? await client.listZones() : [];
             return { ok: true, message: await client.test(), zones };

@@ -32,7 +32,7 @@ src/
 │   ├── users/                            # UserOverview, UserList, UserDialog
 │   ├── webhooks/                         # WebhookOverview, WebhookEditor, the form rules (lib/)
 │   └── settings/                         # The sections of the settings page
-├── components/                           # Shared components: MultiSelectField, NotFoundCard, QueryError, RelativeTime, …
+├── components/                           # Shared components: ItemBox, MultiSelectField, NotFoundCard, QueryError, RelativeTime, …
 ├── hooks/                                # useEntityForm, useUnsavedChangesGuard, useBackPath, useNow, …
 ├── lib/                                  # api, apiFetch, paths, pageTitle, breadcrumb, queryClient, queryKeys,
 │                                         # cacheUpdates, storageKeys, notFound
@@ -315,6 +315,21 @@ through `useUnsavedChangesGuard`. The rules of each form are pure (`lib/recordFo
   of them need a look (`lib/providerRecords.ts`), and a badge for one dpm only reads. The editor tests a provider as it stands in
   the form ("Test Connection", the stored secret standing in for an empty field), and lists a
   Cloudflare provider's zones with who uses each; under "Selected zones" they can be ticked.
+- **AdGuard Home clusters** list their nodes in the editor in the box a site lists its
+  providers in (`ItemBox`, which `MultiSelectField` shows its chosen items in as well):
+  `ClusterNodesField`. Each row opens to where the node is reached and what it last answered,
+  and ends in "Make Primary", "Edit" and "Remove". "Add Node" and "Edit" open the node's form
+  in the box's place; Escape closes it before the page, Enter takes the node into the list
+  rather than saving the provider. A node's password field is empty as a provider's secret is.
+  The areas kept alike are checkboxes, the rewrites ticked and locked. Saving asks first, with
+  the server's preview of what the next run writes to each node that starts over
+  (`describeClusterSave`); saving itself starts no run. The provider's page shows the nodes
+  and a table of each area at each node, with "Check" and "Sync Now" in the card's header and
+  what the last check found below the table (`ClusterNodesCard`), the provider
+  list how many nodes a cluster has and how they stand (`clusterBadge`). The rules, the rows
+  and the badges are pure (`lib/clusterForm.ts`). Everything reads one list of every cluster's
+  status (`queries/clusters.ts`), read again on `CLUSTER_UPDATE`; the dashboard's findings read
+  it as well.
 - **Unmanaged** lists what the providers hold and dpm does not manage there, with the reason
   where an entry cannot be adopted. An entry is adopted from its row, the picked ones
   together with "Adopt", which waits for a pick, into a site that writes to their provider
@@ -430,14 +445,16 @@ unsaved draft to `/api/v1/webhooks/test`. See [Webhooks](webhooks.md) for the te
 
 ### Settings (`pages/Settings.tsx`, `features/settings`)
 
-System settings page, one section per tab — today only Activity History. The tabs are the library's `useTabs`/`TabList`/`TabPanel` with a `SideTab` per section, the sections are built from its `SectionHeader` and `NumberField`, and the open tab is kept in the URL (`?tab=`). The sections live in `features/settings/components`; `features/settings/sections.ts` names the keys each one edits.
+System settings page, one section per tab — Providers and Activity History. The tabs are the library's `useTabs`/`TabList`/`TabPanel` with a `SideTab` per section, the sections are built from its `SectionHeader` and `NumberField`, and the open tab is kept in the URL (`?tab=`). The sections live in `features/settings/components`; `features/settings/sections.ts` names the keys each one edits.
 
 **Every section saves on its own.** Its Save sends only its own keys, and `PUT /api/v1/settings/cleanup` merges them into the stored block, so a section never writes over edits in another one. A tab with unsaved edits carries a dot, and leaving the page asks first for as long as any section has some; switching tabs is not leaving. A value the server would refuse is named beside Save before anything is sent (`sectionError`, against `CleanupSettingsSchema`). The manual maintenance runs act on the saved values, not on unsaved edits.
 
-**Every tab follows one layout:** its settings, then one `SchedulerBox` headed "Scheduler". It shows Status (`Running…` or `Idle`), Last Run (with "manual" when a user started it), Next Run (or "Disabled") and Result, and, below a divider, the `ManualRun` row with its Run Now button. The box draws no field borders: its values are to read, not to edit. It reads `useSchedulerStatus`; the result is worded by `describeRunResult` (`features/settings/lib/runResult.ts`), in red for a failed or interrupted run. The settings page uses no monospaced type.
+**Every tab follows one layout:** its settings, then a `SchedulerBox` headed "Scheduler" for the scheduler they set — the Providers tab has two, reading the providers and keeping the clusters alike, each below its interval. It shows Status (`Running…` or `Idle`), Last Run (with "manual" when a user started it), Next Run (or "Disabled") and Result, and, below a divider, the `ManualRun` row with its Run Now button. The box draws no field borders: its values are to read, not to edit. It reads `useSchedulerStatus`; the result is worded by `describeRunResult` (`features/settings/lib/runResult.ts`), in red for a failed or interrupted run. The settings page uses no monospaced type.
 
 | Setting                                      | Description                                                                   |
 | :------------------------------------------- | :---------------------------------------------------------------------------- |
+| `provider_read_interval_minutes`             | Minutes between two readings of every provider. `0` disables.                 |
+| `cluster_sync_interval_minutes`              | Minutes between two runs that keep the AdGuard Home clusters alike. `0` disables. |
 | `notification_retention_days`                | Days to keep activity events.                                                 |
 | `notification_retention_count`               | Minimum number of the newest activity events always kept.                     |
 | `notification_cleanup_interval_hours`        | Automatic activity cleanup interval. `0` disables.                            |

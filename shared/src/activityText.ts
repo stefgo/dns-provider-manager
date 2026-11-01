@@ -14,6 +14,7 @@ import type { ActivityRecord } from "./types.js";
 const SCHEDULER_NAMES: Record<string, string> = {
     "notification-cleanup": "Activity cleanup",
     "provider-read": "Reading the providers",
+    "cluster-sync": "Keeping the AdGuard Home clusters alike",
 };
 
 function str(event: ActivityRecord, key: string): string | null {
@@ -112,6 +113,25 @@ export function activityMessage(event: ActivityRecord): string {
             return `Provider ${str(event, "name") ?? "?"} cannot be read`;
         case "provider.recovered":
             return `Provider ${str(event, "name") ?? "?"} can be read again`;
+        case "cluster.propagated": {
+            const to = strings(event.data?.nodes);
+            return `Changes at ${str(event, "primary") ?? "the primary"} copied to ${to.length > 0 ? to.join(", ") : "the other nodes"} (cluster ${str(event, "cluster") ?? "?"})`;
+        }
+        case "cluster.corrected":
+            return `Changes at ${str(event, "node") ?? "a node"} written over with what ${str(event, "primary") ?? "the primary"} holds (cluster ${str(event, "cluster") ?? "?"})`;
+        case "cluster.write_failed": {
+            const area = str(event, "area");
+            return `${area ?? "Configuration"} could not be written to ${str(event, "node") ?? "a node"} (cluster ${str(event, "cluster") ?? "?"})`;
+        }
+        case "cluster.paused":
+            return `Cluster ${str(event, "cluster") ?? "?"} paused: its primary ${str(event, "primary") ?? "?"} cannot be read`;
+        case "cluster.resumed":
+            return `Cluster ${str(event, "cluster") ?? "?"} resumed: its primary ${str(event, "primary") ?? "?"} can be read again`;
+        case "cluster.primary_changed": {
+            const from = str(event, "from");
+            const to = str(event, "to") ?? "?";
+            return `Primary of cluster ${str(event, "cluster") ?? "?"} changed ${from ? `from ${from} ` : ""}to ${to}${by(event)}`;
+        }
         case "scheduler.failed": {
             const scheduler = str(event, "scheduler");
             const error = str(event, "error");
@@ -124,6 +144,17 @@ export function activityMessage(event: ActivityRecord): string {
     }
 }
 
+/** The kinds whose parts are the areas a run of a cluster wrote. */
+const AREA_KINDS: ReadonlySet<string> = new Set(["cluster.propagated", "cluster.corrected"]);
+
+/**
+ * What an expanded row lists below its message, one per line -- the areas a run of a cluster
+ * wrote -- or nothing, where the second line says it all.
+ */
+export function activityItems(event: ActivityRecord): string[] {
+    return AREA_KINDS.has(event.kind) ? strings(event.data?.areas) : [];
+}
+
 /** The second line of an expanded row: what the message left out. */
 export function activityDetail(event: ActivityRecord): string | null {
     const error = str(event, "error");
@@ -134,6 +165,10 @@ export function activityDetail(event: ActivityRecord): string | null {
 
     const changed = changes(event);
     if (changed.length > 0) return changed.map((c) => `${c.field}: ${c.from} → ${c.to}`).join(" · ");
+
+    // What a run of a cluster wrote, a sentence each.
+    const steps = strings(event.data?.steps);
+    if (steps.length > 0) return steps.join(" · ");
 
     // The sites a change of several records gave and took, rather than the sites one has.
     if (event.kind === "record.sites_change") {

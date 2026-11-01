@@ -85,6 +85,16 @@ export function versionError(text: string): string | null {
     return `AdGuard Home ${text} is too old: dpm needs v${MIN_VERSION.join(".")} or later`;
 }
 
+/**
+ * Whether `text` is `minimum` (`v0.107.37`) or later. A version that does not read -- a
+ * development build -- is taken to be recent.
+ */
+export function versionAtLeast(text: string, minimum: string): boolean {
+    const version = parseVersion(text);
+    const least = parseVersion(minimum);
+    return version === null || least === null || atLeast(version, least);
+}
+
 /** Whether the version has the global switch for all rewrites (`/control/rewrite/settings`). */
 export function hasRewriteSettings(text: string): boolean {
     const version = parseVersion(text);

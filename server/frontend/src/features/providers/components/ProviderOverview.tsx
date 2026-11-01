@@ -8,6 +8,7 @@ import { ROUTES, paths } from "../../../lib/paths";
 import { readProvider, useDeleteProvider, useProviders } from "../../../queries/providers";
 import { describeFailure } from "../../../utils";
 import { useSites } from "../../../queries/sites";
+import { useClusters } from "../../../queries/clusters";
 import { ProviderList } from "./ProviderList";
 import { useRecords } from "../../../queries/records";
 import { recordCounts } from "../lib/providerRecords";
@@ -20,6 +21,7 @@ export const ProviderOverview = () => {
     const { providers, isPending, error } = useProviders();
     const { sites } = useSites();
     const { records } = useRecords();
+    const { statuses: clusters } = useClusters();
     const deleteProvider = useDeleteProvider();
     const { show } = useToast();
     const { readAll, reading } = useReadAllProviders();
@@ -42,6 +44,7 @@ export const ProviderOverview = () => {
             providers={providers}
             sites={sites}
             counts={recordCounts(records)}
+            clusters={clusters}
             isLoading={isPending}
             onAdd={() => open(ROUTES.providerNew)}
             onOpen={(provider) => open(paths.provider(provider.id))}

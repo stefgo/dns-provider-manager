@@ -3,6 +3,7 @@ import { CleanupSettingsSchema, firstIssue, type SchedulerStatuses } from "@dpm/
 import { SettingsService } from "../services/SettingsService.js";
 import { NotificationCleanupService } from "../services/NotificationCleanupService.js";
 import { ProviderReadService } from "../services/ProviderReadService.js";
+import { ClusterSyncService } from "../services/ClusterSyncService.js";
 
 export class SettingsController {
     static async getSettings(request: FastifyRequest, reply: FastifyReply) {
@@ -42,6 +43,7 @@ export class SettingsController {
             schedulers: {
                 "notification-cleanup": NotificationCleanupService.getStatus(),
                 "provider-read": ProviderReadService.getStatus(),
+                "cluster-sync": ClusterSyncService.getStatus(),
             } satisfies SchedulerStatuses,
         });
     }

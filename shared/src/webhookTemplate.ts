@@ -129,6 +129,19 @@ const SAMPLES: SampleFacts[] = [
         data: { user: "admin", name: "AdGuard 1", providerType: "adguard" },
     },
     {
+        kind: "cluster.corrected",
+        level: "warning",
+        source: "server",
+        subject: { providerId: "44444444-4444-4444-8444-444444444444" },
+        data: {
+            cluster: "adguard-internal",
+            primary: "adguard-1",
+            node: "adguard-2",
+            areas: ["Client settings"],
+            steps: ['Client "TV" changed'],
+        },
+    },
+    {
         kind: "scheduler.failed",
         level: "error",
         source: "server",

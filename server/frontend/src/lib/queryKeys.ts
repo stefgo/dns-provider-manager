@@ -22,6 +22,11 @@ export const queryKeys = {
         all: ["providers"] as const,
         list: () => ["providers", "list"] as const,
     },
+    /** How each AdGuard Home cluster keeps its nodes alike. */
+    clusters: {
+        all: ["clusters"] as const,
+        list: () => ["clusters", "list"] as const,
+    },
     /** What the providers hold and dpm does not manage, with how each provider's reading went. */
     unmanaged: {
         all: ["unmanaged"] as const,

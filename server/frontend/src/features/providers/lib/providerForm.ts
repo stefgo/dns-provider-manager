@@ -1,5 +1,6 @@
-import { providerSecretMissing, type Provider, type ProviderInput, type ProviderType } from "@dpm/shared";
+import { DEFAULT_CONFIG_AREAS, providerSecretMissing, type ConfigArea, type Provider, type ProviderInput, type ProviderType } from "@dpm/shared";
 import type { FieldErrors, FieldOf } from "../../../lib/entityForm";
+import { nodeDraftsFrom, nodeInputFrom, type NodeDraft } from "./clusterForm";
 
 /**
  * The editor's fields, as typed -- all types' at once, so switching the type of a new
@@ -20,6 +21,10 @@ export interface ProviderDraft {
     allowSelfSigned: boolean;
     /** Samba AD's domain controllers, one per line. */
     servers: string;
+    /** What a cluster keeps alike on its nodes; the fixed areas are added by the server. */
+    areas: ConfigArea[];
+    /** A cluster's nodes, in their order. */
+    nodes: NodeDraft[];
 }
 
 export function emptyProviderDraft(type: ProviderType = "cloudflare"): ProviderDraft {
@@ -35,6 +40,8 @@ export function emptyProviderDraft(type: ProviderType = "cloudflare"): ProviderD
         username: "",
         allowSelfSigned: false,
         servers: "",
+        areas: [...DEFAULT_CONFIG_AREAS],
+        nodes: [],
     };
 }
 
@@ -45,6 +52,8 @@ export function providerDraftFrom(provider: Provider): ProviderDraft {
             return { ...draft, zoneMode: provider.zoneMode, zoneIds: provider.zoneIds };
         case "adguard":
             return { ...draft, url: provider.url, username: provider.username, allowSelfSigned: provider.allowSelfSigned };
+        case "adguard-cluster":
+            return { ...draft, areas: provider.areas, nodes: nodeDraftsFrom(provider.nodes) };
         case "samba-ad":
             return {
                 ...draft,
@@ -75,6 +84,15 @@ export function providerInputFrom(draft: ProviderDraft): ProviderInput {
             return { type: "cloudflare", ...common, zoneMode: draft.zoneMode, zoneIds: draft.zoneIds };
         case "adguard":
             return { type: "adguard", ...common, url: draft.url, username: draft.username, allowSelfSigned: draft.allowSelfSigned };
+        case "adguard-cluster":
+            return {
+                type: "adguard-cluster",
+                name: draft.name,
+                autoCorrect: draft.autoCorrect,
+                readOnly: draft.readOnly,
+                areas: draft.areas,
+                nodes: draft.nodes.map(nodeInputFrom),
+            };
         case "samba-ad":
             return {
                 type: "samba-ad",
@@ -86,10 +104,17 @@ export function providerInputFrom(draft: ProviderDraft): ProviderInput {
     }
 }
 
-/** A new provider needs its secret; a stored one keeps it while the field stays empty. */
+/**
+ * A new provider needs its secret; a stored one keeps it while the field stays empty. A node
+ * new to a cluster needs its password, whether the cluster is new or not.
+ */
 export const providerRules =
     (isNew: boolean) =>
     (draft: ProviderDraft): FieldErrors<ProviderDraft> => {
+        if (draft.type === "adguard-cluster") {
+            const missing = providerSecretMissing(providerInputFrom(draft));
+            return missing ? { nodes: missing } : {};
+        }
         const missing = isNew ? providerSecretMissing(providerInputFrom(draft)) : null;
         return missing ? { secret: missing } : {};
     };
@@ -108,6 +133,8 @@ export const providerFieldOf: FieldOf<ProviderDraft> = (path) => {
         case "username":
         case "allowSelfSigned":
         case "servers":
+        case "areas":
+        case "nodes":
         case "type":
             return head;
         default:
@@ -119,5 +146,6 @@ export const providerFieldOf: FieldOf<ProviderDraft> = (path) => {
 export const SECRET_LABEL: Record<ProviderType, string> = {
     cloudflare: "API Token",
     adguard: "Password",
+    "adguard-cluster": "Password",
     "samba-ad": "Password",
 };

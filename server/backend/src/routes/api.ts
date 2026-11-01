@@ -5,6 +5,7 @@ import { SettingsController } from "../controllers/SettingsController.js";
 import { RecordController } from "../controllers/RecordController.js";
 import { SiteController } from "../controllers/SiteController.js";
 import { ProviderController } from "../controllers/ProviderController.js";
+import { ClusterController } from "../controllers/ClusterController.js";
 import { UnmanagedController } from "../controllers/UnmanagedController.js";
 import { ActivityController } from "../controllers/ActivityController.js";
 import { WebhookController } from "../controllers/WebhookController.js";
@@ -100,9 +101,16 @@ export default async function apiRoutes(fastify: FastifyInstance) {
                 // Registered before /providers/:providerId, which they would otherwise look like.
                 protectedRoutes.post("/providers/test", ProviderController.test);
                 protectedRoutes.post("/providers/read", ProviderController.readAll);
+                protectedRoutes.post("/providers/cluster/preview", ClusterController.preview);
                 protectedRoutes.post("/providers/:providerId/read", ProviderController.read);
                 protectedRoutes.put("/providers/:providerId", ProviderController.update);
                 protectedRoutes.delete("/providers/:providerId", ProviderController.delete);
+                // How the AdGuard Home clusters keep their nodes alike.
+                protectedRoutes.get("/clusters", ClusterController.list);
+                protectedRoutes.post("/clusters/run", ClusterController.runAll);
+                protectedRoutes.get("/providers/:providerId/cluster", ClusterController.status);
+                protectedRoutes.post("/providers/:providerId/cluster/run", ClusterController.run);
+                protectedRoutes.post("/providers/:providerId/cluster/check", ClusterController.check);
                 protectedRoutes.get("/unmanaged", UnmanagedController.list);
                 protectedRoutes.post("/unmanaged/adopt", UnmanagedController.adopt);
 

@@ -1,6 +1,7 @@
 import { FieldLabel, NumberField, SectionHeader, Select } from "@stefgo/react-ui-components";
 import { runCleanup } from "../../../queries/settings";
 import { readAllProviders } from "../../../queries/providers";
+import { runAllClusters } from "../../../queries/clusters";
 import type { SectionProps } from "../sections";
 import { EVENT_LEVEL_GROUPS, choiceOf, levelChoices, withChoice } from "../lib/eventLevels";
 import { SchedulerBox } from "./SchedulerBox";
@@ -31,6 +32,28 @@ export const ProvidersSection = ({ values, onChange }: SectionProps) => (
                 onRun={async () => {
                     const data = await readAllProviders();
                     return data.failed ? `${data.read ?? 0} read, ${data.failed} failed` : `${data.read ?? 0} read`;
+                }}
+            />
+        </SchedulerBox>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+            <NumberField
+                label="Cluster Sync Interval (Minutes)"
+                value={values.cluster_sync_interval_minutes}
+                onChange={(v) => onChange("cluster_sync_interval_minutes", v)}
+                placeholder="5"
+                hint="How often the nodes of each AdGuard Home cluster are compared with its primary. Set to 0 to run only on request. The server runs once at every start either way."
+            />
+        </div>
+
+        <SchedulerBox scheduler="cluster-sync">
+            <ManualRun
+                description="Keep the nodes of every AdGuard Home cluster alike now."
+                failureTitle="Could not keep the clusters alike"
+                onRun={async () => {
+                    const data = await runAllClusters();
+                    const clusters = data.clusters === 1 ? "1 cluster" : `${data.clusters ?? 0} clusters`;
+                    return data.failed ? `${clusters}, ${data.written ?? 0} written, ${data.failed} failed` : `${clusters}, ${data.written ?? 0} written`;
                 }}
             />
         </SchedulerBox>

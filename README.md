@@ -28,7 +28,14 @@ answers; split horizon is the same name in two sites with two answers.
 - **Takes over what is there:** records a provider already holds are shown as *unmanaged* and
   can be taken over one by one or in bulk — the way today's Cloudflare records move into DPM.
 - **Leaves the rest alone:** DPM changes and deletes only what it created or took over, and a
-  provider can be set to *read only*.
+  provider can be set to *read only*. An AdGuard Home cluster is the one exception: its nodes
+  become exact copies of its primary.
+- **AdGuard Home clusters:** several AdGuard Home instances as one provider. One node is the
+  primary; the others become exact copies of it — **DNS rewrites** always, and, chosen per
+  cluster, **general settings, DNS settings, client settings, DNS blocklists, DNS allowlists,
+  blocked services and custom filtering rules**. A record goes to every node at once, a change
+  at the primary reaches the other nodes within 5 minutes, and a change made at another node is
+  written over and reported. Before saving, DPM shows what each node is about to get.
 - **Cloudflare, AdGuard Home, Samba AD:** over their own APIs — HTTPS, HTTP and LDAPS. There
   is no agent to install. Samba AD is read without the records its domain controllers
   register for themselves.
@@ -68,7 +75,7 @@ after the first sign-in. See the [Quick Start](docs/quickstart.md) for more.
 The documentation is published at <https://stefgo.github.io/dns-provider-manager/> and lives
 in [`docs/`](docs/):
 
-- [Quick Start](docs/quickstart.md) · [Configuration](docs/configuration.md) · [Providers](docs/providers.md)
+- [Quick Start](docs/quickstart.md) · [Configuration](docs/configuration.md) · [Providers](docs/providers.md) · [AdGuard Home Clusters](docs/clusters.md)
 - [Security](docs/security.md) · [Operations](docs/operations.md) · [Upgrade Notes](docs/upgrade-notes.md)
 - [Webhooks](docs/webhooks.md) · [REST & WebSocket API](docs/api.md)
 - [Backend](docs/backend.md) · [Frontend](docs/frontend.md) · [Development](docs/development.md)

@@ -29,6 +29,13 @@ export const WS_EVENTS = {
      */
     RECORDS_UPDATE: "RECORDS_UPDATE",
 
+    // Cluster events
+    /**
+     * `{ providerId }`: a run kept the nodes of an AdGuard Home cluster alike, or how it stands
+     * changed. The dashboard reads the clusters' status anew.
+     */
+    CLUSTER_UPDATE: "CLUSTER_UPDATE",
+
     // Scheduler events
     /** One scheduler's status, whenever a run starts or ends. */
     SCHEDULER_STATUS_UPDATE: "SCHEDULER_STATUS_UPDATE",
@@ -79,6 +86,12 @@ export const ACTIVITY_KINDS = [
     "provider.deleted",
     "provider.unreachable",
     "provider.recovered",
+    "cluster.propagated",
+    "cluster.corrected",
+    "cluster.write_failed",
+    "cluster.paused",
+    "cluster.resumed",
+    "cluster.primary_changed",
     "scheduler.failed",
 ] as const;
 
@@ -89,7 +102,7 @@ export const WEBHOOK_METHODS = ["POST", "PUT"] as const;
  * The background jobs the server runs on a timer. Each keeps one row in `scheduler_state`:
  * its last finished run and whatever it has to remember from one run to the next.
  */
-export const SCHEDULER_IDS = ["notification-cleanup", "provider-read"] as const;
+export const SCHEDULER_IDS = ["notification-cleanup", "provider-read", "cluster-sync"] as const;
 
 /** Whether the timer started a run or a user did, through the settings page. */
 export const SCHEDULER_TRIGGERS = ["schedule", "manual"] as const;
@@ -107,15 +120,16 @@ export const RECORD_TYPES = ["A", "AAAA", "CNAME"] as const;
 
 /**
  * The kinds of DNS server dpm writes to. One provider is one access: a Cloudflare API token,
- * an AdGuard Home instance, a Samba AD domain.
+ * an AdGuard Home instance, a Samba AD domain -- or an AdGuard Home cluster, several instances
+ * dpm keeps alike and treats as one.
  */
-export const PROVIDER_TYPES = ["cloudflare", "adguard", "samba-ad"] as const;
+export const PROVIDER_TYPES = ["cloudflare", "adguard", "adguard-cluster", "samba-ad"] as const;
 
 /**
  * The types dpm writes to. A provider of another type is read and compared, never written:
  * writing to Samba AD comes with a later version.
  */
-export const WRITABLE_PROVIDER_TYPES: readonly (typeof PROVIDER_TYPES)[number][] = ["cloudflare", "adguard"];
+export const WRITABLE_PROVIDER_TYPES: readonly (typeof PROVIDER_TYPES)[number][] = ["cloudflare", "adguard", "adguard-cluster"];
 
 /**
  * Where a record stands at one of its providers:
@@ -140,6 +154,7 @@ export const SYNC_ACTIONS = ["create", "update", "delete", "adopt", "none", "blo
 export const PROVIDER_TYPE_LABELS: Record<(typeof PROVIDER_TYPES)[number], string> = {
     cloudflare: "Cloudflare",
     adguard: "AdGuard Home",
+    "adguard-cluster": "AdGuard Home cluster",
     "samba-ad": "Samba AD",
 };
 
@@ -164,8 +179,43 @@ export interface ProviderCapabilities {
 export const PROVIDER_CAPABILITIES: Record<(typeof PROVIDER_TYPES)[number], ProviderCapabilities> = {
     cloudflare: { zoned: true, ttl: true, proxied: true },
     adguard: { zoned: false, ttl: false, proxied: false },
+    "adguard-cluster": { zoned: false, ttl: false, proxied: false },
     "samba-ad": { zoned: true, ttl: true, proxied: false },
 };
+
+// ── AdGuard Home clusters ────────────────────────────────────────────────────
+
+/**
+ * The parts of AdGuard Home's configuration a cluster keeps alike on its nodes, copied from
+ * its primary, in the order a run goes through them: the blocklists before the allowlists, so
+ * that a list moved to the allowlists at the primary leaves a node's blocklists first.
+ */
+export const CONFIG_AREAS = ["rewrites", "general", "dns", "clients", "blocklists", "allowlists", "blocked_services", "user_rules"] as const;
+
+/** The areas every cluster keeps alike: without its rewrites a node would not hold the records. */
+export const FIXED_CONFIG_AREAS: readonly (typeof CONFIG_AREAS)[number][] = ["rewrites"];
+
+/** The areas a new cluster starts with. DNS settings are left to be chosen. */
+export const DEFAULT_CONFIG_AREAS: readonly (typeof CONFIG_AREAS)[number][] = CONFIG_AREAS.filter((area) => area !== "dns");
+
+/** How the areas are named on screen, in AdGuard Home's own words. */
+export const CONFIG_AREA_LABELS: Record<(typeof CONFIG_AREAS)[number], string> = {
+    rewrites: "DNS rewrites",
+    general: "General settings",
+    dns: "DNS settings",
+    clients: "Client settings",
+    blocklists: "DNS blocklists",
+    allowlists: "DNS allowlists",
+    blocked_services: "Blocked services",
+    user_rules: "Custom filtering rules",
+};
+
+/**
+ * Where one area stands at one node besides the primary: the same as the primary, still to be
+ * written (not reached yet, or new), the last write failed, or not compared at all because the
+ * primary could not be read.
+ */
+export const CONFIG_LINK_STATUSES = ["in_sync", "pending", "error", "paused"] as const;
 
 /** The TTL range dpm accepts, in seconds. No TTL means the provider's own default. */
 export const TTL_MIN = 60;
