@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Network, RefreshCw, SearchCheck, X } from "lucide-react";
+import { Loader2, Network, RefreshCw, SearchCheck, X } from "lucide-react";
 import { CONFIG_AREA_LABELS, type ClusterPreview, type ClusterProvider, type ClusterStatus } from "@dpm/shared";
-import { ActionButton, Alert, Badge, Button, Card, StatusDot, useToast } from "@stefgo/react-ui-components";
+import { ActionButton, Alert, Badge, Card, StatusDot, useToast } from "@stefgo/react-ui-components";
 import { RelativeTime } from "../../../components/RelativeTime";
 import { useCheckCluster, useRunCluster } from "../../../queries/clusters";
 import { describeFailure } from "../../../utils";
@@ -62,13 +62,25 @@ export const ClusterNodesCard = ({ cluster, status }: ClusterNodesCardProps) => 
                 </>
             }
             action={
-                <div className="flex items-center gap-2">
-                    <Button type="button" variant="secondary" size="sm" icon={SearchCheck} isLoading={check.isPending} disabled={busy} onClick={checkNow}>
-                        Check
-                    </Button>
-                    <Button type="button" variant="secondary" size="sm" icon={RefreshCw} isLoading={run.isPending} disabled={busy} onClick={syncNow}>
-                        Sync Now
-                    </Button>
+                <div className="flex items-center gap-1">
+                    <ActionButton
+                        icon={check.isPending ? Loader2 : SearchCheck}
+                        color="indigo"
+                        tooltip="Check"
+                        aria-label="Check"
+                        disabled={busy}
+                        classNames={{ icon: check.isPending ? "animate-spin" : undefined }}
+                        onClick={checkNow}
+                    />
+                    <ActionButton
+                        icon={RefreshCw}
+                        color="green"
+                        tooltip="Sync Now"
+                        aria-label="Sync Now"
+                        disabled={busy}
+                        classNames={{ icon: run.isPending ? "animate-spin" : undefined }}
+                        onClick={syncNow}
+                    />
                 </div>
             }
             padding="none"

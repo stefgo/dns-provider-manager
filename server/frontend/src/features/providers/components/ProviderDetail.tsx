@@ -81,10 +81,13 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
     useEscapeToLeave(back);
 
     // What the reading found arrives through the socket. Only a request that failed is said.
-    const read = () =>
-        readProvider(provider.id).catch((err) =>
-            show({ variant: "error", ...describeFailure(`Could not read ${provider.name}`, err), duration: 0 }),
-        );
+    const [reading, setReading] = useState(false);
+    const read = () => {
+        setReading(true);
+        readProvider(provider.id)
+            .catch((err) => show({ variant: "error", ...describeFailure(`Could not read ${provider.name}`, err), duration: 0 }))
+            .finally(() => setReading(false));
+    };
 
     // A refusal keeps the dialog open, with the server's reason in it.
     const requestDelete = () =>
@@ -182,30 +185,38 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
                 // Names the view, not the provider: one entry for every provider page.
                 persist={{ key: STORAGE_KEYS.providerDetails, scope: "local" }}
                 actions={
-                    <div className="relative">
-                        <ActionButton
-                            icon={MoreVertical}
-                            aria-label="Provider actions"
-                            onClick={(e) => openMenu(e, provider.id)}
-                        />
-                        <ActionMenu
-                            isOpen={menuState?.id === provider.id}
-                            onClose={closeMenu}
-                            anchor={menuState?.anchor ?? null}
-                            triggerRef={triggerRef}
-                        >
-                            <MenuItem icon={Edit2} onClick={() => navigate(paths.providerEdit(provider.id))}>
-                                Edit
-                            </MenuItem>
-                            {provider.readable && (
-                                <MenuItem icon={RefreshCw} onClick={read}>
-                                    Read Now
+                    <div className="flex items-center gap-1">
+                        {provider.readable && (
+                            <ActionButton
+                                icon={RefreshCw}
+                                color="green"
+                                tooltip="Read DNS Records"
+                                aria-label="Read DNS Records"
+                                disabled={reading}
+                                classNames={{ icon: reading ? "animate-spin" : undefined }}
+                                onClick={read}
+                            />
+                        )}
+                        <div className="relative">
+                            <ActionButton
+                                icon={MoreVertical}
+                                aria-label="Provider actions"
+                                onClick={(e) => openMenu(e, provider.id)}
+                            />
+                            <ActionMenu
+                                isOpen={menuState?.id === provider.id}
+                                onClose={closeMenu}
+                                anchor={menuState?.anchor ?? null}
+                                triggerRef={triggerRef}
+                            >
+                                <MenuItem icon={Edit2} onClick={() => navigate(paths.providerEdit(provider.id))}>
+                                    Edit
                                 </MenuItem>
-                            )}
-                            <MenuItem icon={Trash2} variant="danger" onClick={requestDelete}>
-                                Delete
-                            </MenuItem>
-                        </ActionMenu>
+                                <MenuItem icon={Trash2} variant="danger" onClick={requestDelete}>
+                                    Delete
+                                </MenuItem>
+                            </ActionMenu>
+                        </div>
                     </div>
                 }
             />
