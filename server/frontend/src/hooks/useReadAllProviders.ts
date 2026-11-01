@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { useToast } from "@stefgo/react-ui-components";
 import { readAllProviders } from "../queries/providers";
-import { describeFailure, plural } from "../utils";
+import { readAllOutcome } from "../lib/readOutcome";
+import { describeFailure } from "../utils";
 
 /**
- * "Read Now" for every provider: reads them all, says which could not be read, and whether
- * the request is still running. What the readings found arrives through the socket.
+ * "Read Now" for every provider: reads them all, says in a toast how many were read and how
+ * many could not be, and whether the request is still running. What the readings found
+ * arrives through the socket.
  */
 export function useReadAllProviders(): { readAll: () => Promise<void>; reading: boolean } {
     const [reading, setReading] = useState(false);
@@ -14,10 +16,7 @@ export function useReadAllProviders(): { readAll: () => Promise<void>; reading: 
     const readAll = async () => {
         setReading(true);
         try {
-            const result = await readAllProviders();
-            if (result.failed) {
-                show({ variant: "warning", title: `${plural(result.failed, "provider")} could not be read`, duration: 0 });
-            }
+            show(readAllOutcome(await readAllProviders()));
         } catch (err) {
             show({ variant: "error", ...describeFailure("Could not read the providers", err), duration: 0 });
         } finally {

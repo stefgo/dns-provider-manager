@@ -23,6 +23,7 @@ import { useBackPath } from "../../../hooks/useBackPath";
 import { useEscapeToLeave } from "../../../hooks/useEscapeToLeave";
 import { NotFoundError } from "../../../lib/notFound";
 import { paths } from "../../../lib/paths";
+import { readOutcome } from "../../../lib/readOutcome";
 import { STORAGE_KEYS } from "../../../lib/storageKeys";
 import { readProvider, useDeleteProvider, useProviders } from "../../../queries/providers";
 import { useRecords } from "../../../queries/records";
@@ -80,11 +81,12 @@ export const ProviderDetail = ({ provider, onDeleting }: ProviderDetailProps) =>
 
     useEscapeToLeave(back);
 
-    // What the reading found arrives through the socket. Only a request that failed is said.
+    // What the reading found arrives through the socket; the toast says how it went.
     const [reading, setReading] = useState(false);
     const read = () => {
         setReading(true);
         readProvider(provider.id)
+            .then((result) => show(readOutcome(provider.name, result)))
             .catch((err) => show({ variant: "error", ...describeFailure(`Could not read ${provider.name}`, err), duration: 0 }))
             .finally(() => setReading(false));
     };

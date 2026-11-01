@@ -5,6 +5,7 @@ import { describeDeleteProvider } from "../confirmations";
 import { QueryError } from "../../../components/QueryError";
 import { useReadAllProviders } from "../../../hooks/useReadAllProviders";
 import { ROUTES, paths } from "../../../lib/paths";
+import { readOutcome } from "../../../lib/readOutcome";
 import { readProvider, useDeleteProvider, useProviders } from "../../../queries/providers";
 import { describeFailure } from "../../../utils";
 import { useSites } from "../../../queries/sites";
@@ -26,11 +27,11 @@ export const ProviderOverview = () => {
     const { show } = useToast();
     const { readAll, reading } = useReadAllProviders();
 
-    // What the reading found arrives through the socket. Only a request that failed is said.
+    // What the reading found arrives through the socket; the toast says how it went.
     const read = (provider: Provider) =>
-        readProvider(provider.id).catch((err) =>
-            show({ variant: "error", ...describeFailure(`Could not read ${provider.name}`, err), duration: 0 }),
-        );
+        readProvider(provider.id)
+            .then((reading) => show(readOutcome(provider.name, reading)))
+            .catch((err) => show({ variant: "error", ...describeFailure(`Could not read ${provider.name}`, err), duration: 0 }));
 
     const open = (pathname: string) => navigate({ pathname, search });
 
