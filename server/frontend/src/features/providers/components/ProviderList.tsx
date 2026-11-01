@@ -87,11 +87,18 @@ export const ProviderList = ({ providers, sites, counts, clusters, isLoading, on
     const renderActions = (provider: Provider) => (
         <DataAction
             rowId={provider.id}
-            actions={[{ icon: Edit2, onClick: () => onEdit(provider), color: "blue", tooltip: "Edit" }]}
-            menuEntries={[
-                ...(provider.readable ? [{ label: "Read Now", icon: RefreshCw, onClick: () => onRead(provider) }] : []),
-                { label: "Delete", icon: Trash2, onClick: () => onDelete(provider), variant: "danger" as const },
+            actions={[
+                { icon: Edit2, onClick: () => onEdit(provider), color: "blue", tooltip: "Edit" },
+                // Disabled rather than left out, so the buttons line up in every row.
+                {
+                    icon: RefreshCw,
+                    onClick: () => onRead(provider),
+                    color: "green",
+                    tooltip: { enabled: "Read DNS Records", disabled: "This provider type cannot be read yet" },
+                    disabled: !provider.readable,
+                },
             ]}
+            menuEntries={[{ label: "Delete", icon: Trash2, onClick: () => onDelete(provider), variant: "danger" as const }]}
         />
     );
 
