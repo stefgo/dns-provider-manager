@@ -40,3 +40,7 @@ kinds start with `cluster.` and can be sent to a webhook like any other. See
 [AdGuard Home Clusters](https://stefgo.github.io/dns-provider-manager/clusters/).
 
 Existing providers stay as they are; the database is updated by itself at the first start.
+
+### Dependency updates
+
+- Locked dependencies refreshed to the newest versions their ranges allow
